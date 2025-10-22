@@ -1,9 +1,9 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    EBI-Metagenomics/viraverse
+    EBI-Metagenomics/metaviraverse
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/EBI-Metagenomics/viraverse
+    Github : https://github.com/EBI-Metagenomics/metaviraverse
 ----------------------------------------------------------------------------------------
 */
 
@@ -13,9 +13,9 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { VIRAVERSE  } from './workflows/viraverse'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
+include { METAVIRAVERSE           } from './workflows/metaviraverse'
+include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
+include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
@@ -25,7 +25,7 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_vira
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
-workflow EBIMETAGENOMICS_VIRAVERSE {
+workflow EBIMETAGENOMICS_METAVIRAVERSE {
 
     take:
     samplesheet // channel: samplesheet read in from --input
@@ -35,11 +35,11 @@ workflow EBIMETAGENOMICS_VIRAVERSE {
     //
     // WORKFLOW: Run pipeline
     //
-    VIRAVERSE (
+    METAVIRAVERSE (
         samplesheet
     )
     emit:
-    multiqc_report = VIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html
+    multiqc_report = METAVIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,7 +65,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    EBIMETAGENOMICS_VIRAVERSE (
+    EBIMETAGENOMICS_METAVIRAVERSE (
         PIPELINE_INITIALISATION.out.samplesheet
     )
     //
@@ -74,7 +74,7 @@ workflow {
     PIPELINE_COMPLETION (
         params.outdir,
         params.monochrome_logs,
-        EBIMETAGENOMICS_VIRAVERSE.out.multiqc_report
+        EBIMETAGENOMICS_METAVIRAVERSE.out.multiqc_report
     )
 }
 

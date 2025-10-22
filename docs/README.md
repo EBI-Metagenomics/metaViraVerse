@@ -1,6 +1,6 @@
-# EBI-Metagenomics/viraverse: Documentation
+# EBI-Metagenomics/metaviraverse: Documentation
 
-The EBI-Metagenomics/viraverse documentation is split into the following pages:
+The EBI-Metagenomics/metaviraverse documentation is split into the following pages:
 
 - [Usage](usage.md)
   - An overview of how the pipeline works, how to run it and a description of all of the different command-line flags.

@@ -1,4 +1,4 @@
-# EBI-Metagenomics/viraverse: Output
+# EBI-Metagenomics/metaviraverse: Output
 
 ## Introduction
 

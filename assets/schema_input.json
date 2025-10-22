@@ -1,33 +1,31 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/viraverse/main/assets/schema_input.json",
-    "title": "EBI-Metagenomics/viraverse pipeline - params.input schema",
+    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/assets/schema_input.json",
+    "title": "EBI-Metagenomics/metaviraverse pipeline - params.input schema",
     "description": "Schema for the file provided with params.input",
     "type": "array",
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "id": {
                 "type": "string",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "gff": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "errorMessage": "GFF file containing viral data"
             },
-            "fastq_2": {
+            "fasta": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "errorMessage": "FASTA file corresponding to GFF with viral sequences"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["id", "gff", "fasta"]
     }
 }

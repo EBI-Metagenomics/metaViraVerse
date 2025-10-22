@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/viraverse/main/nextflow_schema.json",
-    "title": "EBI-Metagenomics/viraverse pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/nextflow_schema.json",
+    "title": "EBI-Metagenomics/metaviraverse pipeline parameters",
     "description": "Viral catalogue generation pipeline",
     "type": "object",
     "$defs": {
