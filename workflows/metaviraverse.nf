@@ -58,6 +58,11 @@ workflow METAVIRAVERSE {
     //
     grep from all_gff
 
+    // TODO add VITAP for comparision
+    // TODO krona for taxonomy
+    // TODO table for reps
+    // TODO plots for all reps stats
+
 
     //
     // Collate and save software versions

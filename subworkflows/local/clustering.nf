@@ -5,6 +5,7 @@ include { BLAST_MAKEBLASTDB     } from '../../modules/nf-core/blast/makeblastdb'
 include { BLAST_BLASTN          } from '../../modules/nf-core/blast/blastn'
 
 workflow CLUSTERING {
+    // TODO: add check for empty fasta before running clustering - blast fails
 
     take:
     sequences
