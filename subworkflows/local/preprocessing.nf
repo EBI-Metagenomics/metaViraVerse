@@ -33,9 +33,13 @@ workflow PREPROCESSING {
     all_gff = RENAME_CONTIGS.out.gff_renamed
        .map{ meta, gff -> gff }.collectFile(name: "combined.gff").map{gff -> [[id: 'combined'], gff]}
 
+    all_mapping = RENAME_CONTIGS.out.map_file
+       .map{ meta, mapfile -> mapfile }.collectFile(name: "combined.map").map{mapfile -> [[id: 'combined'], mapfile]}
+
     emit:
     viral_seqs     = all_viral_sequences
     plasmids       = all_plasmids
     all_gff        = all_gff
+    all_mapping    = all_mapping
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 }

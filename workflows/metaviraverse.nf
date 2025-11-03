@@ -3,15 +3,14 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { MULTIQC                          } from '../modules/nf-core/multiqc/main'
-include { paramsSummaryMap                 } from 'plugin/nf-schema'
-include { paramsSummaryMultiqc             } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML           } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText           } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
+include { paramsSummaryMap                      } from 'plugin/nf-schema'
+include { paramsSummaryMultiqc                  } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { softwareVersionsToYAML                } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
-include { PREPROCESSING                    } from '../subworkflows/local/preprocessing'
-include { CLUSTERING as CLUSTER_VIRAL_SEQS } from '../subworkflows/local/clustering'
-include { CLUSTERING as CLUSTER_PLASMIDS   } from '../subworkflows/local/clustering'
+include { PREPROCESSING                         } from '../subworkflows/local/preprocessing'
+include { PROCESS_SEQUENCES as PROCESS_VIRUSES  } from '../subworkflows/local/process_sequences'
+include { PROCESS_SEQUENCES as PROCESS_PLASMIDS } from '../subworkflows/local/process_sequences'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,30 +33,36 @@ workflow METAVIRAVERSE {
     PREPROCESSING(
        ch_samplesheet
     )
+    ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
     //
-    // Cluster viral sequences
+    // Process viral sequences
     //
-    CLUSTER_VIRAL_SEQS(
+    PROCESS_VIRUSES(
        PREPROCESSING.out.viral_seqs,
        95,
-       85
+       85,
+       PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
     )
+    ch_versions = ch_versions.mix(PROCESS_VIRUSES.out.versions)
 
     //
-    // Cluster plasmids
+    // Process plasmids
     //
-    CLUSTER_PLASMIDS(
+    PROCESS_PLASMIDS(
        PREPROCESSING.out.plasmids,
        80,
-       85
+       85,
+       PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
     )
+    ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
     //
     // Taxonomy for viral_sequences
     //
-    grep from all_gff
-
+    //grep from all_gff
+    // TODO at all gffs
+    // TODO cat all mapfiles
     // TODO add VITAP for comparision
     // TODO krona for taxonomy
     // TODO table for reps

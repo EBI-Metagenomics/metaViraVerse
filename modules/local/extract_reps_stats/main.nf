@@ -10,12 +10,13 @@ process EXTRACT_REPS_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(full_gff), path(reps_file), path(mapfile)
+    tuple val(meta), path(full_gff), path(mapfile)
+    tuple val(meta2), path(reps_file)
 
     output:
-    tuple val(meta), path("*_renamed.fasta"), emit:
-    tuple val(meta), path("*_renamed.gff"),   emit:
-    path "versions.yml",                     emit: versions
+    tuple val(meta), path("${meta.id}_reps_stats.tsv"), emit: reps_stats_tsv
+    tuple val(meta), path("${meta.id}_krona.tsv"),      emit: reps_krona_tsv
+    path "versions.yml",                                emit: versions
 
     script:
     """
@@ -23,7 +24,8 @@ process EXTRACT_REPS_STATS {
        --viral-list ${reps_file} \\
        --gff ${full_gff} \\
        --mapfile ${mapfile} \\
-       --output ${meta.id}_reps_stats.tsv
+       --output ${meta.id}_reps_stats.tsv \\
+       --krona ${meta.id}_krona.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

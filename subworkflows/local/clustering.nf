@@ -5,7 +5,6 @@ include { BLAST_MAKEBLASTDB     } from '../../modules/nf-core/blast/makeblastdb'
 include { BLAST_BLASTN          } from '../../modules/nf-core/blast/blastn'
 
 workflow CLUSTERING {
-    // TODO: add check for empty fasta before running clustering - blast fails
 
     take:
     sequences
@@ -48,7 +47,7 @@ workflow CLUSTERING {
     ch_versions = ch_versions.mix(ANICLUST.out.versions)
 
     emit:
-
+    clusters_tsv   = ANICLUST.out.clusters_tsv
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
