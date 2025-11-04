@@ -1,6 +1,6 @@
 # metaViraVerse
 
-<img align="right" width="160" height="120" src="assets/logo.png">
+<img align="right" width="120" height="120" src="assets/logo.png">
 
 [MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline to generate **viral catalogue** from assemblies.
 
@@ -31,6 +31,29 @@ nextflow run EBI-Metagenomics/metaviraverse \
    -profile <docker/singularity/.../institute> \
    --input samplesheet.csv \
    --outdir <OUTDIR>
+```
+
+## Output 
+```
+├── plasmids
+├── viral_sequences         
+├── pipeline_info     
+```
+
+Folders `plasmids` and `viral_sequences` have similar structure:
+```
+├── cluster_reps
+ ──── taxonomy_plot
+ ──────── *_krona.html   # krona plot
+ ──────── *_krona.tsv    # taxonomy table with counts (count \t taxonomy tav-separated)
+ ──────── *_sankey.html  # sankey plot
+ ──── *_reps_stats.tsv   # basic statistics calculated per each cluster representative
+ 
+├── clustering
+ ──── *_clusters.tsv     # clusters (representative \t members)
+ ──── *_pairani.tsv      # blastn pairani table
+ 
+├── *.fasta              # all sequences
 ```
 
 ## Citations
