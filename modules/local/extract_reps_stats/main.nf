@@ -10,13 +10,13 @@ process EXTRACT_REPS_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(full_gff), path(mapfile)
-    tuple val(meta2), path(reps_file)
+    tuple val(meta), path(reps_file)
+    tuple path(full_gff), path(mapfile)
 
     output:
     tuple val(meta), path("${meta.id}_reps_stats.tsv"), emit: reps_stats_tsv
     tuple val(meta), path("${meta.id}_krona.tsv"),      emit: reps_krona_tsv
-    path "versions.yml",                                emit: versions
+    path "versions.yml",                                 emit: versions
 
     script:
     """

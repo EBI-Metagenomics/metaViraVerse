@@ -7,6 +7,7 @@ include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/k
 include { MULTIQC                          } from '../../modules/nf-core/multiqc/main'
 
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
+include { SANKEY_PLOT                      } from '../../modules/local/sankey_plot'
 
 include { CLUSTERING                       } from './clustering'
 
@@ -48,8 +49,8 @@ workflow PROCESS_SEQUENCES {
     // Statistics and taxonomy from GFF for viral_sequences reps
     //
     EXTRACT_REPS_STATS (
-        gff_and_mapping_all_seqs,
-        CLUSTERING.out.clusters_tsv
+        CLUSTERING.out.clusters_tsv,
+        gff_and_mapping_all_seqs.map {id, gff, mapfile -> [gff, mapfile]},
     )
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
@@ -61,15 +62,10 @@ workflow PROCESS_SEQUENCES {
     )
     ch_versions = ch_versions.mix(KRONA_KTIMPORTTEXT.out.versions)
 
-
-    //
-    // Taxonomy for viral_sequences
-    //
-    //grep from all_gff
-    // TODO add VITAP for comparision
-    // TODO krona for taxonomy
-    // TODO table for reps
-    // TODO plots for all reps stats
+    SANKEY_PLOT (
+        EXTRACT_REPS_STATS.out.reps_krona_tsv
+    )
+    ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
 
     emit:
 

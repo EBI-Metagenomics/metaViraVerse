@@ -140,7 +140,10 @@ def parse_taxonomy(taxonomy_str, standard_levels=None):
 
     # URL decode and split
     taxonomy_str = unquote(taxonomy_str)
-    parts = [p.strip() for p in taxonomy_str.split(';')]
+    parts = [p.strip().lower() for p in taxonomy_str.split(';')]
+    # strip empty annotations
+    while parts and parts[-1] == '':
+        parts.pop()
 
     # Default viral taxonomy levels
     if standard_levels is None:
@@ -160,8 +163,7 @@ def parse_taxonomy(taxonomy_str, standard_levels=None):
             # Missing level - create unclassified label
             unclassified_label = f"unclassified_{level_name}_{last_valid}"
             filled_taxonomy.append(unclassified_label)
-
-    return filled_taxonomy
+    return [x.capitalize() for x in filled_taxonomy]
 
 
 def generate_krona_file(results, viral_names, krona_output_file, standard_levels=None):

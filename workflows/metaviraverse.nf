@@ -64,9 +64,8 @@ workflow METAVIRAVERSE {
     // TODO at all gffs
     // TODO cat all mapfiles
     // TODO add VITAP for comparision
-    // TODO krona for taxonomy
-    // TODO table for reps
-    // TODO plots for all reps stats
+    // TODO sankey for taxonomy
+
 
 
     //
