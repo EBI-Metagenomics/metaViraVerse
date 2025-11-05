@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 
-def parse_taxonomy(taxonomy_str, standard_levels=None):
+def parse_taxonomy(taxonomy_str, standard_levels=None, lineage_reverted=False):
     """
     Parse taxonomy string and fill in missing levels.
 
@@ -34,6 +34,13 @@ def parse_taxonomy(taxonomy_str, standard_levels=None):
     # URL decode and split
     taxonomy_str = unquote(taxonomy_str)
     parts = [p.strip() for p in taxonomy_str.split(';')]
+
+    if lineage_reverted:
+        parts = parts[::-1]
+
+    # remove empty annotations
+    while parts and parts[-1] == '' or parts[-1] == '-':
+        parts.pop()
 
     # If no standard levels provided, use generic numbering
     if standard_levels is None:
@@ -192,6 +199,9 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
     with open(tsv_file, 'r') as f:
         # Peek at first line to detect format
         first_line = f.readline().strip()
+        if not first_line:  # File is completely empty
+            print("File is empty")
+            exit(0)
         f.seek(0)
 
         # Check if it's Krona format (first column is a number)
@@ -206,7 +216,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
 
         if is_krona_format:
             # Krona format: count\trank1\trank2\t...
-            print("Detected Krona format (count\\ttaxonomy_ranks)")
+            print("Detected Krona format (count\ttaxonomy_ranks)")
             for line in f:
                 parts = line.strip().split('\t')
                 if not parts or not parts[0].strip():
@@ -348,6 +358,13 @@ TSV Format Support:
         help='Plot title'
     )
 
+
+    parser.add_argument(
+        '--lineage-reverted',
+        action='store_true',
+        help='Specify that argument if your lineage is going from species to realm'
+    )
+
     args = parser.parse_args()
 
     # Validate input file
@@ -375,7 +392,7 @@ TSV Format Support:
     print("Processing taxonomy paths and filling missing levels...")
     taxonomy_paths_with_counts = []
     for count, tax_str in taxonomy_data:
-        path = parse_taxonomy(tax_str, args.levels)
+        path = parse_taxonomy(tax_str, args.levels, args.lineage_reverted)
         if path:
             taxonomy_paths_with_counts.append((count, path))
 

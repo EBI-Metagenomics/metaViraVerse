@@ -12,11 +12,14 @@ process SANKEY_PLOT {
       path "versions.yml",                                   emit: versions
 
     script:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
     plot_taxonomy_sankey.py \\
+        ${args} \\
         --input ${table} \\
-        --output ${meta.id}_sankey.html \\
+        --output ${prefix}_sankey.html \\
         --input-format tsv
 
     cat <<-END_VERSIONS > versions.yml

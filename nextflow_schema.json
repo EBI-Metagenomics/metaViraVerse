@@ -23,6 +23,14 @@
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "vitap_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Path to VITAP DB.",
+                    "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",

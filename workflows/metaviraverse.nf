@@ -12,6 +12,8 @@ include { PREPROCESSING                         } from '../subworkflows/local/pr
 include { PROCESS_SEQUENCES as PROCESS_VIRUSES  } from '../subworkflows/local/process_sequences'
 include { PROCESS_SEQUENCES as PROCESS_PLASMIDS } from '../subworkflows/local/process_sequences'
 
+ include { MASH_SCREEN                          } from '../modules/nf-core/mash/screen/main'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -57,16 +59,15 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
-    //
-    // Taxonomy for viral_sequences
-    //
-    //grep from all_gff
-    // TODO at all gffs
-    // TODO cat all mapfiles
-    // TODO add VITAP for comparision
-    // TODO sankey for taxonomy
+    // PLSDB Taxonomy
+    def meta = [:]
+    meta.id = 'PLSDB_latest'
 
-
+    MASH_SCREEN (
+       PROCESS_PLASMIDS.out.reps_seqs,
+       Channel.of([meta, params.plsdb_db])
+    )
+    ch_versions = ch_versions.mix(MASH_SCREEN.out.versions)
 
     //
     // Collate and save software versions

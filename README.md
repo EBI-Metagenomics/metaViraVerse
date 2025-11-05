@@ -47,6 +47,7 @@ Folders `plasmids` and `viral_sequences` have similar structure:
  ──────── *_krona.html   # krona plot
  ──────── *_krona.tsv    # taxonomy table with counts (count \t taxonomy tav-separated)
  ──────── *_sankey.html  # sankey plot
+ ──── *_reps.fasta.gz    # cluster rep compressed fasta
  ──── *_reps_stats.tsv   # basic statistics calculated per each cluster representative
  
 ├── clustering
@@ -55,6 +56,14 @@ Folders `plasmids` and `viral_sequences` have similar structure:
  
 ├── *.fasta              # all sequences
 ```
+
+### Under review:
+
+**VITAP** (https://www.nature.com/articles/s41467-025-57500-7)
+taxonomy + sankey plot
+
+**PLSDB** (https://academic.oup.com/nar/article/53/D1/D189/7905312)
+plasmids only screening with mash 
 
 ## Citations
 
