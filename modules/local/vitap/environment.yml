@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+# Note: VITAP itself is only available via Docker/Singularity container
+# This environment file specifies the basic utilities used by the module
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - conda-forge::gzip=1.13
+  - conda-forge::grep=3.11
+  - conda-forge::sed=4.8

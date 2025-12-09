@@ -1,0 +1,24 @@
+nextflow_process {
+
+    name "Test Process ANICALC"
+    script "modules/local/checkv/anicalc/main.nf"
+    process "ANICALC"
+
+    test("Should run without failures") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'salmon_subset'], file('${moduleDir}/tests/blastn.txt', checkIfExists: true) ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+}

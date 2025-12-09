@@ -4,9 +4,10 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/ktimporttext'
-include { MULTIQC                          } from '../../modules/nf-core/multiqc/main'
 include { SEQTK_SUBSEQ                     } from '../../modules/nf-core/seqtk/subseq'
+include { GUNZIP                           } from '../../modules/nf-core/gunzip'
 
+include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
 include { SANKEY_PLOT                      } from '../../modules/local/sankey_plot'
 include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'
@@ -20,7 +21,7 @@ include { CLUSTERING                       } from './clustering'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-workflow PROCESS_SEQUENCES {
+workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
     sequences
@@ -57,20 +58,12 @@ workflow PROCESS_SEQUENCES {
     )
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
-    //
-    // Taxonomy VITAP testing...
-    //
 
+    // Extract sequences for cluster reps
     SEQTK_SUBSEQ (
         sequences,
         CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
     )
-
-    VITAP (
-        SEQTK_SUBSEQ.out.sequences,
-        params.vitap_db
-    )
-    //ch_versions = ch_versions.mix(VITAP.out.versions)
 
     //
     // Taxonomy visualisation
@@ -85,10 +78,32 @@ workflow PROCESS_SEQUENCES {
     )
     ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
 
+    //
+    // Host assignment
+    //
+    GUNZIP(
+        SEQTK_SUBSEQ.out.sequences
+    )
+    ch_versions = ch_versions.mix(GUNZIP.out.versions)
+
+    CRISPRCAS_FINDER(
+        GUNZIP.out.gunzip
+    )
+    //ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+
+    //
+    // Taxonomy VITAP testing...
+    //
+    VITAP (
+        SEQTK_SUBSEQ.out.sequences,
+        params.vitap_db
+    )
+    ch_versions = ch_versions.mix(VITAP.out.versions)
+
     SANKEY_VITAP (
        VITAP.out.best_lineages
     )
-    ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
+    ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
 
     emit:
 

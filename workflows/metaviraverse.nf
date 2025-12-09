@@ -9,10 +9,8 @@ include { softwareVersionsToYAML                } from '../subworkflows/nf-core/
 include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
 include { PREPROCESSING                         } from '../subworkflows/local/preprocessing'
-include { PROCESS_SEQUENCES as PROCESS_VIRUSES  } from '../subworkflows/local/process_sequences'
-include { PROCESS_SEQUENCES as PROCESS_PLASMIDS } from '../subworkflows/local/process_sequences'
-
- include { MASH_SCREEN                          } from '../modules/nf-core/mash/screen/main'
+include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
+include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,13 +38,13 @@ workflow METAVIRAVERSE {
     //
     // Process viral sequences
     //
-    PROCESS_VIRUSES(
+    PROCESS_VIRAL_SEQUENCES(
        PREPROCESSING.out.viral_seqs,
        95,
        85,
        PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
     )
-    ch_versions = ch_versions.mix(PROCESS_VIRUSES.out.versions)
+    ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
     //
     // Process plasmids
@@ -54,20 +52,9 @@ workflow METAVIRAVERSE {
     PROCESS_PLASMIDS(
        PREPROCESSING.out.plasmids,
        80,
-       85,
-       PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
+       85
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
-
-    // PLSDB Taxonomy
-    def meta = [:]
-    meta.id = 'PLSDB_latest'
-
-    MASH_SCREEN (
-       PROCESS_PLASMIDS.out.reps_seqs,
-       Channel.of([meta, params.plsdb_db])
-    )
-    ch_versions = ch_versions.mix(MASH_SCREEN.out.versions)
 
     //
     // Collate and save software versions

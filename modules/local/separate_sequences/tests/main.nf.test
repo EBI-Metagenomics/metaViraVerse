@@ -1,0 +1,43 @@
+nextflow_process {
+
+    name "Test Process SEPARATE_SEQUENCES viral_sequences"
+    script "modules/local/separate_sequences/main.nf"
+    process "SEPARATE_SEQUENCES"
+
+    test("Extract viral_sequences from FASTA") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
+                input[1] = 'viral_sequence'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("Extract plasmids from FASTA") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
+                input[1] = 'plasmid'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+}

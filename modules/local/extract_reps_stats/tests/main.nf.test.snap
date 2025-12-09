@@ -1,0 +1,51 @@
+{
+    "Should run without failures": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps_stats.tsv:md5,8e2c2786c0ad25b344ea8b95fa462854"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,ef27449a4a35ebca4b471ff6d084f20a"
+                ],
+                "reps_krona_tsv": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084"
+                    ]
+                ],
+                "reps_stats_tsv": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps_stats.tsv:md5,8e2c2786c0ad25b344ea8b95fa462854"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,ef27449a4a35ebca4b471ff6d084f20a"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.07.0"
+        },
+        "timestamp": "2025-12-09T15:12:52.46673"
+    }
+}

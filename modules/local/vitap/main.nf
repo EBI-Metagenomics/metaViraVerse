@@ -11,6 +11,7 @@ process VITAP {
 
     output:
     tuple val(meta), path("${meta.id}_vitap_best.tsv"), emit: best_lineages
+    path "versions.yml",                                emit: versions
 
     script:
     """
@@ -29,5 +30,13 @@ process VITAP {
 
     grep -w -f names.txt ${meta.id}_vitap/best_determined_lineages.tsv >> ${meta.id}_vitap_best.tsv
 
+    # Attention:
+    # version is hardcoded because Docker container has version 1.7 installed
+    # but tool itself still prints version 1.3 (which is a bug in tool)
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        VITAP: 1.7
+    END_VERSIONS
     """
 }

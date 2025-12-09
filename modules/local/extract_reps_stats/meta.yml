@@ -1,0 +1,73 @@
+name: extract_reps_stats
+description: Extract information about cluster representatives from initial GFF
+keywords:
+  - statistics
+  - viral
+  - cluster
+  - representatives
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - reps_file:
+        type: file
+        description: File containing viral cluster representatives
+        pattern: "*"
+        ontologies: []
+  - - full_gff:
+        type: file
+        description: Full GFF annotation file
+        pattern: "*.gff"
+        ontologies: []
+    - mapfile:
+        type: file
+        description: Mapping file between contig names
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  reps_stats_tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}_reps_stats.tsv":
+          type: file
+          description: Statistics table for cluster representatives
+          pattern: "*_reps_stats.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  reps_krona_tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}_krona.tsv":
+          type: file
+          description: Krona-formatted taxonomy table
+          pattern: "*_krona.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

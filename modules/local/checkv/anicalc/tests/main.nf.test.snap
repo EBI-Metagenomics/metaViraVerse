@@ -1,0 +1,35 @@
+{
+    "Should run without failures": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "salmon_subset"
+                        },
+                        "salmon_subset_pairani.tsv:md5,d6ec6f8fef9842caf57987a2f38b357d"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,37a17a1a4a58c3e04920a550de9be3e0"
+                ],
+                "calculated_ani_tsv": [
+                    [
+                        {
+                            "id": "salmon_subset"
+                        },
+                        "salmon_subset_pairani.tsv:md5,d6ec6f8fef9842caf57987a2f38b357d"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,37a17a1a4a58c3e04920a550de9be3e0"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.07.0"
+        },
+        "timestamp": "2025-12-05T13:43:00.340858"
+    }
+}

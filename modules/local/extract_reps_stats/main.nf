@@ -16,7 +16,7 @@ process EXTRACT_REPS_STATS {
     output:
     tuple val(meta), path("${meta.id}_reps_stats.tsv"), emit: reps_stats_tsv
     tuple val(meta), path("${meta.id}_krona.tsv"),      emit: reps_krona_tsv
-    path "versions.yml",                                 emit: versions
+    path "versions.yml",                                emit: versions
 
     script:
     """
