@@ -24,5 +24,8 @@ jobs:
       - name: Install dependencies
         run: pip install --no-cache-dir -r requirements-test.txt
 
-      - name: Unit tests
-        run: pytest -v
+      - uses: pavelzw/pytest-action@v2
+        with:
+          emoji: false
+          verbose: true
+          job-summary: true
