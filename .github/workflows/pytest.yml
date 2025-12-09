@@ -13,7 +13,7 @@ jobs:
     environment: pypi
     strategy:
       matrix:
-        python-version: [ "3.11", "3.12", "3.13" ]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -22,10 +22,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install .[test]
+        run: pip install --no-cache-dir -r requirements-test.txt
 
-      - uses: pavelzw/pytest-action@v2
-        with:
-          emoji: false
-          verbose: true
-          job-summary: true
+      - name: Unit tests
+        run: pytest -v
