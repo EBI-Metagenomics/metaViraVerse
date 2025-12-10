@@ -91,19 +91,21 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     //ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
 
-    //
-    // Taxonomy VITAP testing...
-    //
-    VITAP (
-        SEQTK_SUBSEQ.out.sequences,
-        params.vitap_db
-    )
-    ch_versions = ch_versions.mix(VITAP.out.versions)
+    if (params.run_vitap_taxonomy) {
+        //
+        // Taxonomy VITAP testing...
+        //
+        VITAP (
+            SEQTK_SUBSEQ.out.sequences,
+            params.vitap_db
+        )
+        ch_versions = ch_versions.mix(VITAP.out.versions)
 
-    SANKEY_VITAP (
-       VITAP.out.best_lineages
-    )
-    ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
+        SANKEY_VITAP (
+           VITAP.out.best_lineages
+        )
+        ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
+    }
 
     emit:
 

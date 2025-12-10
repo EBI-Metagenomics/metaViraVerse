@@ -31,6 +31,11 @@
                     "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "run_vitap_taxonomy": {
+                    "type": "boolean",
+                    "help_text": "Additionally generate taxonomy assignment for viral_sequences representatives with VITAP tool" ,
+                    "default": false
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
