@@ -1,10 +1,12 @@
 name: Run pytest
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main, dev]
+  workflow_dispatch:
+#on:
+#  push:
+#    branches: [main]
+#  pull_request:
+#    branches: [main, dev]
 
 jobs:
   pytest:
@@ -22,7 +24,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install --no-cache-dir -r requirements-test.txt
+        run: |
+          pip install --no-cache-dir -r requirements-test.txt
+          pip install pytest
 
       - uses: pavelzw/pytest-action@v2
         with:
