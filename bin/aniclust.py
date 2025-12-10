@@ -135,4 +135,3 @@ out = open(args['out'], 'w')
 for seq_id, mem_ids in clust_to_seqs.items():
 	out.write(seq_id + '\t' + ','.join(mem_ids)+'\n')
 log_time(start)
-

@@ -32,7 +32,7 @@
                 },
                 "run_vitap_taxonomy": {
                     "type": "boolean",
-                    "help_text": "Additionally generate taxonomy assignment for viral_sequences representatives with VITAP tool" ,
+                    "help_text": "Additionally generate taxonomy assignment for viral_sequences representatives with VITAP tool",
                     "default": false
                 },
                 "outdir": {
