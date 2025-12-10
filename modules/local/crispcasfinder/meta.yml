@@ -1,0 +1,72 @@
+name: crispcasfinder
+description: Identify CRISPR arrays and cas genes in genomic sequences
+keywords:
+  - CRISPR
+  - cas
+  - genomics
+  - annotation
+tools:
+  - crispcasfinder:
+      description: |
+        CRISPRCasFinder allows the identification of CRISPR arrays and cas genes in user-submitted sequences
+      homepage: https://crisprcas.i2bc.paris-saclay.fr/
+      documentation: https://crisprcas.i2bc.paris-saclay.fr/Home/Documentation
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:crispr-cas_finder
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - fasta:
+        type: file
+        description: Input FASTA file with genomic sequences
+        pattern: "*.{fa,fasta}"
+        ontologies: []
+output:
+  gff:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "crisprcasfinder_results/${meta.id}_crisprcasfinder.gff":
+          type: file
+          description: GFF file with CRISPR annotations
+          pattern: "*_crisprcasfinder.gff"
+          ontologies: []
+  tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "crisprcasfinder_results/${meta.id}_crisprcasfinder.tsv":
+          type: file
+          description: TSV file with CRISPR results
+          pattern: "*_crisprcasfinder.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  hq_gff:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "crisprcasfinder_results/${meta.id}_crisprcasfinder_hq.gff":
+          type: file
+          description: GFF file with high-quality CRISPR annotations
+          pattern: "*_crisprcasfinder_hq.gff"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
