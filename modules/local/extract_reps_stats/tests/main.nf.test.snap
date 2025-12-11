@@ -19,7 +19,7 @@
                     ]
                 ],
                 "2": [
-                    "versions.yml:md5,ef27449a4a35ebca4b471ff6d084f20a"
+                    "versions.yml:md5,3cf643fc1af75843b66031799a44a592"
                 ],
                 "reps_krona_tsv": [
                     [
@@ -38,14 +38,14 @@
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,ef27449a4a35ebca4b471ff6d084f20a"
+                    "versions.yml:md5,3cf643fc1af75843b66031799a44a592"
                 ]
             }
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.07.0"
+            "nextflow": "25.10.0"
         },
-        "timestamp": "2025-12-09T15:12:52.46673"
+        "timestamp": "2025-12-11T10:56:10.773918"
     }
 }

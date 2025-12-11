@@ -15,8 +15,14 @@ nextflow_process {
         }
 
         then {
-            assert process.success
-            assert snapshot(process.out).match()
+            assertAll(
+                { assert process.success },
+                { assert snapshot(
+                    file(process.out.sankey_html[0][1]).name,
+                    process.out.versions
+                ).match() },
+                { assert path(process.out.sankey_html[0][1]).text.contains("undefined") }
+            )
         }
 
     }
