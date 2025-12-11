@@ -1,6 +1,6 @@
 repository_type: pipeline
 
-nf_core_version: 3.3.2
+nf_core_version: 3.5.1
 
 lint:
   files_unchanged:
@@ -15,9 +15,7 @@ lint:
     - docs/README.md
     - .github/CONTRIBUTING.md
     - .prettierignore
-    - .prettierignore
-    - .prettierignore
-    - .prettierignore
+
   nextflow_config:
     - manifest.name
     - manifest.homePage

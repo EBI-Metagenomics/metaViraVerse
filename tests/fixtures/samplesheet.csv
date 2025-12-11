@@ -1,3 +1,0 @@
-id,gff,fasta
-MAG1,https://github.com/EBI-Metagenomics/metaViraVerse/raw/feature/reps-stats/tests/fixtures/input/MAG1_mobilome.gff,https://github.com/EBI-Metagenomics/metaViraVerse/raw/feature/reps-stats/tests/fixtures/input/MAG1_mobilome.fasta
-MAG2,https://github.com/EBI-Metagenomics/metaViraVerse/raw/feature/reps-stats/tests/fixtures/input/MAG2_mobilome.gff,https://github.com/EBI-Metagenomics/metaViraVerse/raw/feature/reps-stats/tests/fixtures/input/MAG2_mobilome.fasta
