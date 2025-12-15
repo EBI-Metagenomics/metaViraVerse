@@ -1,0 +1,87 @@
+{
+    "-profile test": {
+        "content": [
+            21,
+            {
+                "ANICALC": {
+                    "checkv": "1.0.3"
+                },
+                "ANICLUST": {
+                    "checkv": "1.0.3"
+                },
+                "BLAST_BLASTN": {
+                    "blast": "2.17.0+"
+                },
+                "BLAST_MAKEBLASTDB": {
+                    "blast": "2.17.0+"
+                },
+                "EXTRACT_REPS_STATS": {
+                    "python": "3.8.13",
+                    "biopython": 1.75
+                },
+                "GUNZIP": {
+                    "gunzip": 1.13
+                },
+                "KRONA_KTIMPORTTEXT": {
+                    "krona": "2.8.1"
+                },
+                "SANKEY_PLOT": {
+                    "python": "3.13.7",
+                    "plotly": "6.3.1"
+                },
+                "Workflow": {
+                    "EBI-Metagenomics/metaviraverse": "v1.0.0dev"
+                }
+            },
+            [
+                "pipeline_info",
+                "pipeline_info/metaviraverse_software_mqc_versions.yml",
+                "plasmids",
+                "plasmids/cluster_reps",
+                "plasmids/cluster_reps/plasmids_reps.fasta.gz",
+                "plasmids/clustering",
+                "plasmids/clustering/plasmids_clusters.tsv",
+                "plasmids/clustering/plasmids_pairani.tsv",
+                "plasmids/plasmids.fasta",
+                "viral_sequences",
+                "viral_sequences/cluster_reps",
+                "viral_sequences/cluster_reps/crisprcasfinder",
+                "viral_sequences/cluster_reps/crisprcasfinder/viral_sequences_crisprcasfinder.gff",
+                "viral_sequences/cluster_reps/crisprcasfinder/viral_sequences_crisprcasfinder.tsv",
+                "viral_sequences/cluster_reps/crisprcasfinder/viral_sequences_crisprcasfinder_hq.gff",
+                "viral_sequences/cluster_reps/taxonomy_plot",
+                "viral_sequences/cluster_reps/taxonomy_plot/viral_sequences_krona.html",
+                "viral_sequences/cluster_reps/taxonomy_plot/viral_sequences_krona.tsv",
+                "viral_sequences/cluster_reps/taxonomy_plot/viral_sequences_sankey.html",
+                "viral_sequences/cluster_reps/viral_sequences_reps.fasta.gz",
+                "viral_sequences/cluster_reps/viral_sequences_reps_stats.tsv",
+                "viral_sequences/clustering",
+                "viral_sequences/clustering/viral_sequences_clusters.tsv",
+                "viral_sequences/clustering/viral_sequences_pairani.tsv",
+                "viral_sequences/viral_sequences.fasta"
+            ],
+            [
+                "plasmids_reps.fasta.gz:md5,a85a98d690764bdd60e11420d533a662",
+                "plasmids_clusters.tsv:md5,56e41f4f349a2aa6afd40e466fe5966a",
+                "plasmids_pairani.tsv:md5,569f7992eed678de51703e8a0d615932",
+                "plasmids.fasta:md5,a85a98d690764bdd60e11420d533a662",
+                "viral_sequences_crisprcasfinder.gff:md5,efe62f89eaf034da44fa7d165bd22805",
+                "viral_sequences_crisprcasfinder.tsv:md5,67a69625055941b3d78ba144c4d4c816",
+                "viral_sequences_crisprcasfinder_hq.gff:md5,45339bba58f2838a291d332a91bb90bb",
+                "viral_sequences_krona.html:md5,4f762d0a3f6cd7a05da3c78deb188216",
+                "viral_sequences_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084",
+                "viral_sequences_sankey.html:md5,480b565cf01562347cbc624fd6801b45",
+                "viral_sequences_reps.fasta.gz:md5,8d92b82636a9419fc4a9e076e0979711",
+                "viral_sequences_reps_stats.tsv:md5,77e9c6e77c7e999030c36425322c4694",
+                "viral_sequences_clusters.tsv:md5,bf42228716d5008cb7c2e37f5f9be841",
+                "viral_sequences_pairani.tsv:md5,82e57e000a7af382495aac4dc00ac142",
+                "viral_sequences.fasta:md5,8d92b82636a9419fc4a9e076e0979711"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.0"
+        },
+        "timestamp": "2025-12-15T15:19:47.857184"
+    }
+}
