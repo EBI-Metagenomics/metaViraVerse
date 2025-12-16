@@ -15,10 +15,12 @@
             },
             "gff": {
                 "type": "string",
+                "format": "file-path",
                 "errorMessage": "GFF file containing viral data"
             },
             "fasta": {
                 "type": "string",
+                "format": "file-path",
                 "errorMessage": "FASTA file corresponding to GFF with viral sequences"
             }
         },

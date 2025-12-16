@@ -11,3 +11,7 @@ multiqc/multiqc_report.html
 pipeline_info/*.{html,json,txt,yml}
 viral_sequences/cluster_reps/taxonomy_plot/viral_sequences_krona.html
 viral_sequences/cluster_reps/taxonomy_plot/viral_sequences_sankey.html
+viral_sequences/cluster_reps/crisprcasfinder/viral_sequences_crisprcasfinder.tsv
+viral_sequences/cluster_reps/viral_sequences_reps.fasta.gz
+viral_sequences/clustering/viral_sequences_pairani.tsv
+viral_sequences/viral_sequences.fasta
