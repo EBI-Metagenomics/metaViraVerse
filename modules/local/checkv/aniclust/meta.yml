@@ -1,0 +1,64 @@
+name: aniclust
+description: Cluster viral sequences based on Average Nucleotide Identity (ANI) values
+keywords:
+  - clustering
+  - ANI
+  - viral
+  - dereplication
+tools:
+  - checkv:
+      description: |
+        CheckV assesses the quality of metagenome-assembled viral genomes. This module uses the aniclust.py script from CheckV.
+      homepage: https://bitbucket.org/berkeleylab/checkv/
+      documentation: https://bitbucket.org/berkeleylab/checkv/src/master/
+      licence: ["BSD-3-Clause-LBNL"]
+      identifier: biotools:checkv
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - ani_tsv:
+        type: file
+        description: TSV file with ANI values between sequences
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - sequences:
+        type: file
+        description: FASTA file with sequences to cluster
+        pattern: "*.{fa,fasta,fna}"
+        ontologies: []
+  - - ani_limit:
+        type: number
+        description: Minimum ANI threshold for clustering
+        ontologies: []
+  - - coverage_limit:
+        type: number
+        description: Minimum coverage threshold for clustering
+        ontologies: []
+output:
+  clusters_tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}_clusters.tsv":
+          type: file
+          description: TSV file with cluster assignments
+          pattern: "*_clusters.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

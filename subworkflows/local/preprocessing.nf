@@ -25,17 +25,33 @@ workflow PREPROCESSING {
     )
 
     all_viral_sequences = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences
-       .map{ meta, seqs -> seqs }.collectFile(name: "viral_sequences.fasta").map{seqs -> [[id: 'viral_sequences'], seqs]}
+        .map{ meta, seqs -> seqs }
+        .collectFile(name: "viral_sequences.fasta")
+        .map{seqs -> [[id: 'viral_sequences'], seqs]}
+    // publish
+    all_viral_sequences.subscribe{ meta, seqs ->
+            seqs.copyTo("${params.outdir}/${meta.id}/viral_sequences.fasta")
+        }
 
     all_plasmids = SEPARATE_PLASMIDS.out.chosen_sequences
-       .map{ meta, seqs -> seqs }.collectFile(name: "plasmids.fasta").map{seqs -> [[id: 'plasmids'], seqs]}
+       .map{ meta, seqs -> seqs }
+       .collectFile(name: "plasmids.fasta")
+       .map{seqs -> [[id: 'plasmids'], seqs]}
+    // publish
+    all_plasmids.subscribe{ meta, seqs ->
+            seqs.copyTo("${params.outdir}/${meta.id}/plasmids.fasta")
+        }
 
     all_gff = RENAME_CONTIGS.out.gff_renamed
        .map{ meta, gff -> gff }.collectFile(name: "combined.gff").map{gff -> [[id: 'combined'], gff]}
+
+    all_mapping = RENAME_CONTIGS.out.map_file
+       .map{ meta, mapfile -> mapfile }.collectFile(name: "combined.map").map{mapfile -> [[id: 'combined'], mapfile]}
 
     emit:
     viral_seqs     = all_viral_sequences
     plasmids       = all_plasmids
     all_gff        = all_gff
+    all_mapping    = all_mapping
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 }

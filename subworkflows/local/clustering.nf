@@ -47,7 +47,7 @@ workflow CLUSTERING {
     ch_versions = ch_versions.mix(ANICLUST.out.versions)
 
     emit:
-
+    clusters_tsv   = ANICLUST.out.clusters_tsv
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

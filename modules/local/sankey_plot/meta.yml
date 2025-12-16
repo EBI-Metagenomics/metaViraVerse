@@ -1,0 +1,50 @@
+name: sankey_plot
+description: Create Sankey diagram for taxonomy visualization
+keywords:
+  - visualization
+  - taxonomy
+  - sankey
+  - plot
+tools:
+  - plotly:
+      description: |
+        An interactive, open-source plotting library that supports over 40 unique chart types
+      homepage: https://plotly.com/python/
+      documentation: https://plotly.com/python/
+      licence: ["MIT"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - table:
+        type: file
+        description: Input table with taxonomy data
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  sankey_html:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "*sankey.html":
+          type: file
+          description: HTML file containing Sankey diagram
+          pattern: "*sankey.html"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

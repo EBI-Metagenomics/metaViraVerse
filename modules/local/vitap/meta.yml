@@ -1,0 +1,55 @@
+name: vitap
+description: Viral Taxonomy Assignment Pipeline for viral sequence classification
+keywords:
+  - taxonomy
+  - viral
+  - classification
+  - assignment
+tools:
+  - vitap:
+      description: |
+        VITAP (Viral Taxonomy Assignment Pipeline) is a tool for assigning taxonomy to viral sequences
+      homepage: https://github.com/MGnify/VITAP
+      documentation: https://github.com/MGnify/VITAP
+      licence: ["Apache-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - fasta:
+        type: file
+        description: Input FASTA file with viral sequences (can be gzipped)
+        pattern: "*.{fa,fasta,fa.gz,fasta.gz}"
+        ontologies: []
+  - - db:
+        type: directory
+        description: VITAP database directory
+        pattern: "*"
+        ontologies: []
+output:
+  best_lineages:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}_vitap_best.tsv":
+          type: file
+          description: Table with best determined lineages for viral sequences
+          pattern: "*_vitap_best.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

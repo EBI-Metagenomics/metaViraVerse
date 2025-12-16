@@ -1,0 +1,51 @@
+name: anicalc
+description: Calculate Average Nucleotide Identity (ANI) between viral sequences
+keywords:
+  - ANI
+  - checkv
+  - similarity
+  - nucleotide identity
+tools:
+  - checkv:
+      description: |
+        CheckV assesses the quality of metagenome-assembled viral genomes. This module uses the anicalc.py script from CheckV.
+      homepage: https://bitbucket.org/berkeleylab/checkv/
+      documentation: https://bitbucket.org/berkeleylab/checkv/src/master/
+      licence: ["BSD-3-Clause-LBNL"]
+      identifier: biotools:checkv
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - tsv:
+        type: file
+        description: Input TSV file with sequence comparison data
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  calculated_ani_tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}_pairani.tsv":
+          type: file
+          description: TSV file with calculated pairwise ANI values
+          pattern: "*_pairani.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

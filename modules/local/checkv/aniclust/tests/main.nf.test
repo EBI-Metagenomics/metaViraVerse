@@ -1,0 +1,27 @@
+nextflow_process {
+
+    name "Test Process ANICLUST"
+    script "modules/local/checkv/aniclust/main.nf"
+    process "ANICLUST"
+
+    test("Should generate 2 clusters") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'test'], file('${moduleDir}/tests/pairani.tsv', checkIfExists: true), file('${moduleDir}/tests/seqs.fasta', checkIfExists: true) ]
+                input[1] = 80
+                input[2] = 0
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+            assert path(process.out.clusters_tsv[0][1]).readLines().size() == 2
+        }
+
+    }
+
+}

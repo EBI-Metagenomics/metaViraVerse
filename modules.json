@@ -7,8 +7,9 @@
                 "nf-core": {
                     "blast/blastn": {
                         "branch": "master",
-                        "git_sha": "6330227ba2a71d39f35b0ef60e381f456489c6ee",
-                        "installed_by": ["modules"]
+                        "git_sha": "9da6f5cc5b9170943be764c0a6926e81ba1ed3b9",
+                        "installed_by": ["modules"],
+                        "patch": "modules/nf-core/blast/blastn/blast-blastn.diff"
                     },
                     "blast/makeblastdb": {
                         "branch": "master",
@@ -20,12 +21,22 @@
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
                         "installed_by": ["modules"]
                     },
-                    "multiqc": {
+                    "gunzip": {
                         "branch": "master",
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
                         "installed_by": ["modules"]
                     },
-                    "seqkit/grep": {
+                    "krona/ktimporttext": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": ["modules"]
+                    },
+                    "multiqc": {
+                        "branch": "master",
+                        "git_sha": "5bdb098216aaf5df9c3b6343e6204cd932503c16",
+                        "installed_by": ["modules"]
+                    },
+                    "seqtk/subseq": {
                         "branch": "master",
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
                         "installed_by": ["modules"]

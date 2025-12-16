@@ -1,0 +1,77 @@
+name: rename_contigs
+description: Rename contig headers to short names in FASTA and GFF files
+keywords:
+  - fasta
+  - gff
+  - rename
+  - contigs
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - gff:
+        type: file
+        description: Input GFF file
+        pattern: "*.gff"
+        ontologies: []
+    - fasta:
+        type: file
+        description: Input FASTA file
+        pattern: "*.{fa,fasta}"
+        ontologies: []
+output:
+  contigs_renamed:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "*_renamed.fasta":
+          type: file
+          description: FASTA file with renamed contigs
+          pattern: "*_renamed.fasta"
+          ontologies: []
+  gff_renamed:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "*_renamed.gff":
+          type: file
+          description: GFF file with renamed contigs
+          pattern: "*_renamed.gff"
+          ontologies: []
+  map_file:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "${meta.id}.map.tsv":
+          type: file
+          description: Mapping file between old and new contig names
+          pattern: "*.map.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

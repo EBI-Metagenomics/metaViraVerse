@@ -1,0 +1,43 @@
+name: separate_sequences
+description: Separate sequences from FASTA file based on pattern matching
+keywords:
+  - fasta
+  - filter
+  - sequence
+tools:
+  - awk:
+      description: Pattern scanning and text processing language
+      documentation: https://www.gnu.org/software/gawk/manual/gawk.html
+      licence: ["GPL-3.0-or-later"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - fasta:
+        type: file
+        description: Input FASTA file
+        pattern: "*.{fa,fasta}"
+        ontologies: []
+  - - pattern:
+        type: string
+        description: Regular expression pattern to match sequence headers
+        ontologies: []
+output:
+  chosen_sequences:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - ${meta.id}_${pattern}.fa:
+          type: file
+          description: FASTA file containing sequences matching the pattern
+          pattern: "*_${pattern}.fa"
+          ontologies: []
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

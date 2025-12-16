@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test Process SANKEY_PLOT"
+    script "modules/local/sankey_plot/main.nf"
+    process "SANKEY_PLOT"
+
+    test("Should run without failures") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'test'], file('${moduleDir}/tests/viral_sequences_krona.tsv', checkIfExists: true) ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(
+                    file(process.out.sankey_html[0][1]).name,
+                    process.out.versions
+                ).match() },
+                { assert path(process.out.sankey_html[0][1]).text.contains("undefined") }
+            )
+        }
+
+    }
+
+}

@@ -13,9 +13,10 @@ process RENAME_CONTIGS {
     tuple val(meta), path(gff), path(fasta)
 
     output:
-    tuple val(meta), path("*_renamed.fasta"), emit: contigs_renamed
-    tuple val(meta), path("*_renamed.gff"),   emit: gff_renamed
-    path "versions.yml",                     emit: versions
+    tuple val(meta), path("*_renamed.fasta"),    emit: contigs_renamed
+    tuple val(meta), path("*_renamed.gff"),      emit: gff_renamed
+    tuple val(meta), path("${meta.id}.map.tsv"), emit: map_file
+    path "versions.yml",                         emit: versions
 
     script:
     """

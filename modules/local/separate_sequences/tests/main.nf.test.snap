@@ -1,0 +1,56 @@
+{
+    "Extract plasmids from FASTA": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_plasmid.fa:md5,066d810a0ce152d9148ed42800271428"
+                    ]
+                ],
+                "chosen_sequences": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_plasmid.fa:md5,066d810a0ce152d9148ed42800271428"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.07.0"
+        },
+        "timestamp": "2025-12-04T23:04:36.646283"
+    },
+    "Extract viral_sequences from FASTA": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_viral_sequence.fa:md5,914dea7ce29c409ee16d0bcfa6a2ffb9"
+                    ]
+                ],
+                "chosen_sequences": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_viral_sequence.fa:md5,914dea7ce29c409ee16d0bcfa6a2ffb9"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.07.0"
+        },
+        "timestamp": "2025-12-04T23:04:24.310871"
+    }
+}
