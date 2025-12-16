@@ -1,7 +1,7 @@
 {
     "-profile test": {
         "content": [
-            21,
+            22,
             {
                 "ANICALC": {
                     "checkv": "1.0.3"
@@ -34,6 +34,16 @@
                 }
             },
             [
+                "multiqc",
+                "multiqc/multiqc_data",
+                "multiqc/multiqc_data/llms-full.txt",
+                "multiqc/multiqc_data/multiqc.log",
+                "multiqc/multiqc_data/multiqc.parquet",
+                "multiqc/multiqc_data/multiqc_citations.txt",
+                "multiqc/multiqc_data/multiqc_data.json",
+                "multiqc/multiqc_data/multiqc_software_versions.txt",
+                "multiqc/multiqc_data/multiqc_sources.txt",
+                "multiqc/multiqc_report.html",
                 "pipeline_info",
                 "pipeline_info/metaviraverse_software_mqc_versions.yml",
                 "plasmids",
@@ -61,27 +71,26 @@
                 "viral_sequences/viral_sequences.fasta"
             ],
             [
-                "plasmids_reps.fasta.gz:md5,a85a98d690764bdd60e11420d533a662",
+                "multiqc_citations.txt:md5,4c806e63a283ec1b7e78cdae3a923d4f",
+                "plasmids_reps.fasta.gz:md5,e796d678bd67bbb93a9019b8c5c2e4eb",
                 "plasmids_clusters.tsv:md5,56e41f4f349a2aa6afd40e466fe5966a",
-                "plasmids_pairani.tsv:md5,569f7992eed678de51703e8a0d615932",
-                "plasmids.fasta:md5,a85a98d690764bdd60e11420d533a662",
+                "plasmids_pairani.tsv:md5,6b1b04a289646a25dc53e29e1c9f5783",
+                "plasmids.fasta:md5,e796d678bd67bbb93a9019b8c5c2e4eb",
                 "viral_sequences_crisprcasfinder.gff:md5,efe62f89eaf034da44fa7d165bd22805",
-                "viral_sequences_crisprcasfinder.tsv:md5,67a69625055941b3d78ba144c4d4c816",
+                "viral_sequences_crisprcasfinder.tsv:md5,24e940e2e081b61d1cb75e6f05e5c015",
                 "viral_sequences_crisprcasfinder_hq.gff:md5,45339bba58f2838a291d332a91bb90bb",
-                "viral_sequences_krona.html:md5,4f762d0a3f6cd7a05da3c78deb188216",
                 "viral_sequences_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084",
-                "viral_sequences_sankey.html:md5,480b565cf01562347cbc624fd6801b45",
-                "viral_sequences_reps.fasta.gz:md5,8d92b82636a9419fc4a9e076e0979711",
+                "viral_sequences_reps.fasta.gz:md5,a7c37a9a3564c317846b5456fc494b75",
                 "viral_sequences_reps_stats.tsv:md5,77e9c6e77c7e999030c36425322c4694",
                 "viral_sequences_clusters.tsv:md5,bf42228716d5008cb7c2e37f5f9be841",
-                "viral_sequences_pairani.tsv:md5,82e57e000a7af382495aac4dc00ac142",
-                "viral_sequences.fasta:md5,8d92b82636a9419fc4a9e076e0979711"
+                "viral_sequences_pairani.tsv:md5,8c9d8fec5d2dbc2846c58ee89707be08",
+                "viral_sequences.fasta:md5,a7c37a9a3564c317846b5456fc494b75"
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.10.0"
         },
-        "timestamp": "2025-12-15T15:19:47.857184"
+        "timestamp": "2025-12-16T10:34:17.518621"
     }
 }
