@@ -15,7 +15,10 @@ include { VITAP                            } from '../../modules/local/vitap'
 
 include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 include { CLUSTERING                       } from './clustering'
+<<<<<<< HEAD
 include { TAXONOMY_VISUALISATION           } from './taxonomy_visualisation'
+include { PROTEINS_PROCESSING              } from './proteins_subwf'
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -133,6 +136,12 @@ workflow PROCESS_VIRAL_SEQUENCES {
         )
         ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
     }
+
+    // Proteins processing
+    PROTEINS_PROCESSING(
+       SEQTK_SUBSEQ.out.sequences
+    )
+    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
     emit:
 
