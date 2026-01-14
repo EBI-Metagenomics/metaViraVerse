@@ -11,6 +11,9 @@ process VCLUST {
 
     output:
       tuple val(meta), path("${meta.id}_clusters.tsv"),      emit: clusters_tsv
+      tuple val(meta), path("${meta.id}_fltr.txt"),          emit: filter_txt
+      tuple val(meta), path("${meta.id}_ani.tsv"),           emit: align_ani_tsv
+      tuple val(meta), path("${meta.id}_ani.ids.tsv"),       emit: align_ani_ids
       path "versions.yml",                                   emit: versions
 
     script:

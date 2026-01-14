@@ -1,0 +1,83 @@
+{
+    "Should run without failures": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_clusters.tsv:md5,c9051beb59201abdc3fb8203f18cab4f"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_fltr.txt:md5,4200f59f3d9f401a9d9ea63cf6a45586"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_ani.tsv:md5,8c6c211b9404943ce5785805914f9e8b"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_ani.ids.tsv:md5,e04e65f7aea7c0d48c928f0a135401ac"
+                    ]
+                ],
+                "4": [
+                    "versions.yml:md5,e99f023496d7a7ed528af06429077d0c"
+                ],
+                "align_ani_ids": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_ani.ids.tsv:md5,e04e65f7aea7c0d48c928f0a135401ac"
+                    ]
+                ],
+                "align_ani_tsv": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_ani.tsv:md5,8c6c211b9404943ce5785805914f9e8b"
+                    ]
+                ],
+                "clusters_tsv": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_clusters.tsv:md5,c9051beb59201abdc3fb8203f18cab4f"
+                    ]
+                ],
+                "filter_txt": [
+                    [
+                        {
+                            "id": "MAG1"
+                        },
+                        "MAG1_fltr.txt:md5,4200f59f3d9f401a9d9ea63cf6a45586"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,e99f023496d7a7ed528af06429077d0c"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.07.0"
+        },
+        "timestamp": "2026-01-14T21:35:09.90269"
+    }
+}

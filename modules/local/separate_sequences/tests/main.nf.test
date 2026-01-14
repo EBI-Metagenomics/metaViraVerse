@@ -11,6 +11,7 @@ nextflow_process {
                 """
                 input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
                 input[1] = 'viral_sequence'
+                input[2] = file('${moduleDir}/tests/empty.gff', checkIfExists: true)
                 """
             }
         }
@@ -29,6 +30,7 @@ nextflow_process {
                 """
                 input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
                 input[1] = 'plasmid'
+                input[2] = file('${moduleDir}/tests/empty.gff', checkIfExists: true)
                 """
             }
         }

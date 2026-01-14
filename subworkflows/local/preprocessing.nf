@@ -2,6 +2,8 @@ include { RENAME_CONTIGS                                 } from '../../modules/l
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
 
+include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
+
 workflow PREPROCESSING {
 
     take:
@@ -14,14 +16,20 @@ workflow PREPROCESSING {
        input
     )
 
+    BARRNAP(
+      RENAME_CONTIGS.out.contigs_renamed.map {id, fasta -> [id, fasta, "bac"]}
+    )
+
     SEPARATE_VIRAL_SEQUENCES(
        RENAME_CONTIGS.out.contigs_renamed,
-       "viral_sequence"
+       "viral_sequence",
+       BARRNAP.out.gff
     )
 
     SEPARATE_PLASMIDS(
        RENAME_CONTIGS.out.contigs_renamed,
-       "plasmid"
+       "plasmid",
+       BARRNAP.out.gff
     )
 
     all_viral_sequences = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences
