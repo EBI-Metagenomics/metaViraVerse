@@ -53,6 +53,8 @@ def read_cluster_structure(viral_list_file, mapping=None):
             line = line.strip()
             if not line:
                 continue
+            if 'object' in line and 'cluster' in line:
+                continue
 
             parts = line.split('\t')
             original_rep_id = parts[0].strip()

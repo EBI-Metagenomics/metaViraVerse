@@ -25,8 +25,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
     sequences
-    ani_limit
-    coverage_limit
     gff_and_mapping_all_seqs
 
     main:
@@ -44,8 +42,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     CLUSTERING(
        samples_seqs,
-       ani_limit,
-       coverage_limit
+       params.blastn_ani_threshold_viral,
+       params.blastn_cov_threshold_viral
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 

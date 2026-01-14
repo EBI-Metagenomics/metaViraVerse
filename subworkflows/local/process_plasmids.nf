@@ -17,8 +17,6 @@ workflow PROCESS_PLASMIDS {
 
     take:
     sequences
-    ani_limit
-    coverage_limit
 
     main:
 
@@ -35,8 +33,8 @@ workflow PROCESS_PLASMIDS {
 
     CLUSTERING(
        samples_seqs,
-       ani_limit,
-       coverage_limit
+       params.blastn_ani_threshold_plasmid,
+       params.blastn_cov_threshold_plasmid
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 

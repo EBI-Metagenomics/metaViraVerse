@@ -1,5 +1,6 @@
 include { ANICALC               } from '../../modules/local/checkv/anicalc'
 include { ANICLUST              } from '../../modules/local/checkv/aniclust'
+include { VCLUST                } from '../../modules/local/vclust'
 
 include { BLAST_MAKEBLASTDB     } from '../../modules/nf-core/blast/makeblastdb'
 include { BLAST_BLASTN          } from '../../modules/nf-core/blast/blastn'
@@ -15,39 +16,52 @@ workflow CLUSTERING {
 
     ch_versions = Channel.empty()
 
-    // Creation of a blast+ database
-    BLAST_MAKEBLASTDB(
-        sequences
-    )
-    ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions)
+    if ( params.cluster_vclust ) {
+        VCLUST (
+            sequences,
+            params.vclust_ani_threshold,
+            params.vclust_coverage_threshold
+        )
+        ch_versions = ch_versions.mix(VCLUST.out.versions)
+        clusters_tsv = VCLUST.out.clusters_tsv
+    } else {
+        // Creation of a blast+ database
+        BLAST_MAKEBLASTDB(
+            sequences
+        )
+        ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions)
 
+        // Using megablast from blast+ package to perform all-vs-all blastn of sequences
+        BLAST_BLASTN(
+            sequences,
+            BLAST_MAKEBLASTDB.out.db,
+            [],
+            '',
+            ''
+        )
+        ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions)
 
-    // Using megablast from blast+ package to perform all-vs-all blastn of sequences
-    BLAST_BLASTN(
-        sequences,
-        BLAST_MAKEBLASTDB.out.db,
-        [],
-        '',
-        ''
-    )
-    ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions)
+        // Calculate pairwise ANI by combining local alignments between sequence pairs
+        ANICALC(
+           BLAST_BLASTN.out.txt
+        )
+        ch_versions = ch_versions.mix(ANICALC.out.versions)
 
-    // Calculate pairwise ANI by combining local alignments between sequence pairs
-    ANICALC(
-       BLAST_BLASTN.out.txt
-    )
-    ch_versions = ch_versions.mix(ANICALC.out.versions)
+        // UCLUST-like clustering
+        // simple greedy, centroid-based clustering
+        // sometimes called leader clustering or single-pass centroid clustering
+        ANICLUST(
+           ANICALC.out.calculated_ani_tsv.join(sequences),
+           min_ani,
+           min_coverage
+        )
+        ch_versions = ch_versions.mix(ANICLUST.out.versions)
 
-    // UCLUST-like clustering
-    ANICLUST(
-       ANICALC.out.calculated_ani_tsv.join(sequences),
-       min_ani,
-       min_coverage
-    )
-    ch_versions = ch_versions.mix(ANICLUST.out.versions)
+        clusters_tsv = ANICLUST.out.clusters_tsv
+    }
 
     emit:
-    clusters_tsv   = ANICLUST.out.clusters_tsv
+    clusters_tsv   = clusters_tsv
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
