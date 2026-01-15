@@ -62,6 +62,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         sequences,
         CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
     )
+    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
     //
     // Taxonomy visualisation
@@ -87,7 +88,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     CRISPRCAS_FINDER(
         GUNZIP.out.gunzip
     )
-    //ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+    ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
 
     if (params.run_vitap_taxonomy) {
         //

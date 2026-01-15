@@ -44,6 +44,7 @@ workflow PROCESS_PLASMIDS {
         sequences,
         CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
     )
+    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
     emit:
 

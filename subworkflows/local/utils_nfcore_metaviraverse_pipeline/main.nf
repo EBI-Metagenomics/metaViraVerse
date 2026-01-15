@@ -51,6 +51,12 @@ workflow PIPELINE_INITIALISATION {
     UTILS_NFSCHEMA_PLUGIN (
         workflow,
         validate_params,
+        null,
+        false,
+        false,
+        true,
+        null,
+        null,
         null
     )
 
