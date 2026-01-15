@@ -14,7 +14,7 @@ workflow CLUSTERING {
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     if ( params.cluster_vclust ) {
         VCLUST (

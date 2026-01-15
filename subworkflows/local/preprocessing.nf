@@ -10,27 +10,31 @@ workflow PREPROCESSING {
     input
 
     main:
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     RENAME_CONTIGS(
        input
     )
+    ch_versions = ch_versions.mix(RENAME_CONTIGS.out.versions)
 
     BARRNAP(
       RENAME_CONTIGS.out.contigs_renamed.map {id, fasta -> [id, fasta, "bac"]}
     )
+    ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
     SEPARATE_VIRAL_SEQUENCES(
        RENAME_CONTIGS.out.contigs_renamed,
        "viral_sequence",
        BARRNAP.out.gff
     )
+    ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PLASMIDS(
        RENAME_CONTIGS.out.contigs_renamed,
        "plasmid",
        BARRNAP.out.gff
     )
+    ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 
     all_viral_sequences = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences
         .map{ meta, seqs -> seqs }

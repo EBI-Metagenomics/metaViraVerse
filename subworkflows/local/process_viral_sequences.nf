@@ -29,7 +29,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     //
     // Cluster sequences

@@ -10,18 +10,18 @@ process SEPARATE_SEQUENCES {
     input:
     tuple val(meta), path(fasta)
     val pattern
-    path(rna_gff)
+    tuple val(meta), path(rna_gff)
 
     output:
     tuple val(meta), path("${meta.id}_${pattern}.fa"), emit: chosen_sequences
-    path "versions.yml"           , emit: versions
+    path "versions.yml",                               emit: versions
 
     script:
     """
-    separate_sequences.py \
-       --input ${fasta} \
-       --output ${meta.id}_${pattern}.fa \
-       --pattern ${pattern} \
+    separate_sequences.py \\
+       --input ${fasta} \\
+       --output ${meta.id}_${pattern}.fa \\
+       --pattern ${pattern} \\
        --rna-gff ${rna_gff}
 
     cat <<-END_VERSIONS > versions.yml

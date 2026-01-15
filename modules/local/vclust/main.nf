@@ -17,9 +17,6 @@ process VCLUST {
       path "versions.yml",                                   emit: versions
 
     script:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-
     """
     # Deduplicate
     echo "Run deduplicate"

@@ -20,7 +20,7 @@ workflow PROCESS_PLASMIDS {
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     //
     // Cluster sequences
