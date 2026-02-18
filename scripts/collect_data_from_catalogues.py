@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
+"""
+Script searches for viral records in MGnify catalogue(s) GFF files and extracts
+corresponding nucleotide and protein sequences.
+
+Input: path(s) to catalogue(s) on NFS
+Output: per catalogue — filtered GFF, FNA (nucleotide), and FAA (protein) files
+        containing only viral_sequence, plasmid, and prophage records.
+
+Usage:
+    python collect_data_from_catalogues.py -p /path/to/catalogue1 /path/to/catalogue2 -o /output/dir
+"""
 import argparse
 import os
 import sys
+from typing import Optional, Union
+
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 
 VIRAL_TYPES = ['viral_sequence', 'plasmid', 'prophage']
 
-def parse_arguments():
-    """Parse command line arguments."""
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments.
+
+    Returns:
+        argparse.Namespace: Parsed arguments with catalogue_path (list[str]) and output_path (str).
+    """
     parser = argparse.ArgumentParser(
         description="Script searches for viral records in catalogue(s) GFFs and greps corresponding nucleotide and protein sequences.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -34,26 +53,52 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def detect_sequence_id_and_coords(annotation_field):
-    """
-    Parse the annotation field (GFF column 9) to extract protein ID and coordinates.
-    Possible cases:
-    ID=MGYG_X;...
-    ID=MGYG_X|plasmid-1:123149;...
-    ID=MGYG_X|viral_sequence-1:6186;...
-    ID=MGYG_X|prophage-13145:73981;...
+def detect_sequence_id_and_coords(annotation_field: str) -> tuple[str, Optional[str]]:
+    """Parse GFF column 9 (attributes) to extract the sequence ID and genomic coordinates.
+
+    The annotation field follows the format: ID=<seq_id>[|<type>-<start>:<end>];...
+    When the pipe-delimited region part is present, coordinates are extracted as "start:end".
+
+    Examples of annotation_field values:
+        ID=MGYG_X;...                              -> ("MGYG_X", None)
+        ID=MGYG_X|plasmid-1:123149;...             -> ("MGYG_X", "1:123149")
+        ID=MGYG_X|viral_sequence-1:6186;...        -> ("MGYG_X", "1:6186")
+        ID=MGYG_X|prophage-13145:73981;...         -> ("MGYG_X", "13145:73981")
+
+    Args:
+        annotation_field: The 9th column (attributes) from a GFF line.
+
+    Returns:
+        A tuple of (sequence_id, coords) where coords is "start:end" string
+        or None if coordinates could not be parsed.
     """
     protein = annotation_field.split(';')[0].replace('ID=', '')
     protein_id = protein.split('|')[0]
     try:
         coords = protein.split('|')[1].split('-')[1]
-    except:
-        print(f'Sequence coordinates were not detected in {annotation_field} with protein_id {protein_id}')
+    except (IndexError, ValueError):
+        # No pipe-delimited region info (e.g. plain "ID=MGYG_X;...")
         coords = None
     return protein_id, coords
 
 
-def parse_gff(gff):
+def parse_gff(gff: str) -> tuple[list[str], list[tuple[str, Optional[str], str]], list[str]]:
+    """Parse a GFF file and extract viral/plasmid/prophage records with their CDS lines.
+
+    Scans the GFF for lines where column 3 (type) matches one of VIRAL_TYPES.
+    For each matching record, collects the record line and all subsequent CDS lines
+    belonging to the same sequence ID.
+
+    Args:
+        gff: Path to the GFF file.
+
+    Returns:
+        A tuple of:
+            - gff_records: list of raw GFF lines (viral/plasmid/prophage + their CDS lines)
+            - sequence_ids: list of (sequence_id, coords, seq_type) tuples for nucleotide lookup.
+              coords is "start:end" or None; seq_type is one of VIRAL_TYPES.
+            - protein_ids: list of protein sequence IDs (str) extracted from CDS annotation fields.
+    """
     stats_counts = {vtype: 0 for vtype in VIRAL_TYPES}
     gff_records = []
     sequence_ids, protein_ids = [], []
@@ -100,21 +145,40 @@ def parse_gff(gff):
     return gff_records, sequence_ids, protein_ids
 
 
-def check_path_exists(path_str):
+def check_path_exists(path_str: str) -> None:
+    """Verify that a file or directory exists, exit with error if not.
+
+    Args:
+        path_str: Path to check.
+    """
     if not os.path.exists(path_str):
         print(f"Error: No catalogue path found {path_str}")
         sys.exit(1)
 
 
-def grep_sequences(sequence_ids, fasta_file):
-    """
-    Extract sequences from a FASTA file by ID.
+def grep_sequences(
+    sequence_ids: Union[list[str], list[tuple[str, Optional[str], str]]],
+    fasta_file: str
+) -> list[SeqRecord]:
+    """Extract sequences from a FASTA file, optionally slicing by coordinates.
 
-    sequence_ids can be:
-      - a list of plain string IDs (e.g. protein IDs for .faa lookup)
-      - a list of (id, coords, seq_type) tuples (for .fna lookup)
-        When coords are provided, the subsequence [start:end] is extracted (1-based, inclusive).
-        If coords is None, the full sequence is returned.
+    Supports two input modes:
+      1. Plain string IDs — returns full matching records (used for protein .faa lookup).
+      2. Tuples of (id, coords, seq_type) — when coords is "start:end", extracts the
+         subsequence at those 1-based inclusive positions. The output record description
+         is set to "{record_id} {seq_type}|{start}:{end}". When coords is None, returns
+         the full sequence. Used for nucleotide .fna lookup.
+
+    A single sequence ID may appear multiple times with different coordinates (e.g. multiple
+    viral regions on the same contig); all regions are extracted.
+
+    Args:
+        sequence_ids: Either a list of sequence ID strings, or a list of
+            (sequence_id, coords, seq_type) tuples.
+        fasta_file: Path to the FASTA file (.fna or .faa) to search.
+
+    Returns:
+        List of matching Bio.SeqRecord objects (full or sliced).
     """
     # Detect whether we have tuples or plain strings
     if sequence_ids and isinstance(sequence_ids[0], tuple):
@@ -148,13 +212,30 @@ def grep_sequences(sequence_ids, fasta_file):
     return chosen_records
 
 
-def process_catalogue(catalogue_path, output_path, catalogue_name):
-    """
-    Assuming structure on NFS: catalogue / species_rep[MGYG] / genome
-    Files of interest:
-    MGYG.gff - viral records and corresponding proteins
-    MGYG.fna - viral nucleotide sequence
-    MGYG.faa - viral proteins
+def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str) -> None:
+    """Process a single MGnify catalogue: extract viral/plasmid/prophage data.
+
+    Iterates over all species representatives (MGYG* directories) in the catalogue.
+    For each representative, parses its GFF to find viral records, then extracts
+    the corresponding nucleotide and protein sequences from FNA/FAA files.
+
+    Expected directory structure:
+        catalogue_path/
+            MGYG.../
+                genome/
+                    MGYG....gff
+                    MGYG....fna
+                    MGYG....faa
+
+    Output files created in output_path:
+        {catalogue_name}_viral.gff  — filtered GFF lines
+        {catalogue_name}_viral.fna  — nucleotide sequences (sliced to viral region coordinates)
+        {catalogue_name}_viral.faa  — protein sequences for CDS within viral regions
+
+    Args:
+        catalogue_path: Path to the catalogue directory containing MGYG* subdirectories.
+        output_path: Directory where output files will be written (created if needed).
+        catalogue_name: Base name used for output file naming.
     """
     check_path_exists(catalogue_path)
     reps = [item for item in os.listdir(catalogue_path) if item.startswith('MGYG')]
@@ -176,26 +257,28 @@ def process_catalogue(catalogue_path, output_path, catalogue_name):
             check_path_exists(faa)
             check_path_exists(fna)
 
-            # find viral records in GFFs
+            # Parse GFF to find viral/plasmid/prophage records and their CDS proteins
             gff_records, sequence_ids, protein_ids = parse_gff(gff)
-            # write filtered GFF
+
+            # Write filtered GFF lines
             for record in gff_records:
                 out_gff.write(record + '\n')
 
-            # find and write FNAs for chosen sequences
+            # Extract and write nucleotide sequences (sliced to viral region coordinates)
             chosen_records = grep_sequences(sequence_ids, fna)
             SeqIO.write(chosen_records, out_fna, "fasta")
 
-            # find and write proteins for chosen sequences
+            # Extract and write protein sequences for CDS within viral regions
             chosen_records = grep_sequences(protein_ids, faa)
             SeqIO.write(chosen_records, out_faa, "fasta")
 
 
-def main():
-    """Main entry point."""
+def main() -> None:
+    """Main entry point. Parses arguments and processes each catalogue path."""
     args = parse_arguments()
 
     for catalogue_path in args.catalogue_path:
+        # Derive catalogue name from last two path components (e.g. "genomes-all_v2.0")
         path_parts = catalogue_path.rstrip('/').split('/')
         catalogue_name = '_'.join(path_parts[-2:])
         print(f'Running search for {catalogue_name}')
