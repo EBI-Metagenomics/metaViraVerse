@@ -4,6 +4,8 @@ import os
 import sys
 from Bio import SeqIO
 
+VIRAL_TYPES = ['viral_sequence', 'plasmid', 'prophage']
+
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -32,15 +34,26 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def detect_protein_id(line):
-    metadata = line.split('\t')[8]
-    protein_id = metadata.split(';')[0].replace('ID=', '')
-    return protein_id
+def detect_protein_id(annotation_field):
+    """
+    Parse the annotation field (GFF column 9) to extract protein ID and coordinates.
+    Possible cases:
+    ID=MGYG_X|plasmid-1:123149;...
+    ID=MGYG_X|viral_sequence-1:6186;...
+    ID=MGYG_X|prophage-13145:73981;...
+    """
+    protein = annotation_field.split(';')[0].replace('ID=', '')
+    protein_id = protein.split('|')[0]
+    coords = protein.split('|')[1].split('-')[1]
+    if ':' not in coords:
+        print(f'Sequence coordinates were not detected in {annotation_field}')
+        coords = None
+    return protein_id, coords
 
 
 def parse_gff(gff):
+    stats_counts = {vtype: 0 for vtype in VIRAL_TYPES}
     gff_records = []
-    viral_count, plasmid_count, phage_count = 0, 0, 0
     sequence_ids, protein_ids = [], []
     with open(gff, 'r') as file_in:
         record_found = False
@@ -53,31 +66,29 @@ def parse_gff(gff):
             if len(parts) < 9:
                 continue
             cur_sequence_id = parts[0]
+            seq_type = parts[2]
             annotation_field = parts[8]
-            if 'viral' in annotation_field or 'plasmid' in annotation_field or 'phage' in annotation_field:
-                if 'viral' in annotation_field:
-                    viral_count += 1
-                elif 'plasmid' in annotation_field:
-                    plasmid_count += 1
-                elif 'phage' in annotation_field:
-                    phage_count += 1
+            if seq_type in VIRAL_TYPES:
+                stats_counts[seq_type] += 1
                 sequence_id = cur_sequence_id
-                sequence_ids.append(sequence_id)
-                protein_ids.append(detect_protein_id(line))
+                protein_id, coords = detect_protein_id(annotation_field)
+                protein_ids.append(protein_id)
+                sequence_ids.append((sequence_id, coords))
                 record_found = True
                 gff_records.append(line)
                 continue
             if record_found:
                 if cur_sequence_id == sequence_id:
-                    if 'CDS' in line:
+                    if seq_type == 'CDS':
                         gff_records.append(line)
                     else:
                         print(f'No CDS in {line}')
                 else:
                     record_found = False
-    print(f'Found total GFF {len(gff_records)} records')
-    print(f'{len(sequence_ids)} sequences with viral: {viral_count}, plasmid: {plasmid_count}, phage: {phage_count}')
-    print(f'protein sequences: {len(protein_ids)}')
+    print(f'Stats: found total GFF {len(gff_records)} records')
+    stats_str = ', '.join(f'{vtype}: {count}' for vtype, count in stats_counts.items())
+    print(f'Stats: {len(sequence_ids)} sequences with {stats_str}')
+    print(f'Stats: protein sequences: {len(protein_ids)}')
     return gff_records, sequence_ids, protein_ids
 
 
@@ -87,13 +98,45 @@ def check_path_exists(path_str):
         sys.exit(1)
 
 
-def grep_sequences(sequence_ids, fna):
-    id_set = set(sequence_ids)
+def grep_sequences(sequence_ids, fasta_file):
+    """
+    Extract sequences from a FASTA file by ID.
+
+    sequence_ids can be:
+      - a list of plain string IDs (e.g. protein IDs for .faa lookup)
+      - a list of (id, coords) tuples where coords is "start:end" (for .fna lookup)
+        When coords are provided, the subsequence [start:end] is extracted (1-based, inclusive).
+        If coords is None, the full sequence is returned.
+    """
+    # Detect whether we have tuples or plain strings
+    if sequence_ids and isinstance(sequence_ids[0], tuple):
+        # Build a dict: seq_id -> list of coord pairs (one ID can appear multiple times)
+        id_to_coords = {}
+        for seq_id, coords in sequence_ids:
+            id_to_coords.setdefault(seq_id, []).append(coords)
+        lookup_ids = set(id_to_coords)
+    else:
+        lookup_ids = set(sequence_ids)
+        id_to_coords = None
+
     chosen_records = []
-    with open(fna, 'r') as handle:
+    with open(fasta_file, 'r') as handle:
         for record in SeqIO.parse(handle, "fasta"):
-            if record.id in id_set:
+            if record.id not in lookup_ids:
+                continue
+            if id_to_coords is None:
                 chosen_records.append(record)
+            else:
+                for coords in id_to_coords[record.id]:
+                    if coords is None:
+                        chosen_records.append(record)
+                    else:
+                        start, end = coords.split(':')
+                        start, end = int(start) - 1, int(end)  # 1-based inclusive to 0-based slice
+                        sub_record = record[start:end]
+                        sub_record.id = f"{record.id}|{start + 1}:{end}"
+                        sub_record.description = record.description
+                        chosen_records.append(sub_record)
     return chosen_records
 
 
@@ -116,6 +159,7 @@ def process_catalogue(catalogue_path, output_path, catalogue_name):
     with open(final_gff, 'w') as out_gff, open(final_fna, 'w') as out_fna, open(final_faa, 'w') as out_faa:
 
         for rep in reps:
+            print(f'Processing rep: {rep}')
             gff = os.path.join(catalogue_path, rep, 'genome', f'{rep}.gff')
             fna = os.path.join(catalogue_path, rep, 'genome', f'{rep}.fna')
             faa = os.path.join(catalogue_path, rep, 'genome', f'{rep}.faa')
