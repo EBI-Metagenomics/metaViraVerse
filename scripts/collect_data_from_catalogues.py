@@ -73,7 +73,7 @@ def parse_gff(gff):
                 sequence_id = cur_sequence_id
                 protein_id, coords = detect_protein_id(annotation_field)
                 protein_ids.append(protein_id)
-                sequence_ids.append((sequence_id, coords))
+                sequence_ids.append((sequence_id, coords, seq_type))
                 record_found = True
                 gff_records.append(line)
                 continue
@@ -104,38 +104,38 @@ def grep_sequences(sequence_ids, fasta_file):
 
     sequence_ids can be:
       - a list of plain string IDs (e.g. protein IDs for .faa lookup)
-      - a list of (id, coords) tuples where coords is "start:end" (for .fna lookup)
+      - a list of (id, coords, seq_type) tuples (for .fna lookup)
         When coords are provided, the subsequence [start:end] is extracted (1-based, inclusive).
         If coords is None, the full sequence is returned.
     """
     # Detect whether we have tuples or plain strings
     if sequence_ids and isinstance(sequence_ids[0], tuple):
-        # Build a dict: seq_id -> list of coord pairs (one ID can appear multiple times)
-        id_to_coords = {}
-        for seq_id, coords in sequence_ids:
-            id_to_coords.setdefault(seq_id, []).append(coords)
-        lookup_ids = set(id_to_coords)
+        # Build a dict: seq_id -> list of (coords, seq_type) pairs (one ID can appear multiple times)
+        id_to_regions = {}
+        for seq_id, coords, seq_type in sequence_ids:
+            id_to_regions.setdefault(seq_id, []).append((coords, seq_type))
+        lookup_ids = set(id_to_regions)
     else:
         lookup_ids = set(sequence_ids)
-        id_to_coords = None
+        id_to_regions = None
 
     chosen_records = []
     with open(fasta_file, 'r') as handle:
         for record in SeqIO.parse(handle, "fasta"):
             if record.id not in lookup_ids:
                 continue
-            if id_to_coords is None:
+            if id_to_regions is None:
                 chosen_records.append(record)
             else:
-                for coords in id_to_coords[record.id]:
+                for coords, seq_type in id_to_regions[record.id]:
                     if coords is None:
                         chosen_records.append(record)
                     else:
                         start, end = coords.split(':')
                         start, end = int(start) - 1, int(end)  # 1-based inclusive to 0-based slice
                         sub_record = record[start:end]
-                        sub_record.id = f"{record.id}|{start + 1}:{end}"
-                        sub_record.description = record.description
+                        sub_record.id = record.id
+                        sub_record.description = f"{record.id} {seq_type}|{start + 1}:{end}"
                         chosen_records.append(sub_record)
     return chosen_records
 
