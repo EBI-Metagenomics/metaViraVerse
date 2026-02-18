@@ -11,18 +11,24 @@
 ## Usage
 
 > [!NOTE]
-> This pipeline is based on results provided by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify). In order to generate a catalogue you need to launch VIRify on each sequence file in advance.
+> This pipeline is based on results provided by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP). In order to generate a catalogue you need to launch VIRify on each sequence file in advance and then use VIRify GFF in MAP execution.
 
 First, prepare a samplesheet with your input data that looks as follows:
 
 `samplesheet.csv`:
 
 ```csv
-id,gff,fasta
-unique_identifier,assembly_virify.gff,assembly_virify.fasta
+id,gff,fna,faa,type,biome 
+unique_identifier,viral.gff,viral.fna,viral.faa,assembly/mag,biome
 ```
 
-Each row represents an sequence file that was annotated with [VIRify](https://github.com/EBI-Metagenomics/emg-viral-pipeline).
+`id` (mandatory) - unique identifier (It is recommended to use ERZ accession if your MAG or assembly was taken ENA) \
+`gff` (mandatory) - GFF file containing records in types: _viral_sequence_, _plasmid_, _prophage_. It might also contain CDS records for chosen regions \
+`fna` (mandatory) - FASTA file with nucleotide sequences corresponding to chosen regions from GFF \
+`faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
+`type` (mandatory) - string value _mag_ or _assembly_ describing initial sequence \
+`biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
+
 
 ## Run
 

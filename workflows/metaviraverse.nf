@@ -29,7 +29,7 @@ workflow METAVIRAVERSE {
     ch_multiqc_files = Channel.empty()
 
     //
-    // Find viral sequences and plasmids
+    // Separate viral sequences and plasmids
     //
     PREPROCESSING(
        ch_samplesheet

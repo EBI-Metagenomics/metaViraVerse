@@ -1,3 +1,4 @@
+include { CHOOSE_SEQUENCES                                } from '../../modules/local/choose_sequences'
 include { RENAME_CONTIGS                                 } from '../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
@@ -11,6 +12,20 @@ workflow PREPROCESSING {
 
     main:
     ch_versions = channel.empty()
+
+    //
+    // Deduplicate sequences across samples, prioritising assembly over MAG
+    //
+    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }.collect()
+    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }.collect()
+    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }.collect()
+
+    CHOOSE_SEQUENCES(
+        ch_fna_files,
+        ch_types,
+        ch_biomes
+    )
+    ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
     RENAME_CONTIGS(
        input
@@ -61,9 +76,11 @@ workflow PREPROCESSING {
        .map{ meta, mapfile -> mapfile }.collectFile(name: "combined.map").map{mapfile -> [[id: 'combined'], mapfile]}
 
     emit:
+    combined_fna   = CHOOSE_SEQUENCES.out.combined_fna  // channel: [ [id: 'combined'], combined.fna ]
+    metadata       = CHOOSE_SEQUENCES.out.metadata      // channel: [ [id: 'combined'], combined_meta.tsv ]
     viral_seqs     = all_viral_sequences
     plasmids       = all_plasmids
     all_gff        = all_gff
     all_mapping    = all_mapping
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    versions       = ch_versions                        // channel: [ path(versions.yml) ]
 }
