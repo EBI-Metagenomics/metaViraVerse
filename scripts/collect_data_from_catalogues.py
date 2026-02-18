@@ -34,19 +34,21 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def detect_protein_id(annotation_field):
+def detect_sequence_id_and_coords(annotation_field):
     """
     Parse the annotation field (GFF column 9) to extract protein ID and coordinates.
     Possible cases:
+    ID=MGYG_X;...
     ID=MGYG_X|plasmid-1:123149;...
     ID=MGYG_X|viral_sequence-1:6186;...
     ID=MGYG_X|prophage-13145:73981;...
     """
     protein = annotation_field.split(';')[0].replace('ID=', '')
     protein_id = protein.split('|')[0]
-    coords = protein.split('|')[1].split('-')[1]
-    if ':' not in coords:
-        print(f'Sequence coordinates were not detected in {annotation_field}')
+    try:
+        coords = protein.split('|')[1].split('-')[1]
+    except:
+        print(f'Sequence coordinates were not detected in {annotation_field} with protein_id {protein_id}')
         coords = None
     return protein_id, coords
 
@@ -69,10 +71,11 @@ def parse_gff(gff):
             seq_type = parts[2]
             annotation_field = parts[8]
             if seq_type in VIRAL_TYPES:
+                # example of annotation_field: ID=MGYG000516801_121|plasmid-1:24987;mobile_element_type=plasmid
+                # ID corresponds to nucleotide sequence region
                 stats_counts[seq_type] += 1
                 sequence_id = cur_sequence_id
-                protein_id, coords = detect_protein_id(annotation_field)
-                protein_ids.append(protein_id)
+                seq_id, coords = detect_sequence_id_and_coords(annotation_field)
                 sequence_ids.append((sequence_id, coords, seq_type))
                 record_found = True
                 gff_records.append(line)
@@ -80,6 +83,11 @@ def parse_gff(gff):
             if record_found:
                 if cur_sequence_id == sequence_id:
                     if seq_type == 'CDS':
+                        # example: MGYG000516801_371	Prodigal:002006	CDS	29	322	.	+	0
+                        # ID=MGYG000516801_07313;inference=ab initio prediction:Prodigal:002006;locus_tag=...
+                        # MGYG000516801_07313 is protein record
+                        protein_id, coords = detect_sequence_id_and_coords(annotation_field)
+                        protein_ids.append(protein_id)
                         gff_records.append(line)
                     else:
                         print(f'No CDS in {line}')
