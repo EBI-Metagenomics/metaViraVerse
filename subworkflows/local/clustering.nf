@@ -1,9 +1,12 @@
 include { ANICALC               } from '../../modules/local/checkv/anicalc'
 include { ANICLUST              } from '../../modules/local/checkv/aniclust'
-include { VCLUST                } from '../../modules/local/vclust'
 
 include { BLAST_MAKEBLASTDB     } from '../../modules/nf-core/blast/makeblastdb'
 include { BLAST_BLASTN          } from '../../modules/nf-core/blast/blastn'
+include { VCLUST_ALIGN          } from '../../modules/nf-core/vclust/align'
+include { VCLUST_CLUSTER        } from '../../modules/nf-core/vclust/cluster'
+include { VCLUST_PREFILTER      } from '../../modules/nf-core/vclust/prefilter'
+
 
 workflow CLUSTERING {
 
@@ -17,13 +20,30 @@ workflow CLUSTERING {
     ch_versions = channel.empty()
 
     if ( params.cluster_vclust ) {
-        VCLUST (
-            sequences,
-            params.vclust_ani_threshold,
-            params.vclust_coverage_threshold
+        VCLUST_PREFILTER (
+            sequences
         )
-        ch_versions = ch_versions.mix(VCLUST.out.versions)
-        clusters_tsv = VCLUST.out.clusters_tsv
+        ch_versions = ch_versions.mix(VCLUST_PREFILTER.out.versions)
+
+        VCLUST_ALIGN (
+            sequences,
+            VCLUST_PREFILTER.out.txt,
+            false
+        )
+        ch_versions = ch_versions.mix(VCLUST_ALIGN.out.versions)
+
+        VCLUST_CLUSTER (
+            VCLUST_ALIGN.out.tsv,
+            VCLUST_ALIGN.out.ids,
+            'ani',
+            false,
+            false,
+            params.vclust_ani_threshold
+        )
+        ch_versions = ch_versions.mix(VCLUST_CLUSTER.out.versions)
+
+        clusters_tsv = VCLUST_CLUSTER.out.clusters
+
     } else {
         // Creation of a blast+ database
         BLAST_MAKEBLASTDB(

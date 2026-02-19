@@ -64,6 +64,11 @@
                     "help_text": "vclust ANI threshold",
                     "default": 0.95
                 },
+                "vclust_iden_threshold": {
+                    "type": "number",
+                    "help_text": "vclust --min-iden argument (minimal identity threshold)",
+                    "default": 0.95
+                },
                 "vclust_coverage_threshold": {
                     "type": "number",
                     "help_text": "vclust coverage threshold",
