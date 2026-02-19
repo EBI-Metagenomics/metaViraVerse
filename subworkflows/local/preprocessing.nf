@@ -108,7 +108,7 @@ workflow PREPROCESSING {
     metadata       = CHOOSE_SEQUENCES.out.metadata      // channel: [ [id: 'combined'], combined_meta.tsv ]
     viral_seqs     = all_viral_sequences
     plasmids       = all_plasmids
-    all_gff        = Channel.empty()
+    all_gff        = input.map { meta, gff, fna, faa, type, biome -> gff }.collect()
     all_mapping    = Channel.empty()
     versions       = ch_versions                        // channel: [ path(versions.yml) ]
 }

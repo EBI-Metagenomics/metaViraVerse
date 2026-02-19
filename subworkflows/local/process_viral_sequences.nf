@@ -25,7 +25,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
     sequences
-    gff_and_mapping_all_seqs
+    gff
+    mapfile
 
     main:
 
@@ -54,7 +55,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     EXTRACT_REPS_STATS (
         CLUSTERING.out.clusters_tsv,
-        gff_and_mapping_all_seqs.map {id, gff, mapfile -> [gff, mapfile]}
+        gff,
+        mapfile
     )
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
