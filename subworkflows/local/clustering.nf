@@ -12,8 +12,10 @@ workflow CLUSTERING {
 
     take:
     sequences
-    min_ani
-    min_coverage
+    vclust_metric
+    vclust_tani_threshold
+    vclust_gani_threshold
+    vclust_ani_threshold
 
     main:
 
@@ -35,10 +37,10 @@ workflow CLUSTERING {
         VCLUST_CLUSTER (
             VCLUST_ALIGN.out.tsv,
             VCLUST_ALIGN.out.ids,
-            'ani',
-            false,
-            false,
-            params.vclust_ani_threshold
+            vclust_metric,
+            vclust_tani_threshold,
+            vclust_gani_threshold,
+            vclust_ani_threshold
         )
         ch_versions = ch_versions.mix(VCLUST_CLUSTER.out.versions)
 
@@ -71,9 +73,7 @@ workflow CLUSTERING {
         // simple greedy, centroid-based clustering
         // sometimes called leader clustering or single-pass centroid clustering
         ANICLUST(
-           ANICALC.out.calculated_ani_tsv.join(sequences),
-           min_ani,
-           min_coverage
+           ANICALC.out.calculated_ani_tsv.join(sequences)
         )
         ch_versions = ch_versions.mix(ANICLUST.out.versions)
 

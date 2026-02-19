@@ -42,8 +42,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     CLUSTERING(
        samples_seqs,
-       params.blastn_ani_threshold_viral,
-       params.blastn_cov_threshold_viral
+       'ani',
+       false,
+       false,
+       0.95
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 

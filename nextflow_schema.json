@@ -23,6 +23,11 @@
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "filter_rrna": {
+                    "type": "boolean",
+                    "help_text": "Filter out rRNA before processing",
+                    "default": false
+                },
                 "vitap_db": {
                     "type": "string",
                     "format": "directory-path",
@@ -58,41 +63,6 @@
                     "type": "boolean",
                     "help_text": "Use vclust as clustering tool",
                     "default": true
-                },
-                "vclust_ani_threshold": {
-                    "type": "number",
-                    "help_text": "vclust ANI threshold",
-                    "default": 0.95
-                },
-                "vclust_iden_threshold": {
-                    "type": "number",
-                    "help_text": "vclust --min-iden argument (minimal identity threshold)",
-                    "default": 0.95
-                },
-                "vclust_coverage_threshold": {
-                    "type": "number",
-                    "help_text": "vclust coverage threshold",
-                    "default": 0.85
-                },
-                "blastn_ani_threshold_viral": {
-                    "type": "number",
-                    "help_text": "blastn ANI threshold for viral sequences",
-                    "default": 95
-                },
-                "blastn_ani_threshold_plasmid": {
-                    "type": "number",
-                    "help_text": "blastn ANI threshold for plasmid sequences",
-                    "default": 80
-                },
-                "blastn_cov_threshold_viral": {
-                    "type": "number",
-                    "help_text": "blastn coverage threshold for viral sequences",
-                    "default": 85
-                },
-                "blastn_cov_threshold_plasmid": {
-                    "type": "number",
-                    "help_text": "blastn coverage threshold for plasmid sequences",
-                    "default": 85
                 }
             }
         },

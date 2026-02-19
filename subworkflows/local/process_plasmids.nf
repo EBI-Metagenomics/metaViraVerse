@@ -33,8 +33,10 @@ workflow PROCESS_PLASMIDS {
 
     CLUSTERING(
        samples_seqs,
-       params.blastn_ani_threshold_plasmid,
-       params.blastn_cov_threshold_plasmid
+       'gani',
+       false,
+       0.35,
+       false
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 

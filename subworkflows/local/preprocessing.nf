@@ -17,6 +17,7 @@ workflow PREPROCESSING {
     ch_versions = channel.empty()
 
     //
+    // --- Aggregate catalogue MAGs and ASA results
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
     ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }.collect()
@@ -30,31 +31,47 @@ workflow PREPROCESSING {
     )
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
+    ch_fna_sequences = CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) }
+
     // TODO: implement that step for third party rename and probably ASA results
     //RENAME_CONTIGS(
     //   input
     //)
 
-    //BARRNAP(
-    //  RENAME_CONTIGS.out.contigs_renamed.map {id, fasta -> [id, fasta, "bac"]}
-    //)
-    //ch_versions = ch_versions.mix(BARRNAP.out.versions)
+    //
+    // ----- Detect rRNA sequences ------
+    // TODO: implement that step for third party rename and probably ASA results
+    if ( params.filter_rrna ) {
+        BARRNAP(
+          ch_fna_sequences.map {id, fasta -> [id, fasta, "bac"]}
+        )
+        ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
+        rna_gff = BARRNAP.out.gff
+    } else {
+        rna_gff = tuple([id:'combined'], [])
+    }
 
+    //
+    // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------
+    //
     SEPARATE_VIRAL_SEQUENCES(
        CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "viral_sequence"
+       "viral_sequence",
+       rna_gff
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
        CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "prophage"
+       "prophage",
+       rna_gff
     )
 
     SEPARATE_PLASMIDS(
        CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "plasmid"
+       "plasmid",
+       rna_gff
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 
@@ -75,6 +92,7 @@ workflow PREPROCESSING {
        .map{ meta, seqs -> seqs }
        .collectFile(name: "plasmids.fasta")
        .map{seqs -> [[id: 'plasmids'], seqs]}
+
     // publish
     all_plasmids.subscribe{ meta, seqs ->
             seqs.copyTo("${params.outdir}/${meta.id}/plasmids.fasta")

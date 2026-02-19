@@ -31,7 +31,7 @@ workflow METAVIRAVERSE {
     //
     // Separate viral sequences and plasmids
     //
-    PREPROCESSING(
+    PREPROCESSING (
        ch_samplesheet
     )
     ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
@@ -39,7 +39,7 @@ workflow METAVIRAVERSE {
     //
     // Process viral sequences
     //
-    PROCESS_VIRAL_SEQUENCES(
+    PROCESS_VIRAL_SEQUENCES (
        PREPROCESSING.out.viral_seqs,
        PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
     )
@@ -48,7 +48,7 @@ workflow METAVIRAVERSE {
     //
     // Process plasmids
     //
-    PROCESS_PLASMIDS(
+    PROCESS_PLASMIDS (
        PREPROCESSING.out.plasmids
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)

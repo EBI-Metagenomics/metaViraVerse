@@ -17,12 +17,13 @@ process SEPARATE_SEQUENCES {
     path "versions.yml",                               emit: versions
 
     script:
+    def rna_command = rna_gff ? "--rna-gff ${rna_gff} " : ''
     """
     separate_sequences.py \\
        --input ${fasta} \\
        --output ${meta.id}_${pattern}.fa \\
        --pattern ${pattern} \\
-       --rna-gff ${rna_gff}
+       ${rna_command}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
