@@ -10,6 +10,9 @@
                         "MAG1_plasmid.fa:md5,066d810a0ce152d9148ed42800271428"
                     ]
                 ],
+                "1": [
+                    "versions.yml:md5,bef8942183454908add126d487bf1b47"
+                ],
                 "chosen_sequences": [
                     [
                         {
@@ -17,14 +20,17 @@
                         },
                         "MAG1_plasmid.fa:md5,066d810a0ce152d9148ed42800271428"
                     ]
+                ],
+                "versions": [
+                    "versions.yml:md5,bef8942183454908add126d487bf1b47"
                 ]
             }
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.07.0"
+            "nextflow": "25.10.0"
         },
-        "timestamp": "2025-12-04T23:04:36.646283"
+        "timestamp": "2026-01-15T11:16:06.559147"
     },
     "Extract viral_sequences from FASTA": {
         "content": [
@@ -37,6 +43,9 @@
                         "MAG1_viral_sequence.fa:md5,914dea7ce29c409ee16d0bcfa6a2ffb9"
                     ]
                 ],
+                "1": [
+                    "versions.yml:md5,bef8942183454908add126d487bf1b47"
+                ],
                 "chosen_sequences": [
                     [
                         {
@@ -44,13 +53,16 @@
                         },
                         "MAG1_viral_sequence.fa:md5,914dea7ce29c409ee16d0bcfa6a2ffb9"
                     ]
+                ],
+                "versions": [
+                    "versions.yml:md5,bef8942183454908add126d487bf1b47"
                 ]
             }
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.07.0"
+            "nextflow": "25.10.0"
         },
-        "timestamp": "2025-12-04T23:04:24.310871"
+        "timestamp": "2026-01-15T11:16:00.337809"
     }
 }

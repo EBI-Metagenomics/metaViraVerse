@@ -25,13 +25,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
     sequences
-    ani_limit
-    coverage_limit
     gff_and_mapping_all_seqs
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     //
     // Cluster sequences
@@ -44,8 +42,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     CLUSTERING(
        samples_seqs,
-       ani_limit,
-       coverage_limit
+       params.blastn_ani_threshold_viral,
+       params.blastn_cov_threshold_viral
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
@@ -64,6 +62,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         sequences,
         CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
     )
+    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
     //
     // Taxonomy visualisation
@@ -89,7 +88,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     CRISPRCAS_FINDER(
         GUNZIP.out.gunzip
     )
-    //ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+    ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
 
     if (params.run_vitap_taxonomy) {
         //

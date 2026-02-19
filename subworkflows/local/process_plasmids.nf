@@ -17,12 +17,10 @@ workflow PROCESS_PLASMIDS {
 
     take:
     sequences
-    ani_limit
-    coverage_limit
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     //
     // Cluster sequences
@@ -35,8 +33,8 @@ workflow PROCESS_PLASMIDS {
 
     CLUSTERING(
        samples_seqs,
-       ani_limit,
-       coverage_limit
+       params.blastn_ani_threshold_plasmid,
+       params.blastn_cov_threshold_plasmid
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
@@ -46,6 +44,7 @@ workflow PROCESS_PLASMIDS {
         sequences,
         CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
     )
+    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
     emit:
 

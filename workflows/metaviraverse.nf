@@ -41,8 +41,6 @@ workflow METAVIRAVERSE {
     //
     PROCESS_VIRAL_SEQUENCES(
        PREPROCESSING.out.viral_seqs,
-       95,
-       85,
        PREPROCESSING.out.all_gff.join( PREPROCESSING.out.all_mapping )
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
@@ -51,9 +49,7 @@ workflow METAVIRAVERSE {
     // Process plasmids
     //
     PROCESS_PLASMIDS(
-       PREPROCESSING.out.plasmids,
-       80,
-       85
+       PREPROCESSING.out.plasmids
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
