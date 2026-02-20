@@ -133,12 +133,15 @@ def main() -> None:
 
         for h, entry in seen.items():
             record = entry['record']
+            new_name = record.description.replace(' ', '_')
+            record.id = new_name
+            record.description = new_name
             SeqIO.write([record], out_fna, "fasta")
 
             biomes_str = ','.join(sorted(entry['biomes']))
             out_tsv.write(
                 f"{entry['seq_id']}\t"
-                f"{entry['description']}\t"
+                f"{entry['description'].replace(' ', '_')}\t"
                 f"{entry['type']}\t"
                 f"{biomes_str}\t"
                 f"{h}\t"
