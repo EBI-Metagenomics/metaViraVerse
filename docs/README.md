@@ -6,8 +6,10 @@
 ## Building input dataset
 
 #### Collect data from existing catalogues
+
 You need to choose what catalogues you want to use and find their locations on `/nfs/public/`. \
 Run fetching script [`collect_data_from_catalogues.py`](../scripts/collect_data_from_catalogues.py) (make sure you are in correct queue to access NFS)
+
 ```commandline
 usage: collect_data_from_catalogues.py [-h] -p CATALOGUE_PATH [CATALOGUE_PATH ...] -o OUTPUT_PATH
 
@@ -23,7 +25,9 @@ options:
         Script Takes as input path(s) to catalogue(s) and creates 3 files with all found viral_sequences and plasmids:
         output: catalogue_name_version.fna and catalogue_name_version.faa
 ```
+
 example,
+
 ```
 python3 collect_data_from_catalogues.py \
   -p nfs/catalogue_1/v1.0 nfs/catalogue_2/v1.0 \

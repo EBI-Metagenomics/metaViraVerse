@@ -18,7 +18,7 @@ First, prepare a samplesheet with your input data that looks as follows:
 `samplesheet.csv`:
 
 ```csv
-id,gff,fna,faa,type,biome 
+id,gff,fna,faa,type,biome
 unique_identifier,viral.gff,viral.fna,viral.faa,assembly/mag,biome
 ```
 
@@ -28,7 +28,6 @@ unique_identifier,viral.gff,viral.fna,viral.faa,assembly/mag,biome
 `faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
 `type` (mandatory) - string value _mag_ or _assembly_ describing initial sequence \
 `biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
-
 
 ## Run
 

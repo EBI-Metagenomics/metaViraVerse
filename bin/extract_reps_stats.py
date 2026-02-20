@@ -225,7 +225,7 @@ def generate_krona_file(results, viral_names, krona_output_file, standard_levels
     print(f"   Total unique taxonomy paths: {len(taxonomy_counts)}")
 
 
-def extract_viral_data(viral_list_file, gff_file, output_file, mapfile):
+def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, mapfile):
     """
     Extract taxonomy, checkv_viral_genes, and checkv_quality for viral sequences found in GFF.
 
@@ -284,6 +284,12 @@ def extract_viral_data(viral_list_file, gff_file, output_file, mapfile):
 
     # Calculate mean genes per cluster
     cluster_mean_genes = calculate_mean_genes(cluster_members, all_results)
+
+    # Write a list of representatives
+    if output_reps:
+        with open(output_reps, "w") as out:
+            for rep_id in cluster_reps:
+                out.write(f'{rep_id}\n')
 
     # Write output for cluster representatives only
     with open(output_file, "w") as out:
@@ -354,6 +360,11 @@ Input format for --viral-list:
         help="Output TSV file with stats including mean cluster genes."
     )
     parser.add_argument(
+        "--output-reps-list",
+        required=False,
+        help="Output file with representatives line separated"
+    )
+    parser.add_argument(
         "--krona",
         required=False,
         help="Optional output file for Krona plot format (count\\ttaxonomy_ranks tab-separated)"
@@ -377,6 +388,7 @@ def main():
         args.viral_list,
         args.gff,
         args.output,
+        args.output_reps_list,
         args.mapfile
     )
 

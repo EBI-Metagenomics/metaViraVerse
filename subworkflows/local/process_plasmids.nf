@@ -40,11 +40,21 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
-
+    if ( params.cluster_vclust ) {
+        // Take second column unique values
+        CLUSTERING.out.clusters_tsv
+            .splitCsv(sep: '\t', skip: 0)  // Adjust separator and skip header
+            .map { row -> row[1] }          // Extract second column (0-indexed)
+            .unique()                        // Get unique values
+            .collectFile(name: 'plasmid_reps_vclust.txt', newLine: true)  // Write to file
+            .set { reps_ch }
+    } else {
+        reps_ch = CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }  // for blastn all reps are in first column
+    }
     // Extract sequences for cluster reps
     SEQTK_SUBSEQ (
         sequences,
-        CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
+        reps_ch
     )
     ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 

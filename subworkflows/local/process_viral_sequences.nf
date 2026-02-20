@@ -64,7 +64,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // Extract sequences for cluster reps
     SEQTK_SUBSEQ (
         sequences,
-        CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }
+        EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
