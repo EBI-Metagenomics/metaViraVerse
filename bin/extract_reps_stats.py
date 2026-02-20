@@ -31,7 +31,9 @@ def read_cluster_structure(viral_list_file, mapping=None):
     """
     Read cluster structure from viral list file.
 
-    Format: rep_id\tmember_id (one member per line, or rep only if single member)
+    Format:
+    for blast result: rep_id\tmembers
+    for vclust: member_id\trep_id
 
     Args:
         viral_list_file: File with cluster representatives and members
@@ -46,38 +48,57 @@ def read_cluster_structure(viral_list_file, mapping=None):
     cluster_reps = []
     cluster_members = {}
     rep_original_names = {}
-    seen_reps = set()
-
+    input_format = None
     with open(viral_list_file, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            if 'object' in line and 'cluster' in line:
-                continue
 
-            parts = line.split('\t')
-            original_rep_id = parts[0].strip()
-            rep_id = original_rep_id
+            # Detect format from the first line only
+            if input_format is None:
+                if 'object' in line and 'cluster' in line:
+                    input_format = 'vclust'
+                    continue  # skip the header line
+                else:
+                    input_format = 'blastn'
 
-            # Apply mapping if provided
-            if mapping and rep_id in mapping:
-                rep_id = mapping[rep_id]
+            if input_format == 'vclust':
+                parts = line.split('\t')
+                original_rep_id = parts[1].strip()
+                rep_id = original_rep_id
+                original_member_id = parts[0].strip()
+                member_id = original_member_id
 
-            # Track unique reps
-            if rep_id not in seen_reps:
-                cluster_reps.append(rep_id)
-                cluster_members[rep_id] = []
-                rep_original_names[rep_id] = original_rep_id
-                seen_reps.add(rep_id)
-
-            # Check if there's a second column with member IDs
-            if len(parts) > 1 and parts[1].strip():
-                member_id = parts[1].strip()
                 # Apply mapping if provided
+                if mapping and rep_id in mapping:
+                    rep_id = mapping[rep_id]
                 if mapping and member_id in mapping:
                     member_id = mapping[member_id]
-                cluster_members[rep_id].append(member_id)
+
+                # Track unique reps
+                if rep_id not in cluster_members:
+                    cluster_reps.append(rep_id)
+                    cluster_members[rep_id] = [member_id]
+                    rep_original_names[rep_id] = original_rep_id
+                else:
+                    cluster_members[rep_id].append(member_id)
+            else:
+                parts = line.split('\t')
+                original_rep_id = parts[0].strip()
+                rep_id = original_rep_id
+                members = parts[1].split(' ')
+                if mapping and rep_id in mapping:
+                    rep_id = mapping[rep_id]
+
+                if rep_id not in cluster_members:
+                    cluster_reps.append(rep_id)
+                    cluster_members[rep_id] = []
+                    rep_original_names[rep_id] = original_rep_id
+                    for member_id in members:
+                        if mapping and member_id in mapping:
+                            member_id = mapping[member_id]
+                        cluster_members[rep_id].append(member_id)
 
     return cluster_reps, cluster_members, rep_original_names
 
@@ -240,9 +261,10 @@ def extract_viral_data(viral_list_file, gff_file, output_file, mapfile):
         for line in gff:
             if line.startswith("#") or not line.strip():
                 continue
-
             cols = line.strip().split("\t")
             if len(cols) < 9:
+                continue
+            if cols[2] == 'CDS':
                 continue
 
             attr_str = cols[8]
