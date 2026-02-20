@@ -133,7 +133,7 @@ def main() -> None:
 
         for h, entry in seen.items():
             record = entry['record']
-            new_name = record.description.replace(' ', '_')
+            new_name = record.description.replace('|', '-').replace(' ', '|')
             record.id = new_name
             record.description = new_name
             SeqIO.write([record], out_fna, "fasta")
@@ -141,7 +141,7 @@ def main() -> None:
             biomes_str = ','.join(sorted(entry['biomes']))
             out_tsv.write(
                 f"{entry['seq_id']}\t"
-                f"{entry['description'].replace(' ', '_')}\t"
+                f"{entry['description'].replace('|', '-').replace(' ', '|')}\t"
                 f"{entry['type']}\t"
                 f"{biomes_str}\t"
                 f"{h}\t"
