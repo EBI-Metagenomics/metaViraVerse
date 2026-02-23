@@ -66,6 +66,59 @@
                 }
             }
         },
+        "amr_options": {
+            "title": "Antimicrobial resistence dbs and options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define AMR databases and options",
+            "properties": {
+                "amrfinderplus_db": {
+                    "type": "string",
+                    "help_text": "Path to amrfinderplus database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_db": {
+                    "type": "string",
+                    "help_text": "Path to deeparg database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_db_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_model": {
+                    "type": "string",
+                    "help_text": "Model of deeparg",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_tool_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg tool",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "rgi_db": {
+                    "type": "string",
+                    "help_text": "Path of RGI db",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "skip_amrfinderplus": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip amrfinderplus ",
+                    "default": true
+                },
+                "skip_deeparg": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip deeparg ",
+                    "default": true
+                },
+                "skip_rgi": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip RGI ",
+                    "default": false
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -192,6 +245,9 @@
         },
         {
             "$ref": "#/$defs/clustering_options"
+        },
+        {
+            "$ref": "#/$defs/amr_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

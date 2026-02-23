@@ -17,6 +17,7 @@ process EXTRACT_REPS_STATS {
     output:
     tuple val(meta), path("${meta.id}_reps_stats.tsv"), emit: reps_stats_tsv
     tuple val(meta), path("${meta.id}_reps.tsv"),       emit: reps_list
+    tuple val(meta), path("${meta.id}_reps.gff"),       emit: reps_gff
     tuple val(meta), path("${meta.id}_krona.tsv"),      emit: reps_krona_tsv
     path "versions.yml",                                emit: versions
 
@@ -28,6 +29,7 @@ process EXTRACT_REPS_STATS {
        --gff ${full_gff} \\
        --output ${meta.id}_reps_stats.tsv \\
        --output-reps-list ${meta.id}_reps.tsv \\
+       --output-reps-gff ${meta.id}_reps.gff \\
        --krona ${meta.id}_krona.tsv \\
        ${mapfile_arg}
 

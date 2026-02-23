@@ -13,6 +13,7 @@ include { SANKEY_PLOT                      } from '../../modules/local/sankey_pl
 include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'
 include { VITAP                            } from '../../modules/local/vitap'
 
+include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 include { CLUSTERING                       } from './clustering'
 
 /*
@@ -33,7 +34,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = channel.empty()
 
     //
-    // Cluster sequences
+    // -------- Cluster sequences
     //
     sequences
         .filter { meta, seqs ->
@@ -51,7 +52,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
     //
-    // Statistics and taxonomy from GFF for viral_sequences reps
+    // -------- Statistics and taxonomy from GFF for viral_sequences reps
     //
     EXTRACT_REPS_STATS (
         CLUSTERING.out.clusters_tsv,
@@ -69,7 +70,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
 
     //
-    // Taxonomy visualisation
+    // -------- Taxonomy visualisation
     //
     KRONA_KTIMPORTTEXT (
         EXTRACT_REPS_STATS.out.reps_krona_tsv
@@ -82,7 +83,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
 
     //
-    // Host assignment
+    // -------- Host assignment
     //
     GUNZIP(
         SEQTK_SUBSEQ.out.sequences
@@ -93,6 +94,14 @@ workflow PROCESS_VIRAL_SEQUENCES {
         GUNZIP.out.gunzip
     )
     ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+
+    //
+    // -------- Antimicrobial resistence detection
+    //
+    AMR_ANNOTATION (
+        GUNZIP.out.gunzip
+          .join( EXTRACT_REPS_STATS.out.reps_gff )
+    )
 
     if (params.run_vitap_taxonomy) {
         //

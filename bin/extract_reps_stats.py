@@ -225,7 +225,7 @@ def generate_krona_file(results, viral_names, krona_output_file, standard_levels
     print(f"   Total unique taxonomy paths: {len(taxonomy_counts)}")
 
 
-def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, mapfile):
+def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, mapfile):
     """
     Extract taxonomy, checkv_viral_genes, and checkv_quality for viral sequences found in GFF.
 
@@ -245,6 +245,9 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, mapf
     # Read cluster structure
     cluster_reps, cluster_members, rep_original_names = read_cluster_structure(viral_list_file, mapping)
 
+    # example, MGYG000517142_2|prophage-311953:328572 into MGYG000517142_2 to match with initial GFF
+    reps_names_without_viral_region = set([i.split('|')[0] for i in cluster_reps])
+
     # Get all unique sequence IDs (reps + all members)
     all_seq_ids = set(cluster_reps)
     for members in cluster_members.values():
@@ -257,13 +260,19 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, mapf
     all_results = {}
     found = set()
 
-    with open(gff_file, "r") as gff:
+    with open(gff_file, "r") as gff, open(output_gff, 'w') as reps_gff:
+        reps_gff.write('##gff-version 3\n')
+
         for line in gff:
             if line.startswith("#") or not line.strip():
                 continue
             cols = line.strip().split("\t")
             if len(cols) < 9:
                 continue
+
+            if cols[0] in reps_names_without_viral_region:
+                reps_gff.write(line)
+
             if cols[2] == 'CDS':
                 continue
 
@@ -365,6 +374,11 @@ Input format for --viral-list:
         help="Output file with representatives line separated"
     )
     parser.add_argument(
+        "--output-reps-gff",
+        required=True,
+        help="Output file with GFF records for cluster representatives"
+    )
+    parser.add_argument(
         "--krona",
         required=False,
         help="Optional output file for Krona plot format (count\\ttaxonomy_ranks tab-separated)"
@@ -389,6 +403,7 @@ def main():
         args.gff,
         args.output,
         args.output_reps_list,
+        args.output_reps_gff,
         args.mapfile
     )
 
