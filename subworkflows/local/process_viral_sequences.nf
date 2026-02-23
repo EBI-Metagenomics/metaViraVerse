@@ -132,7 +132,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         // Taxonomy VITAP testing...
         //
         VITAP (
-            SEQTK_SUBSEQ.out.sequences,
+            GREP_FNA.out.sequences,
             params.vitap_db
         )
         ch_versions = ch_versions.mix(VITAP.out.versions)
@@ -145,7 +145,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     emit:
 
-    reps_seqs      = SEQTK_SUBSEQ.out.sequences  // compressed
+    reps_seqs      = GREP_FNA.out.sequences  // compressed
+    reps_proteins  = GREP_FAA.out.sequences  // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
