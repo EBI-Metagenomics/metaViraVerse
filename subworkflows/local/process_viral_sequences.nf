@@ -101,6 +101,15 @@ workflow PROCESS_VIRAL_SEQUENCES {
     AMR_ANNOTATION (
         GUNZIP.out.gunzip
           .join( EXTRACT_REPS_STATS.out.reps_gff )
+        params.amrfinderplus_db
+        params.deeparg_db
+        params.deeparg_db_version
+        params.deeparg_model
+        params.deeparg_tool_version
+        params.rgi_db
+        params.skip_amrfinderplus
+        params.skip_deeparg
+        params.skip_rgi
     )
 
     if (params.run_vitap_taxonomy) {
