@@ -4,8 +4,10 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/ktimporttext'
-include { SEQTK_SUBSEQ                     } from '../../modules/nf-core/seqtk/subseq'
-include { GUNZIP                           } from '../../modules/nf-core/gunzip'
+include { SEQTK_SUBSEQ as GREP_FNA         } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/subseq'
+include { GUNZIP as UNCOMPRESSED_REPS_FNA  } from '../../modules/nf-core/gunzip'
+include { GUNZIP as UNCOMPRESSED_REPS_FAA  } from '../../modules/nf-core/gunzip'
 
 include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
@@ -27,6 +29,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     take:
     sequences
     gff
+    faa
     mapfile
 
     main:
@@ -62,12 +65,30 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
 
-    // Extract sequences for cluster reps
-    SEQTK_SUBSEQ (
+    // -------- Extract sequences for cluster reps
+    GREP_FNA (
         sequences,
         EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
     )
-    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
+    ch_versions = ch_versions.mix(GREP_FNA.out.versions)
+
+    UNCOMPRESSED_REPS_FNA(
+        GREP_FNA.out.sequences
+    )
+    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FNA.out.versions)
+
+
+    // -------- Extract sequences for proteins cluster reps
+    GREP_FAA (
+        faa.map{faa -> [[id: 'viral_sequences'], faa]},
+        EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
+    )
+    ch_versions = ch_versions.mix(GREP_FAA.out.versions)
+
+    UNCOMPRESSED_REPS_FAA(
+        GREP_FAA.out.sequences
+    )
+    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
 
     //
     // -------- Taxonomy visualisation
@@ -85,13 +106,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     // -------- Host assignment
     //
-    GUNZIP(
-        SEQTK_SUBSEQ.out.sequences
-    )
-    ch_versions = ch_versions.mix(GUNZIP.out.versions)
-
     CRISPRCAS_FINDER(
-        GUNZIP.out.gunzip
+        UNCOMPRESSED_REPS_FNA.out.gunzip
     )
     ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
 
@@ -99,7 +115,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // -------- Antimicrobial resistence detection
     //
     AMR_ANNOTATION (
-        GUNZIP.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff),
+        UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff),
         params.amrfinderplus_db,
         params.deeparg_db,
         params.deeparg_db_version,

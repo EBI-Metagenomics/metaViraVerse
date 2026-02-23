@@ -225,7 +225,7 @@ def generate_krona_file(results, viral_names, krona_output_file, standard_levels
     print(f"   Total unique taxonomy paths: {len(taxonomy_counts)}")
 
 
-def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, mapfile):
+def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, output_proteins, mapfile):
     """
     Extract taxonomy, checkv_viral_genes, and checkv_quality for viral sequences found in GFF.
 
@@ -259,6 +259,7 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
     # Extract data from GFF for all sequences
     all_results = {}
     found = set()
+    proteins = set()
 
     with open(gff_file, "r") as gff, open(output_gff, 'w') as reps_gff:
         reps_gff.write('##gff-version 3\n')
@@ -273,11 +274,16 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
             if cols[0] in reps_names_without_viral_region:
                 reps_gff.write(line)
 
-            if cols[2] == 'CDS':
-                continue
-
             attr_str = cols[8]
             attrs = parse_attributes(attr_str)
+
+            if cols[2] == 'CDS':
+                if cols[0] in reps_names_without_viral_region:
+                    prot_id = attrs.get("id")
+                    if prot_id:
+                        proteins.add(prot_id)
+                continue
+
             seq_id = attrs.get("id", "NA")
 
             if seq_id in all_seq_ids:
@@ -299,6 +305,12 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
         with open(output_reps, "w") as out:
             for rep_id in cluster_reps:
                 out.write(f'{rep_id}\n')
+
+    # Write a list of proteins for representatives
+    if output_proteins:
+        with open(output_proteins, "w") as out:
+            for prot_id in proteins:
+                out.write(f'{prot_id}\n')
 
     # Write output for cluster representatives only
     with open(output_file, "w") as out:
@@ -379,6 +391,11 @@ Input format for --viral-list:
         help="Output file with GFF records for cluster representatives"
     )
     parser.add_argument(
+        "--output-reps-proteins",
+        required=True,
+        help="Output FASTA file with proteins for cluster representatives"
+    )
+    parser.add_argument(
         "--krona",
         required=False,
         help="Optional output file for Krona plot format (count\\ttaxonomy_ranks tab-separated)"
@@ -404,6 +421,7 @@ def main():
         args.output,
         args.output_reps_list,
         args.output_reps_gff,
+        args.output_reps_proteins,
         args.mapfile
     )
 
