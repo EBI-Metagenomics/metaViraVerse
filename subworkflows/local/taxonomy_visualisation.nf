@@ -42,11 +42,11 @@ workflow TAXONOMY_VISUALISATION {
     fna_reps_seqs.view()
     MAFFT_ALIGN(
         fna_reps_seqs,
-        false,
-        false,
-        false,
-        false,
-        false,
+        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
+        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
+        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
+        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
+        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
         true
     )
 
