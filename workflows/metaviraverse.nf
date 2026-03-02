@@ -42,6 +42,7 @@ workflow METAVIRAVERSE {
     PROCESS_VIRAL_SEQUENCES (
        PREPROCESSING.out.viral_seqs,
        PREPROCESSING.out.all_gff,
+       PREPROCESSING.out.all_faa,
        []
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)

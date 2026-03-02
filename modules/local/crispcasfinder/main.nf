@@ -20,7 +20,11 @@ process CRISPRCAS_FINDER {
         rm -rf "crisprcasfinder_results"
     fi
 
-    CRISPRCasFinder.pl -i ${fasta} \
+    # Replace | with _
+    sed 's/|/_/g' ${fasta} > ${meta.id}_renamed.fasta
+
+    # Run CRISPRCasFinder
+    CRISPRCasFinder.pl -i ${meta.id}_renamed.fasta \
     -so /opt/CRISPRCasFinder/sel392v2.so \
     -def G \
     -drpt /opt/CRISPRCasFinder/supplementary_files/repeatDirection.tsv \
@@ -34,7 +38,7 @@ process CRISPRCAS_FINDER {
     --tsv-output crisprcasfinder_results/${meta.id}_crisprcasfinder.tsv \
     --gff-output crisprcasfinder_results/${meta.id}_crisprcasfinder.gff \
     --gff-output-hq crisprcasfinder_results/${meta.id}_crisprcasfinder_hq.gff \
-    --fasta $fasta
+    --fasta ${meta.id}_renamed.fasta
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
