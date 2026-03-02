@@ -114,7 +114,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
 
     TAXONOMY_VISUALISATION(
-       GREP_FNA.out.sequences,
+       UNCOMPRESSED_REPS_FNA.out.gunzip,
        EXTRACT_REPS_STATS.out.reps_krona_tsv
     )
 
