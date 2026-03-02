@@ -41,11 +41,11 @@ workflow TAXONOMY_VISUALISATION {
     //
     MAFFT_ALIGN(
         fna_reps_seqs,
-        [],
-        [],
-        [],
-        [],
-        [],
+        channel.empty(),
+        channel.empty(),
+        channel.empty(),
+        channel.empty(),
+        channel.empty(),
         true
     )
 
