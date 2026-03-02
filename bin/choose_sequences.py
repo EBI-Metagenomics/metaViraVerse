@@ -11,15 +11,13 @@ Output: A deduplicated FNA file and a TSV metadata table.
 Usage:
     choose_sequences.py \
         --fna sample1.fna sample2.fna \
-        --type assembly mag \
+        --type metagenome / genome \
         --biome marine soil \
         --output-fna combined.fna \
         --output-tsv metadata.tsv
 """
 import argparse
 import hashlib
-import sys
-from typing import Optional
 
 from Bio import SeqIO
 
@@ -44,7 +42,7 @@ def parse_arguments() -> argparse.Namespace:
         "--type",
         required=True,
         nargs='+',
-        help="Source type for each FNA file: 'assembly' or 'mag'"
+        help="Source type for each FNA file: 'metagenome' or 'genome'"
     )
     parser.add_argument(
         "--biome",
@@ -72,8 +70,8 @@ def parse_arguments() -> argparse.Namespace:
 
 # Priority: lower number = higher priority
 TYPE_PRIORITY = {
-    'assembly': 0,
-    'mag': 1,
+    'metagenome': 0,
+    'genome': 1,
 }
 
 

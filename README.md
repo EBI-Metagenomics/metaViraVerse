@@ -19,14 +19,14 @@ First, prepare a samplesheet with your input data that looks as follows:
 
 ```csv
 id,gff,fna,faa,type,biome
-unique_identifier,viral.gff,viral.fna,viral.faa,assembly/mag,biome
+unique_identifier,viral.gff,viral.fna,viral.faa,metagenome/genome,biome
 ```
 
 `id` (mandatory) - unique identifier (It is recommended to use ERZ accession if your MAG or assembly was taken ENA) \
 `gff` (mandatory) - GFF file containing records in types: _viral_sequence_, _plasmid_, _prophage_. It might also contain CDS records for chosen regions \
 `fna` (mandatory) - FASTA file with nucleotide sequences corresponding to chosen regions from GFF \
 `faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
-`type` (mandatory) - string value _mag_ or _assembly_ describing initial sequence \
+`type` (mandatory) - string value _genome_ or _metagenome_ describing initial sequence \
 `biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
 
 ## Run

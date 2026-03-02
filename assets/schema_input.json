@@ -31,8 +31,8 @@
             },
             "type": {
                 "type": "string",
-                "enum": ["mag", "assembly"],
-                "description": "For catalogue data: 'catalogue'; For assembly data: 'assembly'"
+                "enum": ["genome", "metagenome"],
+                "description": "Use genome for MAG or isolate; use metagenome for assembly"
             },
             "biome": {
                 "type": "string",
