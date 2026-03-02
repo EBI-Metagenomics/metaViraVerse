@@ -9,11 +9,11 @@ process MAFFT_ALIGN {
 
     input:
     tuple val(meta) , path(fasta)
-    tuple val(meta2), path(add), optional: true
-    tuple val(meta3), path(addfragments), optional: true
-    tuple val(meta4), path(addfull), optional: true
-    tuple val(meta5), path(addprofile), optional: true
-    tuple val(meta6), path(addlong), optional: true
+    tuple val(meta2), path(add)
+    tuple val(meta3), path(addfragments)
+    tuple val(meta4), path(addfull)
+    tuple val(meta5), path(addprofile)
+    tuple val(meta6), path(addlong)
     val(compress)
 
     output:
