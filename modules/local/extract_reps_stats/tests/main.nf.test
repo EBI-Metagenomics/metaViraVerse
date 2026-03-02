@@ -10,7 +10,8 @@ nextflow_process {
             process {
                 """
                 input[0] = [ [id:'test'], file('${moduleDir}/tests/viral_sequences_clusters.tsv', checkIfExists: true) ]
-                input[1] = [ file('${moduleDir}/tests/combined.gff', checkIfExists: true), file('${moduleDir}/tests/combined.map', checkIfExists: true) ]
+                input[1] = [ file('${moduleDir}/tests/combined.gff', checkIfExists: true) ]
+                input[2] = [ file('${moduleDir}/tests/combined.map', checkIfExists: true) ]
                 """
             }
         }

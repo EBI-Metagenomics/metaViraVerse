@@ -11,21 +11,29 @@ process EXTRACT_REPS_STATS {
 
     input:
     tuple val(meta), path(reps_file)
-    tuple path(full_gff), path(mapfile)
+    path(full_gff)
+    path(mapfile)
 
     output:
-    tuple val(meta), path("${meta.id}_reps_stats.tsv"), emit: reps_stats_tsv
-    tuple val(meta), path("${meta.id}_krona.tsv"),      emit: reps_krona_tsv
-    path "versions.yml",                                emit: versions
+    tuple val(meta), path("${meta.id}_reps_stats.tsv"),     emit: reps_stats_tsv
+    tuple val(meta), path("${meta.id}_reps.tsv"),           emit: reps_list
+    tuple val(meta), path("${meta.id}_reps.gff"),           emit: reps_gff
+    tuple val(meta), path("${meta.id}_reps_proteins.tsv"),  emit: reps_proteins_list
+    tuple val(meta), path("${meta.id}_krona.tsv"),          emit: reps_krona_tsv
+    path "versions.yml",                                    emit: versions
 
     script:
+    def mapfile_arg = mapfile ? "--mapfile ${mapfile}" : ''
     """
     extract_reps_stats.py \\
        --viral-list ${reps_file} \\
        --gff ${full_gff} \\
-       --mapfile ${mapfile} \\
        --output ${meta.id}_reps_stats.tsv \\
-       --krona ${meta.id}_krona.tsv
+       --output-reps-list ${meta.id}_reps.tsv \\
+       --output-reps-gff ${meta.id}_reps.gff \\
+       --output-reps-proteins ${meta.id}_reps_proteins.tsv \\
+       --krona ${meta.id}_krona.tsv \\
+       ${mapfile_arg}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

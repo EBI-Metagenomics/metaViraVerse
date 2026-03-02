@@ -10,8 +10,6 @@ nextflow_process {
             process {
                 """
                 input[0] = [ [id:'test'], file('${moduleDir}/tests/pairani.tsv', checkIfExists: true), file('${moduleDir}/tests/seqs.fasta', checkIfExists: true) ]
-                input[1] = 80
-                input[2] = 0
                 """
             }
         }

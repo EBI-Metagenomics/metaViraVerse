@@ -23,6 +23,11 @@
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "filter_rrna": {
+                    "type": "boolean",
+                    "help_text": "Filter out rRNA before processing",
+                    "default": false
+                },
                 "vitap_db": {
                     "type": "string",
                     "format": "directory-path",
@@ -58,41 +63,59 @@
                     "type": "boolean",
                     "help_text": "Use vclust as clustering tool",
                     "default": true
+                }
+            }
+        },
+        "amr_options": {
+            "title": "Antimicrobial resistence dbs and options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define AMR databases and options",
+            "properties": {
+                "amrfinderplus_db": {
+                    "type": "string",
+                    "help_text": "Path to amrfinderplus database",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "vclust_ani_threshold": {
-                    "type": "number",
-                    "help_text": "vclust ANI threshold",
-                    "default": 0.95
+                "deeparg_db": {
+                    "type": "string",
+                    "help_text": "Path to deeparg database",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "vclust_iden_threshold": {
-                    "type": "number",
-                    "help_text": "vclust --min-iden argument (minimal identity threshold)",
-                    "default": 0.95
+                "deeparg_db_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg database",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "vclust_coverage_threshold": {
-                    "type": "number",
-                    "help_text": "vclust coverage threshold",
-                    "default": 0.85
+                "deeparg_model": {
+                    "type": "string",
+                    "help_text": "Model of deeparg",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "blastn_ani_threshold_viral": {
-                    "type": "number",
-                    "help_text": "blastn ANI threshold for viral sequences",
-                    "default": 95
+                "deeparg_tool_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg tool",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "blastn_ani_threshold_plasmid": {
-                    "type": "number",
-                    "help_text": "blastn ANI threshold for plasmid sequences",
-                    "default": 80
+                "rgi_db": {
+                    "type": "string",
+                    "help_text": "Path of RGI db",
+                    "fa_icon": "fas fa-users-cog"
                 },
-                "blastn_cov_threshold_viral": {
-                    "type": "number",
-                    "help_text": "blastn coverage threshold for viral sequences",
-                    "default": 85
+                "skip_amrfinderplus": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip amrfinderplus ",
+                    "default": true
                 },
-                "blastn_cov_threshold_plasmid": {
-                    "type": "number",
-                    "help_text": "blastn coverage threshold for plasmid sequences",
-                    "default": 85
+                "skip_deeparg": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip deeparg ",
+                    "default": true
+                },
+                "skip_rgi": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip RGI ",
+                    "default": false
                 }
             }
         },
@@ -222,6 +245,9 @@
         },
         {
             "$ref": "#/$defs/clustering_options"
+        },
+        {
+            "$ref": "#/$defs/amr_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"
