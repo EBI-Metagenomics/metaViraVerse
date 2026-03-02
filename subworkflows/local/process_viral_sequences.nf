@@ -79,7 +79,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     // -------- Extract sequences for proteins cluster reps
     GREP_FAA (
-        faa.map{faa -> [[id: 'viral_sequences'], faa]},
+        faa.map{faa_item -> [[id: 'viral_sequences'], faa_item]},
         EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)

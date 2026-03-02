@@ -53,7 +53,7 @@ workflow TAXONOMY_VISUALISATION {
     // -------- IQTree
     //
     IQTREE(
-        MAFFT_ALIGN.out.fas.map { meta, align -> tuple(meta, align, []]) },
+        MAFFT_ALIGN.out.fas.map { meta, align -> tuple(meta, align, []) },
         [], [], [], [], [], [], [], [], [], [], [], []
     )
     ch_versions = ch_versions.mix(IQTREE.out.versions)
