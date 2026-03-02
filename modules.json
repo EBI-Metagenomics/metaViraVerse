@@ -86,9 +86,19 @@
                         "git_sha": "5e748ff2b0f990949081c9e49792622eb3fe9ee9",
                         "installed_by": ["amr_annotation"]
                     },
+                    "iqtree": {
+                        "branch": "master",
+                        "git_sha": "ffe8f0a85ca059893a57c00fd028cb42c48bff19",
+                        "installed_by": ["modules"]
+                    },
                     "krona/ktimporttext": {
                         "branch": "master",
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": ["modules"]
+                    },
+                    "mafft/align": {
+                        "branch": "master",
+                        "git_sha": "e657cdd0198cc26f2e501325eb7f70fbd740b6ee",
                         "installed_by": ["modules"]
                     },
                     "multiqc": {

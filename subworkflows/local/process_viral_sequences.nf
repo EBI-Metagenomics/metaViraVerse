@@ -3,7 +3,6 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/ktimporttext'
 include { SEQTK_SUBSEQ as GREP_FNA         } from '../../modules/nf-core/seqtk/subseq'
 include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/subseq'
 include { GUNZIP as UNCOMPRESSED_REPS_FNA  } from '../../modules/nf-core/gunzip'
@@ -11,12 +10,12 @@ include { GUNZIP as UNCOMPRESSED_REPS_FAA  } from '../../modules/nf-core/gunzip'
 
 include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
-include { SANKEY_PLOT                      } from '../../modules/local/sankey_plot'
 include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'
 include { VITAP                            } from '../../modules/local/vitap'
 
 include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 include { CLUSTERING                       } from './clustering'
+include { TAXONOMY_VISUALISATION           } from './taxonomy_visualisation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -91,19 +90,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
 
     //
-    // -------- Taxonomy visualisation
-    //
-    KRONA_KTIMPORTTEXT (
-        EXTRACT_REPS_STATS.out.reps_krona_tsv
-    )
-    ch_versions = ch_versions.mix(KRONA_KTIMPORTTEXT.out.versions)
-
-    SANKEY_PLOT (
-        EXTRACT_REPS_STATS.out.reps_krona_tsv
-    )
-    ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
-
-    //
     // -------- Host assignment
     //
     CRISPRCAS_FINDER(
@@ -125,6 +111,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
         params.skip_amrfinderplus,
         params.skip_deeparg,
         params.skip_rgi
+    )
+
+    TAXONOMY_VISUALISATION(
+       GREP_FNA.out.sequences,
+       EXTRACT_REPS_STATS.out.reps_krona_tsv
     )
 
     if (params.run_vitap_taxonomy) {
