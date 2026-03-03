@@ -105,12 +105,12 @@
                 "skip_amrfinderplus": {
                     "type": "boolean",
                     "help_text": "Flag to skip amrfinderplus ",
-                    "default": true
+                    "default": false
                 },
                 "skip_deeparg": {
                     "type": "boolean",
                     "help_text": "Flag to skip deeparg ",
-                    "default": true
+                    "default": false
                 },
                 "skip_rgi": {
                     "type": "boolean",
