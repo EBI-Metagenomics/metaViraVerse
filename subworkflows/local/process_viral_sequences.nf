@@ -8,7 +8,7 @@ include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/s
 include { GUNZIP as UNCOMPRESSED_REPS_FNA  } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA  } from '../../modules/nf-core/gunzip'
 
-include { BACPHLIP                         } from '../../modules/local/bacphlip
+include { BACPHLIP                         } from '../../modules/local/bacphlip'
 include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
 include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'

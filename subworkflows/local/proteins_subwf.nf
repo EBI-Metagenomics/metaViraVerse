@@ -11,9 +11,9 @@ workflow PROTEINS_PROCESSING {
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
-    ch_proteins = input.map{ meta, faa, _ -> tuple(meta, faa) }
+    ch_proteins = input.map{ meta, faa, _gff -> tuple(meta, faa) }
 
     //
     // -------- Antimicrobial resistence detection

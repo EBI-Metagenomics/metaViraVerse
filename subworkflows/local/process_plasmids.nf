@@ -26,7 +26,7 @@ workflow PROCESS_PLASMIDS {
     // Cluster sequences
     //
     sequences
-        .filter { meta, seqs ->
+        .filter { _meta, seqs ->
             seqs && seqs.size() > 0
         }
         .set { samples_seqs }
@@ -49,7 +49,7 @@ workflow PROCESS_PLASMIDS {
             .collectFile(name: 'plasmid_reps_vclust.txt', newLine: true)  // Write to file
             .set { reps_ch }
     } else {
-        reps_ch = CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }  // for blastn all reps are in first column
+        reps_ch = CLUSTERING.out.clusters_tsv.map{ _id, tsv -> tsv }  // for blastn all reps are in first column
     }
     // Extract sequences for cluster reps
     SEQTK_SUBSEQ (
