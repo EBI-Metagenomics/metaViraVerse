@@ -8,14 +8,13 @@ include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/s
 include { GUNZIP as UNCOMPRESSED_REPS_FNA  } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA  } from '../../modules/nf-core/gunzip'
 
+include { BACPHLIP                         } from '../../modules/local/bacphlip
 include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
 include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'
 include { VITAP                            } from '../../modules/local/vitap'
 
-include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 include { CLUSTERING                       } from './clustering'
-<<<<<<< HEAD
 include { TAXONOMY_VISUALISATION           } from './taxonomy_visualisation'
 include { PROTEINS_PROCESSING              } from './proteins_subwf'
 
@@ -101,20 +100,14 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
 
     //
-    // -------- Antimicrobial resistence detection
+    // -------- Lifestyle
+    // predicting bacteriophage lifestyle from conserved protein domains
     //
-    AMR_ANNOTATION (
-        UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff),
-        params.amrfinderplus_db,
-        params.deeparg_db,
-        params.deeparg_db_version,
-        params.deeparg_model,
-        params.deeparg_tool_version,
-        params.rgi_db,
-        params.skip_amrfinderplus,
-        params.skip_deeparg,
-        params.skip_rgi
+    BACPHLIP(
+        UNCOMPRESSED_REPS_FNA.out.gunzip
     )
+    ch_versions = ch_versions.mix(BACPHLIP.out.versions)
+
 
     TAXONOMY_VISUALISATION(
        UNCOMPRESSED_REPS_FNA.out.gunzip,
@@ -137,9 +130,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
         ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
     }
 
-    // Proteins processing
+    //
+    // ----------- Proteins processing
+    //
     PROTEINS_PROCESSING(
-       SEQTK_SUBSEQ.out.sequences
+       UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
     )
     ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 

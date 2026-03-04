@@ -1,31 +1,48 @@
 include { METACEREBERUS                    } from '../../modules/local/metacerberus'
 include { PHAMMSEQS                        } from '../../modules/local/phammseqs'
 
-include { PROTEIN_PREDICTION               } from './protein_prediction'
+include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 
 
 workflow PROTEINS_PROCESSING {
 
     take:
-    sequences
+    input  // (meta, reps_faa.uncompressed, reps_gff)
 
     main:
 
     ch_versions = Channel.empty()
 
-    PROTEIN_PREDICTION(
-       sequences
-    )
-    ch_versions = ch_versions.mix(PROTEIN_PREDICTION.out.versions)
+    ch_proteins = input.map{ meta, faa, _ -> tuple(meta, faa) }
 
+    //
+    // -------- Antimicrobial resistence detection
+    //
+    AMR_ANNOTATION (
+        input,
+        params.amrfinderplus_db,
+        params.deeparg_db,
+        params.deeparg_db_version,
+        params.deeparg_model,
+        params.deeparg_tool_version,
+        params.rgi_db,
+        params.skip_amrfinderplus,
+        params.skip_deeparg,
+        params.skip_rgi
+    )
+
+    //
+    // -------- Assort phage protein sequences into phamilies using MMseqs2
+    //
     PHAMMSEQS(
-       PROTEIN_PREDICTION.out.proteins
+       ch_proteins
     )
     ch_versions = ch_versions.mix(PHAMMSEQS.out.versions)
     // TODO: maybe run PHAMCLUST on small dataset
 
     METACEREBERUS(
-       sequences
+       ch_proteins,
+       params.metacerberus_db
     )
     ch_versions = ch_versions.mix(METACEREBERUS.out.versions)
 

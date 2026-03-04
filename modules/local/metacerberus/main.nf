@@ -1,16 +1,14 @@
 process METACEREBERUS {
 
-    label 'process_medium'
+    label 'process_high'
     tag "${meta.id}"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'oras://community.wave.seqera.io/library/pip_metacerberus:304b52b16734d974':
-        'community.wave.seqera.io/library/pip_metacerberus:5c70420d6a57973c' }"
+    container "quay.io/microbiome-informatics/metacerberus:1.4.0_1"
 
     input:
     tuple val(meta), path(faa)
+    path metacerberus_db
 
     output:
-    tuple val(meta), path("*_renamed.fasta"),    emit: contigs_renamed
     path "versions.yml",                         emit: versions
 
     // slurm execution? --hydraMPP-slurm $SLURM_JOB_NODELIST
@@ -22,8 +20,8 @@ process METACEREBERUS {
        --dir-out ${meta.id}_metacerberus \\
        --replace \\
        --hmm ALL \\
-       --db-path ${params.metacerberus_db} \\
-       --cpus 4
+       --db-path ${metacerberus_db} \\
+       --cpus 16
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
