@@ -21,17 +21,16 @@ process SEQTK_SUBSEQ {
     script:
     def args   = task.ext.args   ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def ext = "fa"
-    if ("$sequences" ==~ /.+\.fq|.+\.fq.gz|.+\.fastq|.+\.fastq.gz/) {
-        ext = "fq"
-    }
+    def base = sequences.name.replaceFirst(/\.gz$/, '')
+    def ext  = base.tokenize('.')[-1]
+
     """
     seqtk \\
         subseq \\
         $args \\
         $sequences \\
         $filter_list | \\
-        gzip --no-name > ${sequences}${prefix}.${ext}.gz
+        gzip --no-name > ${meta.id}${prefix}.${ext}.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

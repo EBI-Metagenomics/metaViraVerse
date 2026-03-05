@@ -2,6 +2,19 @@ FROM mambaorg/micromamba:1.5.8
 
 SHELL ["/bin/bash", "-c"]
 
+# Install system tools required by Nextflow processes
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        original-awk \
+        dateutils \
+        procps \
+        pcregrep \
+        sed \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create conda environment
 RUN micromamba create -y -n bacphlip \
     -c conda-forge \
     -c bioconda \
@@ -18,6 +31,9 @@ RUN micromamba create -y -n bacphlip \
 ENV MAMBA_DOCKERFILE_ACTIVATE=1
 ENV PATH=/opt/conda/envs/bacphlip/bin:$PATH
 
-RUN pip install --no-deps bacphlip
+# Install BACPHLIP
+RUN micromamba run -n bacphlip pip install --no-deps bacphlip
 
-ENTRYPOINT ["bacphlip"]
+# Important: remove ENTRYPOINT for Nextflow compatibility
+# Nextflow overrides CMD but not ENTRYPOINT safely
+CMD ["bacphlip"]

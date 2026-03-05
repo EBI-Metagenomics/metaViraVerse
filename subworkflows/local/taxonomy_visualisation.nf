@@ -40,7 +40,6 @@ workflow TAXONOMY_VISUALISATION {
         //
         // -------- Alignment for IQTree
         //
-        fna_reps_seqs.view()
         MAFFT_ALIGN(
             fna_reps_seqs,
             fna_reps_seqs.map { meta, fasta -> tuple([:], []) },

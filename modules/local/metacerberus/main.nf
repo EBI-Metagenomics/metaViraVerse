@@ -14,12 +14,13 @@ process METACEREBERUS {
     // slurm execution? --hydraMPP-slurm $SLURM_JOB_NODELIST
 
     script:
+    def args             = task.ext.args   ?: ''
+
     """
     metacerberus.py \\
        --protein ${faa} \\
        --dir-out ${meta.id}_metacerberus \\
-       --replace \\
-       --hmm ALL \\
+       ${args} \\
        --db-path ${metacerberus_db} \\
        --cpus 16
 
