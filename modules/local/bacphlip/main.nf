@@ -13,7 +13,7 @@ process BACPHLIP {
 
     script:
     """
-    choose_sequences.py \\
+    bacphlip \\
         --multi_fasta \\
         -f \\
         --input_file ${fasta}

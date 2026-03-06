@@ -1,7 +1,7 @@
 // https://github.com/chg60/phammseqs
 process PHAMMSEQS {
 
-    label 'process_low'
+    label 'process_high'
     tag "${meta.id}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'oras://community.wave.seqera.io/library/clustalo_mmseqs2_pip_phammseqs:1b92ce4f391b1427':
