@@ -18,7 +18,7 @@ process BACPHLIP {
         -f \\
         --input_file ${fasta}
 
-    mv ${fasta.baseName}.bacphlip ${meta.id}.bacphlip
+    mv "${fasta}.bacphlip" ${meta.id}.bacphlip
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

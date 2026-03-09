@@ -31,15 +31,20 @@ workflow PROTEINS_PROCESSING {
         params.skip_rgi
     )
 
-    //
-    // -------- Assort phage protein sequences into phamilies using MMseqs2
-    //
-    PHAMMSEQS(
-       ch_proteins
-    )
-    ch_versions = ch_versions.mix(PHAMMSEQS.out.versions)
-    // TODO: maybe run PHAMCLUST on small dataset
+    if (params.phammseqs) {
+        //
+        // -------- Assort phage protein sequences into phamilies using MMseqs2
+        //
+        PHAMMSEQS(
+           ch_proteins
+        )
+        ch_versions = ch_versions.mix(PHAMMSEQS.out.versions)
+        // TODO: maybe run PHAMCLUST on small dataset
+    }
 
+    //
+    // -------- Functional annotation
+    //
     METACEREBERUS(
        ch_proteins,
        params.metacerberus_db

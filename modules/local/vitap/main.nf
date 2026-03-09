@@ -14,20 +14,25 @@ process VITAP {
     path "versions.yml",                                emit: versions
 
     script:
+    def fasta_file = fasta.name.endsWith('.gz') ? fasta.baseName : fasta.name
     """
-    gunzip -c "${fasta}" > input.fasta
+    if [[ ${fasta} == *.gz ]]; then
+        gunzip -c ${fasta} > ${fasta_file}
+    fi
 
     VITAP assignment \\
-      -i input.fasta \\
+      -i ${fasta_file} \\
       -d ${db} \\
       -o ${meta.id}_vitap
 
-    # filter records
-    grep '>' input.fasta | sed 's/>//' > names.txt
+    # filter records (because VITAP adds random genomic fragments for normalization and calibration)
+    # take input sequence names
+    grep '>' ${fasta_file} | sed 's/>//' > names.txt
 
-    # header
+    # write header first
     head -n1 ${meta.id}_vitap/best_determined_lineages.tsv > ${meta.id}_vitap_best.tsv
 
+    # add filtered records
     grep -w -f names.txt ${meta.id}_vitap/best_determined_lineages.tsv >> ${meta.id}_vitap_best.tsv
 
     # Attention:
