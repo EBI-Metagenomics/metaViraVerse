@@ -19,7 +19,6 @@ process EXTRACT_REPS_STATS {
     tuple val(meta), path("${meta.id}_reps.tsv"),           emit: reps_list
     tuple val(meta), path("${meta.id}_reps.gff"),           emit: reps_gff
     tuple val(meta), path("${meta.id}_reps_proteins.tsv"),  emit: reps_proteins_list
-    tuple val(meta), path("${meta.id}_krona.tsv"),          emit: reps_krona_tsv
     path "versions.yml",                                    emit: versions
 
     script:
@@ -32,7 +31,6 @@ process EXTRACT_REPS_STATS {
        --output-reps-list ${meta.id}_reps.tsv \\
        --output-reps-gff ${meta.id}_reps.gff \\
        --output-reps-proteins ${meta.id}_reps_proteins.tsv \\
-       --krona ${meta.id}_krona.tsv \\
        ${mapfile_arg}
 
     cat <<-END_VERSIONS > versions.yml

@@ -47,11 +47,6 @@
                     "help_text": "You need to pre-download hmm profiles for DBs of interest",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "run_vitap_taxonomy": {
-                    "type": "boolean",
-                    "help_text": "Additionally generate taxonomy assignment for viral_sequences representatives with VITAP tool",
-                    "default": false
-                },
                 "run_crisprcasfinder": {
                     "type": "boolean",
                     "help_text": "Run ChrisprCasFinder",

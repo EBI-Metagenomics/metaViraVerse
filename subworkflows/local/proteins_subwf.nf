@@ -47,8 +47,8 @@ workflow PROTEINS_PROCESSING {
     // -------- Functional annotation
     //
     def hmm_ch = channel
-        .fromPath("${params.annotation_db}/*.hmm")
-        .map { hmm_file -> tuple(hmm_file.baseName, hmm_file) }
+        .fromPath("${params.annotation_db}/*.hmm.gz")
+        .map { hmm_file -> tuple(hmm_file.baseName.split('.')[0], hmm_file) }
     hmm_ch.view()
 
     def hmmsearch_input = hmm_ch

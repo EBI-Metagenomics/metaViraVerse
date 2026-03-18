@@ -3,20 +3,22 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SEQTK_SUBSEQ as GREP_FNA         } from '../../modules/nf-core/seqtk/subseq'
-include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/subseq'
-include { GUNZIP as UNCOMPRESSED_REPS_FNA  } from '../../modules/nf-core/gunzip'
-include { GUNZIP as UNCOMPRESSED_REPS_FAA  } from '../../modules/nf-core/gunzip'
+include { SEQTK_SUBSEQ as GREP_FNA               } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA               } from '../../modules/nf-core/seqtk/subseq'
+include { GUNZIP as UNCOMPRESSED_REPS_FNA        } from '../../modules/nf-core/gunzip'
+include { GUNZIP as UNCOMPRESSED_REPS_FAA        } from '../../modules/nf-core/gunzip'
 
-include { BACPHLIP                         } from '../../modules/local/bacphlip'
-include { CRISPRCAS_FINDER                 } from '../../modules/local/crispcasfinder'
-include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
-include { SANKEY_PLOT as SANKEY_VITAP      } from '../../modules/local/sankey_plot'
-include { VITAP                            } from '../../modules/local/vitap'
+include { BACPHLIP                               } from '../../modules/local/bacphlip'
+include { CRISPRCAS_FINDER                       } from '../../modules/local/crispcasfinder'
+include { EXTRACT_REPS_STATS                     } from '../../modules/local/extract_reps_stats'
+include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS } from '../../modules/local/generate_taxonomy_table'
+include { GENERATE_TAXONOMY_TABLE as TAX_VITAP   } from '../../modules/local/generate_taxonomy_table'
+include { VITAP                                  } from '../../modules/local/vitap'
 
-include { CLUSTERING                       } from './clustering'
-include { TAXONOMY_VISUALISATION           } from './taxonomy_visualisation'
-include { PROTEINS_PROCESSING              } from './proteins_subwf'
+include { CLUSTERING                             } from './clustering'
+include { TAXONOMY_VISUALISATION as VIS_VIPHOGS  } from './taxonomy_visualisation'
+include { TAXONOMY_VISUALISATION as VIS_VITAP    } from './taxonomy_visualisation'
+include { PROTEINS_PROCESSING                    } from './proteins_subwf'
 
 
 /*
@@ -31,6 +33,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     sequences
     gff
     faa
+    combined_metadata
     mapfile
 
     main:
@@ -110,35 +113,55 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(BACPHLIP.out.versions)
 
-
-    TAXONOMY_VISUALISATION(
-       UNCOMPRESSED_REPS_FNA.out.gunzip,
-       EXTRACT_REPS_STATS.out.reps_krona_tsv
+    //
+    // Taxonomy ViPhOGs
+    //
+    TAX_VIPHOGS (
+        EXTRACT_REPS_STATS.out.reps_stats_tsv,
+        combined_metadata
     )
 
-    if (params.run_vitap_taxonomy) {
-        //
-        // Taxonomy VITAP testing...
-        //
-        VITAP (
-            GREP_FNA.out.sequences,
-            params.vitap_db
-        )
-        ch_versions = ch_versions.mix(VITAP.out.versions)
+    VIS_VIPHOGS(
+       TAX_VIPHOGS.out.taxonomy_counts
+       .join(TAX_VIPHOGS.out.metadata_table)
+       .map { meta, taxa, metadata ->
+            def new_meta = meta.clone()
+            new_meta.tool = 'viphogs'
+            tuple(new_meta, taxa, metadata)
+        }
+    )
 
-        SANKEY_VITAP (
-           VITAP.out.best_lineages
-        )
-        ch_versions = ch_versions.mix(SANKEY_VITAP.out.versions)
-    }
+    //
+    // Taxonomy VITAP
+    //
+    VITAP (
+        GREP_FNA.out.sequences,
+        params.vitap_db
+    )
+    ch_versions = ch_versions.mix(VITAP.out.versions)
+
+    TAX_VITAP (
+        VITAP.out.best_lineages,
+        combined_metadata
+    )
+
+    VIS_VITAP(
+       TAX_VITAP.out.taxonomy_counts
+       .join( TAX_VITAP.out.metadata_table )
+       .map { meta, taxa, metadata ->
+            def new_meta = meta.clone()
+            new_meta.tool = 'vitap'
+            tuple(new_meta, taxa, metadata)
+        }
+    )
 
     //
     // ----------- Proteins processing
     //
-    PROTEINS_PROCESSING(
-       UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
-    )
-    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
+    //PROTEINS_PROCESSING(
+    //   UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
+    //)
+    //ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
     emit:
 
