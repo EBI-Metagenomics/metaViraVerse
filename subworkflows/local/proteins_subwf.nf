@@ -1,5 +1,6 @@
-include { METACEREBERUS                    } from '../../modules/local/metacerberus'
 include { PHAMMSEQS                        } from '../../modules/local/phammseqs'
+
+include { HMMER_HMMSEARCH                  } from '../../modules/nf-core/hmmer/hmmsearch'
 
 include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
 
@@ -45,11 +46,25 @@ workflow PROTEINS_PROCESSING {
     //
     // -------- Functional annotation
     //
-    METACEREBERUS(
-       ch_proteins,
-       params.metacerberus_db
+    def hmm_ch = channel
+        .fromPath("${params.annotation_db}/*.hmm")
+        .map { hmm_file -> tuple(hmm_file.baseName, hmm_file) }
+    hmm_ch.view()
+
+    def hmmsearch_input = hmm_ch
+        .combine(ch_proteins)
+        .map { hmm_id, hmm_file, faa_id, faa_file ->
+            def meta = [
+                id: "${hmm_id}",
+                hmm_name: hmm_file.name,
+                faa_name: faa_file.name
+            ]
+            tuple(meta, hmm_file, faa_file, true, true, true)
+        }
+    HMMER_HMMSEARCH (
+        hmmsearch_input
     )
-    ch_versions = ch_versions.mix(METACEREBERUS.out.versions)
+    ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
 
     emit:
     versions       = ch_versions                 // channel: [ path(versions.yml) ]

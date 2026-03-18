@@ -94,10 +94,12 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     // -------- Host assignment
     //
-    CRISPRCAS_FINDER(
-        UNCOMPRESSED_REPS_FNA.out.gunzip
-    )
-    ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+    if (params.run_crisprcasfinder) {
+        CRISPRCAS_FINDER(
+            UNCOMPRESSED_REPS_FNA.out.gunzip
+        )
+        ch_versions = ch_versions.mix(CRISPRCAS_FINDER.out.versions)
+    }
 
     //
     // -------- Lifestyle

@@ -28,11 +28,6 @@
                     "help_text": "Filter out rRNA before processing",
                     "default": false
                 },
-                 "iqtree": {
-                    "type": "boolean",
-                    "help_text": "Generate files for iqtree",
-                    "default": false
-                },
                 "phammseqs": {
                     "type": "boolean",
                     "help_text": "Run phams generation",
@@ -45,16 +40,21 @@
                     "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "metacerberus_db": {
+                "annotation_db": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "Path to Metacerberus DB.",
-                    "help_text": "You need to pre-download Metacerberus DB",
+                    "description": "Path to annotation DB containing hmm profiles.",
+                    "help_text": "You need to pre-download hmm profiles for DBs of interest",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "run_vitap_taxonomy": {
                     "type": "boolean",
                     "help_text": "Additionally generate taxonomy assignment for viral_sequences representatives with VITAP tool",
+                    "default": false
+                },
+                "run_crisprcasfinder": {
+                    "type": "boolean",
+                    "help_text": "Run ChrisprCasFinder",
                     "default": false
                 },
                 "outdir": {
