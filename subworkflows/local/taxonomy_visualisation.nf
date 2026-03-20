@@ -3,18 +3,15 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { IQTREE                           } from '../../modules/nf-core/iqtree'
 include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/ktimporttext'
-include { MAFFT_ALIGN                      } from '../../modules/nf-core/mafft/align'
-
 include { SANKEY_PLOT                      } from '../../modules/local/sankey_plot'
+include { PLOT_ITOL                        } from '../../modules/local/plot_itol'
 
 
 workflow TAXONOMY_VISUALISATION {
 
     take:
-    fna_reps_seqs
-    reps_krona_tsv
+    reps_krona_and_metadata
 
     main:
 
@@ -24,7 +21,7 @@ workflow TAXONOMY_VISUALISATION {
     // -------- Taxonomy visualisation with krona
     //
     KRONA_KTIMPORTTEXT (
-        reps_krona_tsv
+        reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
     )
     ch_versions = ch_versions.mix(KRONA_KTIMPORTTEXT.out.versions)
 
@@ -32,32 +29,17 @@ workflow TAXONOMY_VISUALISATION {
     // -------- Taxonomy visualisation with sankey
     //
     SANKEY_PLOT (
-        reps_krona_tsv
+        reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
     )
     ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
 
     //
-    // -------- Alignment for IQTree
+    // -------- Taxonomy tree files to upload to iTOL
     //
-    fna_reps_seqs.view()
-    MAFFT_ALIGN(
-        fna_reps_seqs,
-        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
-        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
-        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
-        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
-        fna_reps_seqs.map { meta, fasta -> tuple([:], []) },
-        true
+    PLOT_ITOL (
+        reps_krona_and_metadata
     )
-
-    //
-    // -------- IQTree
-    //
-    IQTREE(
-        MAFFT_ALIGN.out.fas.map { meta, align -> tuple(meta, align, []) },
-        [], [], [], [], [], [], [], [], [], [], [], []
-    )
-    ch_versions = ch_versions.mix(IQTREE.out.versions)
+    ch_versions = ch_versions.mix(PLOT_ITOL.out.versions)
 
     emit:
 

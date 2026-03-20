@@ -105,7 +105,8 @@ workflow PREPROCESSING {
     //   .map{ meta, mapfile -> mapfile }.collectFile(name: "combined.map").map{mapfile -> [[id: 'combined'], mapfile]}
 
     emit:
-    metadata       = CHOOSE_SEQUENCES.out.metadata      // channel: [ [id: 'combined'], combined_meta.tsv ]
+    metadata       = CHOOSE_SEQUENCES.out.metadata
+                     .map{ metadata -> [[id: 'combined'], metadata] }      // channel: [ [id: 'combined'], combined_meta.tsv ]
     viral_seqs     = all_viral_sequences
     plasmids       = all_plasmids
     all_gff        = input.map { meta, gff, fna, faa, type, biome -> gff }.collectFile( name: 'combined.gff' )

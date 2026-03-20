@@ -2,8 +2,6 @@
 import argparse
 import os
 import sys
-from collections import Counter
-from urllib.parse import unquote
 
 
 def parse_attributes(attr_str):
@@ -146,83 +144,6 @@ def calculate_mean_genes(cluster_members, all_results):
 
     return cluster_mean_genes
 
-
-def parse_taxonomy(taxonomy_str, standard_levels=None):
-    """
-    Parse taxonomy string and fill in missing levels for Krona plot.
-
-    Args:
-        taxonomy_str: Semicolon-separated taxonomy string
-        standard_levels: List of standard taxonomic level names
-
-    Returns:
-        List of taxonomy terms with missing levels filled as "unclassified_[level]_[parent]"
-    """
-    if not taxonomy_str or taxonomy_str == "NA":
-        return []
-
-    # URL decode and split
-    taxonomy_str = unquote(taxonomy_str)
-    parts = [p.strip().lower() for p in taxonomy_str.split(';')]
-    # strip empty annotations
-    while parts and parts[-1] == '':
-        parts.pop()
-
-    # Default viral taxonomy levels
-    if standard_levels is None:
-        standard_levels = ['realm', 'kingdom', 'phylum', 'class', 'order', 'family', 'subfamily', 'genus', 'species']
-
-    filled_taxonomy = []
-    last_valid = "root"
-
-    for i, part in enumerate(parts):
-        level_name = standard_levels[i] if i < len(standard_levels) else f'level_{i}'
-
-        if part and part.strip():
-            # Valid taxonomy term
-            filled_taxonomy.append(part.strip())
-            last_valid = part.strip()
-        else:
-            # Missing level - create unclassified label
-            unclassified_label = f"unclassified_{level_name}_{last_valid}"
-            filled_taxonomy.append(unclassified_label)
-    return [x.capitalize() for x in filled_taxonomy]
-
-
-def generate_krona_file(results, viral_names, krona_output_file, standard_levels=None):
-    """
-    Generate Krona plot input file from taxonomy data.
-
-    Format: count\ttaxonomy_rank1\ttaxonomy_rank2\t...
-
-    Args:
-        results: Dictionary of sequence_id -> data with taxonomy
-        viral_names: List of all viral sequence names
-        krona_output_file: Output file path for Krona format
-        standard_levels: List of standard taxonomic level names
-    """
-    # Collect all taxonomy paths
-    taxonomy_paths = []
-    for seq in viral_names:
-        if seq in results:
-            taxonomy_str = results[seq].get("taxonomy", "NA")
-            if taxonomy_str and taxonomy_str != "NA":
-                path = parse_taxonomy(taxonomy_str, standard_levels)
-                if path:
-                    taxonomy_paths.append(tuple(path))
-
-    # Count occurrences of each unique taxonomy path
-    taxonomy_counts = Counter(taxonomy_paths)
-
-    # Write Krona format
-    with open(krona_output_file, "w") as out:
-        for taxonomy_path, count in sorted(taxonomy_counts.items(), key=lambda x: -x[1]):
-            # Format: count\trank1\trank2\trank3\t...
-            taxonomy = '\t'.join(taxonomy_path)
-            out.write(f"{count}\t{taxonomy}\n")
-
-    print(f"📊 Krona file written to: {krona_output_file}")
-    print(f"   Total unique taxonomy paths: {len(taxonomy_counts)}")
 
 
 def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, output_proteins, mapfile):
@@ -395,12 +316,6 @@ Input format for --viral-list:
         required=True,
         help="Output FASTA file with proteins for cluster representatives"
     )
-    parser.add_argument(
-        "--krona",
-        required=False,
-        help="Optional output file for Krona plot format (count\\ttaxonomy_ranks tab-separated)"
-    )
-
     return parser.parse_args()
 
 
@@ -424,11 +339,6 @@ def main():
         args.output_reps_proteins,
         args.mapfile
     )
-
-    # Generate Krona file if requested
-    if args.krona:
-        generate_krona_file(all_results, cluster_reps, args.krona)
-
 
 if __name__ == "__main__":
     main()
