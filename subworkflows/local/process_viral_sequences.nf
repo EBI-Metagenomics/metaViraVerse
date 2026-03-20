@@ -158,10 +158,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     // ----------- Proteins processing
     //
-    //PROTEINS_PROCESSING(
-    //   UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
-    //)
-    //ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
+    PROTEINS_PROCESSING(
+       UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
+    )
+    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
     emit:
 
