@@ -1,4 +1,5 @@
 include { PHAMMSEQS                        } from '../../modules/local/phammseqs'
+include { SUMMARISE_ANNOTATIONS            } from '../../modules/local/summarise_annotations'
 
 include { HMMER_HMMSEARCH                  } from '../../modules/nf-core/hmmer/hmmsearch'
 
@@ -49,13 +50,12 @@ workflow PROTEINS_PROCESSING {
     def hmm_ch = channel
         .fromPath("${params.annotation_db}/*.hmm.gz")
         .map { hmm_file -> tuple(hmm_file.baseName.split('.')[0], hmm_file) }
-    hmm_ch.view()
 
     def hmmsearch_input = hmm_ch
         .combine(ch_proteins)
         .map { hmm_id, hmm_file, faa_id, faa_file ->
             def meta = [
-                id: "${hmm_id}",
+                id: "${hmm_id}.replace('.hmm', '')",
                 hmm_name: hmm_file.name,
                 faa_name: faa_file.name
             ]
@@ -65,6 +65,17 @@ workflow PROTEINS_PROCESSING {
         hmmsearch_input
     )
     ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
+
+    // Add metadata and genrate a full summary
+    def hmm_metadata = channel
+        .fromPath("${params.annotation_db}/*.tsv")
+        .map { hmm_file -> tuple(hmm_file.baseName.split('.')[0], hmm_file) }
+    hmm_metadata.view()
+    HMMER_HMMSEARCH.out.target_summary.join(hmm_metadata).view()
+
+    //SUMMARISE_ANNOTATIONS(
+    //    HMMER_HMMSEARCH.out.target_summary.join(hmm_metadata)
+    //)
 
     emit:
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
