@@ -55,9 +55,7 @@ workflow PROTEINS_PROCESSING {
         .combine(ch_proteins)
         .map { hmm_id, hmm_file, faa_id, faa_file ->
             def meta = [
-                id: hmm_id.replace('.hmm', ''),
-                hmm_name: hmm_file.name,
-                faa_name: faa_file.name
+                id: hmm_id.replace('.hmm', '')
             ]
             tuple(meta, hmm_file, faa_file, true, true, true)
         }
@@ -66,16 +64,22 @@ workflow PROTEINS_PROCESSING {
     )
     ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
 
-    // Add metadata and generate a full summary
+    //
+    // ----- Add metadata and generate a full summary
+    //
     def hmm_metadata = channel
         .fromPath("${params.annotation_db}/*.tsv")
-        .map { hmm_file -> tuple(hmm_file.baseName, hmm_file) }
-    hmm_metadata.view()
-    HMMER_HMMSEARCH.out.target_summary.join(hmm_metadata).view()
+        .map { hmm_file ->
+             def meta = [
+                id: hmm_file.baseName
+             ]
+             tuple(meta, hmm_file)
+        }
 
     SUMMARISE_ANNOTATIONS(
         HMMER_HMMSEARCH.out.target_summary.join(hmm_metadata)
     )
+    ch_versions = ch_versions.mix(SUMMARISE_ANNOTATIONS.out.versions)
 
     emit:
     versions       = ch_versions                 // channel: [ path(versions.yml) ]

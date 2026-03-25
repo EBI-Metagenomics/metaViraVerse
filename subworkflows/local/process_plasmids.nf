@@ -60,6 +60,7 @@ workflow PROCESS_PLASMIDS {
 
     emit:
 
+    reps_tsv       = reps_ch
     reps_seqs      = SEQTK_SUBSEQ.out.sequences  // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 

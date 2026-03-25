@@ -165,6 +165,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     emit:
 
+    reps_tsv       = CLUSTERING.out.clusters_tsv
     reps_seqs      = GREP_FNA.out.sequences  // compressed
     reps_proteins  = GREP_FAA.out.sequences  // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]

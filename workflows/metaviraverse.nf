@@ -12,6 +12,8 @@ include { PREPROCESSING                         } from '../subworkflows/local/pr
 include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
+include { COLLECT_CATALOGUE_STATS               } from '../modules/collect_catalogue_stats'
+
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,25 +38,70 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
+    // Process viral_sequences and prophages together as "viruses"
+
+    viruses = PREPROCESSING.out.viral_sequences
+        .map{ meta, seqs -> seqs }
+        .combine(PREPROCESSING.out.prophages
+        .map{ meta, seqs -> seqs })
+        .flatMap { tuple -> tuple }
+        .collectFile(name: "viruses.fasta")
+        .map{ seqs -> [[id: 'viruses'], seqs]}
+
+    // publish
+    viruses.subscribe{ meta, seqs ->
+            seqs.copyTo("${params.outdir}/${meta.id}/viruses.fasta")
+        }
+    // TODO compress fasta
     //
     // Process viral sequences
     //
     PROCESS_VIRAL_SEQUENCES (
-       PREPROCESSING.out.viral_seqs,
-       PREPROCESSING.out.all_gff,
-       PREPROCESSING.out.all_faa,
+       viruses,
+       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+       PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
        PREPROCESSING.out.metadata,
        []
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
+    // Process plasmids filtered from input
+
+    plasmids = PREPROCESSING.out.plasmids
+       .map{ meta, seqs -> seqs }
+       .collectFile(name: "plasmids.fasta")
+       .map{ seqs -> [[id: 'plasmids'], seqs]}
+
+    // publish
+    plasmids.subscribe { meta, seqs ->
+        def outPath = file("${params.outdir}/${meta.id}/plasmids.fasta.gz")
+        outPath.withOutputStream { out ->
+            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
+                writer << seqs.text
+            }
+        }
+    }
+
     //
     // Process plasmids
     //
     PROCESS_PLASMIDS (
-       PREPROCESSING.out.plasmids
+       plasmids
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
+
+
+    //
+    // Collect stats for whole catalogue into JSON
+    //
+    COLLECT_CATALOGUE_STATS (
+        PREPROCESSING.out.viral_sequences,
+        PREPROCESSING.out.prophages,
+        PREPROCESSING.out.plasmids,
+        PREPROCESSING.out.metadata,
+        PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
+        PROCESS_PLASMIDS.out.reps_tsv,
+    )
 
     //
     // Collate and save software versions
