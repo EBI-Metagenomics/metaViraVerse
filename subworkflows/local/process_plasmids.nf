@@ -3,7 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SEQTK_SUBSEQ                     } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FNA         } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/subseq'
 
 include { CLUSTERING                       } from './clustering'
 
@@ -17,6 +18,7 @@ workflow PROCESS_PLASMIDS {
 
     take:
     sequences
+    combined_faa
 
     main:
 
@@ -52,16 +54,24 @@ workflow PROCESS_PLASMIDS {
         reps_ch = CLUSTERING.out.clusters_tsv.map{ _id, tsv -> tsv }  // for blastn all reps are in first column
     }
     // Extract sequences for cluster reps
-    SEQTK_SUBSEQ (
+    GREP_FNA (
         sequences,
         reps_ch
     )
-    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
+    ch_versions = ch_versions.mix(GREP_FNA.out.versions)
+
+    // Extract proteins for cluster reps
+    GREP_FAA (
+        combined_faa.map{faa_item -> [[id: 'plasmids'], faa_item]},
+        reps_ch
+    )
+    ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
     emit:
 
     reps_tsv       = reps_ch
-    reps_seqs      = SEQTK_SUBSEQ.out.sequences  // compressed
+    reps_seqs      = GREP_FNA.out.sequences      // compressed
+    reps_proteins  = GREP_FAA.out.sequences      // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

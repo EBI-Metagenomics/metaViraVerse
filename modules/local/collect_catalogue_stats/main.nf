@@ -4,21 +4,22 @@
 process COLLECT_CATALOGUE_STATS {
 
     label 'process_low'
-    tag "${meta.id}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(viral_seqs)
-    tuple val(meta), path(plasmids)
-    tuple val(meta), path(prophages)
+    tuple val(meta1), path(viral_seqs)
+    tuple val(meta2), path(plasmids)
+    tuple val(meta3), path(prophages)
     path(metadata)
     path(clusters_viruses)
     path(clusters_plasmids)
+    tuple val(meta4), path(viral_proteins)
+    tuple val(meta5), path(plasmid_proteins)
 
     output:
-    tuple val(meta), path("*.json"),     emit: catalogue_json
+    path("*.json"),                      emit: catalogue_json
     path "versions.yml",                 emit: versions
 
     script:
@@ -30,8 +31,8 @@ process COLLECT_CATALOGUE_STATS {
       --metadata ${metadata} \\
       --clusters-viruses ${clusters_viruses} \\
       --clusters-plasmids ${clusters_plasmids} \\
-      --proteins-viruses
-      --proteins-plasmids
+      --proteins-viruses ${viral_proteins} \\
+      --proteins-plasmids ${plasmid_proteins}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

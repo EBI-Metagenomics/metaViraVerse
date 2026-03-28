@@ -12,7 +12,7 @@ include { PREPROCESSING                         } from '../subworkflows/local/pr
 include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
-include { COLLECT_CATALOGUE_STATS               } from '../modules/collect_catalogue_stats'
+include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -101,6 +101,8 @@ workflow METAVIRAVERSE {
         PREPROCESSING.out.metadata,
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
+        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
+        PROCESS_PLASMIDS.out.reps_proteins
     )
 
     //

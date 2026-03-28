@@ -10,8 +10,8 @@ Inputs
 --metadata          TSV    → metadata table including "biomes" column
 --clusters-viruses  TSV    → number of viral clusters (unique values in column 1)
 --clusters-plasmids TSV    → number of plasmid clusters (unique values in column 1)
---proteins-viruses  GFF    → number of protein records (non-comment lines)
---proteins-plasmids GFF    → number of protein records
+--proteins-viruses  FASTA  → number of protein records (non-comment lines)
+--proteins-plasmids FASTA  → number of protein records
 
 All input files may be plain text or gzip-compressed.
 
@@ -75,17 +75,6 @@ def count_clusters(path):
     return len(clusters)
 
 
-def count_gff_records(path):
-    """Count non-comment, non-empty lines in a GFF file."""
-    count = 0
-    with open_file(path) as f:
-        for line in f:
-            if line.startswith("#") or not line.strip():
-                continue
-            count += 1
-    return count
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Collect catalogue statistics into a JSON file.",
@@ -105,9 +94,9 @@ def parse_args():
     parser.add_argument("--clusters-plasmids", required=True,
                         help="TSV with cluster IDs in column 1 (plain or .gz).")
     parser.add_argument("--proteins-viruses", required=True,
-                        help="GFF file of viral proteins (plain or .gz).")
+                        help="FAA file of viral proteins (plain or .gz).")
     parser.add_argument("--proteins-plasmids", required=True,
-                        help="GFF file of plasmid proteins (plain or .gz).")
+                        help="FAA file of plasmid proteins (plain or .gz).")
     parser.add_argument("-o", "--output", required=True,
                         help="Output JSON file path.")
     return parser.parse_args()
@@ -127,8 +116,8 @@ def main():
         "number_of_biomes":   count_unique_biomes(args.metadata),
         "viral_clusters": count_clusters(args.clusters_viruses),
         "plasmid_clusters": count_clusters(args.clusters_plasmids),
-        "total_proteins_viruses":  count_gff_records(args.proteins_viruses),
-        "total_proteins_plasmids": count_gff_records(args.proteins_plasmids),
+        "total_proteins_viruses":  count_fasta_sequences(args.proteins_viruses),
+        "total_proteins_plasmids": count_fasta_sequences(args.proteins_plasmids),
     }
 
     with open(args.output, "w") as f:
