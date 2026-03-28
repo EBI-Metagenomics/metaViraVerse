@@ -12,11 +12,11 @@ process COLLECT_CATALOGUE_STATS {
     tuple val(meta1), path(viral_seqs)
     tuple val(meta2), path(plasmids)
     tuple val(meta3), path(prophages)
-    path(metadata)
-    path(clusters_viruses)
+    tuple val(meta4), path(metadata)
+    tuple val(meta5), path(clusters_viruses)
     path(clusters_plasmids)
-    tuple val(meta4), path(viral_proteins)
-    tuple val(meta5), path(plasmid_proteins)
+    tuple val(meta6), path(viral_proteins)
+    tuple val(meta7), path(plasmid_proteins)
 
     output:
     path("*.json"),                      emit: catalogue_json
