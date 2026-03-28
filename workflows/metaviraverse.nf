@@ -86,7 +86,8 @@ workflow METAVIRAVERSE {
     // Process plasmids
     //
     PROCESS_PLASMIDS (
-       plasmids
+       plasmids,
+       PREPROCESSING.out.combined_faa
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
