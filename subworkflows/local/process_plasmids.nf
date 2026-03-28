@@ -50,6 +50,11 @@ workflow PROCESS_PLASMIDS {
             .unique()                        // Get unique values
             .collectFile(name: 'plasmid_reps_vclust.txt', newLine: true)  // Write to file
             .set { reps_ch }
+        // publish
+        reps_ch.subscribe { file ->
+            file.copyTo("${params.outdir}/plasmids/plasmid_reps_vclust.txt")
+        }
+        reps_ch.view()
     } else {
         reps_ch = CLUSTERING.out.clusters_tsv.map{ _id, tsv -> tsv }  // for blastn all reps are in first column
     }

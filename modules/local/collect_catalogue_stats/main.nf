@@ -10,8 +10,8 @@ process COLLECT_CATALOGUE_STATS {
 
     input:
     tuple val(meta1), path(viral_seqs)
-    tuple val(meta2), path(plasmids)
-    tuple val(meta3), path(prophages)
+    tuple val(meta2), path(prophages)
+    tuple val(meta3), path(plasmids)
     tuple val(meta4), path(metadata)
     tuple val(meta5), path(clusters_viruses)
     path(clusters_plasmids)
@@ -32,7 +32,8 @@ process COLLECT_CATALOGUE_STATS {
       --clusters-viruses ${clusters_viruses} \\
       --clusters-plasmids ${clusters_plasmids} \\
       --proteins-viruses ${viral_proteins} \\
-      --proteins-plasmids ${plasmid_proteins}
+      --proteins-plasmids ${plasmid_proteins} \\
+      -o catalogue.json
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
