@@ -59,7 +59,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
     //
-    // -------- Statistics and taxonomy from GFF for viral_sequences reps
+    // -------- Statistics and taxonomy from GFF for viruses reps
     //
     EXTRACT_REPS_STATS (
         CLUSTERING.out.clusters_tsv,
@@ -84,7 +84,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     // -------- Extract sequences for proteins cluster reps
     GREP_FAA (
-        faa.map{faa_item -> [[id: 'viral_sequences'], faa_item]},
+        faa.map{faa_item -> [[id: 'viruses'], faa_item]},
         EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
@@ -165,7 +165,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     emit:
 
-    reps_tsv       = CLUSTERING.out.clusters_tsv
+    reps_tsv       = EXTRACT_REPS_STATS.out.reps_list
     reps_seqs      = GREP_FNA.out.sequences  // compressed
     reps_proteins  = GREP_FAA.out.sequences  // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]

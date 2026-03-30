@@ -46,37 +46,33 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
-    if ( params.cluster_vclust ) {
-        //
-        // -------- Statistics and taxonomy from GFF for viral_sequences reps
-        //
-        EXTRACT_REPS_STATS (
-            CLUSTERING.out.clusters_tsv,
-            combined_gff,
-            mapfile
-        )
-        ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
-        reps_ch = EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
-    } else {
-        reps_ch = CLUSTERING.out.clusters_tsv.map{ _id, tsv -> tsv }  // for blastn all reps are in first column
-    }
+    //
+    // -------- Statistics and taxonomy from GFF for plasmid reps
+    //
+    EXTRACT_REPS_STATS (
+        CLUSTERING.out.clusters_tsv,
+        combined_gff,
+        mapfile
+    )
+    ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
+
     // Extract sequences for cluster reps
     GREP_FNA (
         sequences,
-        reps_ch
+        EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FNA.out.versions)
 
     // Extract proteins for cluster reps
     GREP_FAA (
         combined_faa.map{faa_item -> [[id: 'plasmids'], faa_item]},
-        reps_ch
+        EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
     emit:
 
-    reps_tsv       = reps_ch
+    reps_tsv       = EXTRACT_REPS_STATS.out.reps_list
     reps_seqs      = GREP_FNA.out.sequences      // compressed
     reps_proteins  = GREP_FAA.out.sequences      // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]

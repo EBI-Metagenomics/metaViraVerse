@@ -114,8 +114,8 @@ def main():
         "plasmids":        plasmids_count,
         "prophages":       prophages_count,
         "number_of_biomes":   count_unique_biomes(args.metadata),
-        "viral_clusters": count_clusters(args.clusters_viruses),
-        "plasmid_clusters": count_clusters(args.clusters_plasmids),
+        "viral_clusters": count_clusters(args.clusters_viruses) - 1,
+        "plasmid_clusters": count_clusters(args.clusters_plasmids) - 1,
         "total_proteins_viruses":  count_fasta_sequences(args.proteins_viruses),
         "total_proteins_plasmids": count_fasta_sequences(args.proteins_plasmids),
     }
