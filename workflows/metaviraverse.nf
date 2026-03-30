@@ -87,7 +87,9 @@ workflow METAVIRAVERSE {
     //
     PROCESS_PLASMIDS (
        plasmids,
-       PREPROCESSING.out.combined_faa
+       PREPROCESSING.out.combined_faa,
+       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+       []
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
