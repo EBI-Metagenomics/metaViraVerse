@@ -49,12 +49,29 @@ workflow METAVIRAVERSE {
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
     // publish
-    viruses.subscribe{ meta, seqs ->
-            seqs.copyTo("${params.outdir}/${meta.id}/viruses.fasta")
+    viruses.subscribe { meta, seqs ->
+        def outDir = file("${params.outdir}/${meta.id}")
+        outDir.mkdirs()  // Create directory if it doesn't exist
+
+        def outPath = file("${outDir}/viruses.fasta.gz")
+        outPath.withOutputStream { out ->
+            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
+                writer << seqs.text
+            }
         }
-    // TODO compress fasta
+
+        // Generate MD5 checksum
+        def md5Path = file("${outDir}/viruses.fasta.gz.md5")
+        def md5Hash = java.security.MessageDigest.getInstance('MD5')
+            .digest(outPath.bytes)
+            .encodeHex()
+            .toString()
+
+        md5Path.text = "${md5Hash}  viruses.fasta.gz\n"
+    }
+
     //
-    // Process viral sequences
+    // Process viruses
     //
     PROCESS_VIRAL_SEQUENCES (
        viruses,
@@ -74,12 +91,23 @@ workflow METAVIRAVERSE {
 
     // publish
     plasmids.subscribe { meta, seqs ->
-        def outPath = file("${params.outdir}/${meta.id}/plasmids.fasta.gz")
+        def outDir = file("${params.outdir}/${meta.id}")
+        outDir.mkdirs()  // Create directory if it doesn't exist
+
+        def outPath = file("${outDir}/plasmids.fasta.gz")
         outPath.withOutputStream { out ->
             new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
                 writer << seqs.text
             }
         }
+        // Generate MD5 checksum
+        def md5Path = file("${outDir}/plasmids.fasta.gz.md5")
+        def md5Hash = java.security.MessageDigest.getInstance('MD5')
+            .digest(outPath.bytes)
+            .encodeHex()
+            .toString()
+
+        md5Path.text = "${md5Hash}  plasmids.fasta.gz\n"
     }
 
     //
