@@ -10,7 +10,7 @@ process SEPARATE_SEQUENCES {
     input:
     tuple val(meta), path(fasta)
     val pattern
-    tuple val(meta), path(rna_gff)
+    tuple val(meta2), path(rna_gff)
 
     output:
     tuple val(meta), path("${meta.id}_${pattern}.fa"), emit: chosen_sequences

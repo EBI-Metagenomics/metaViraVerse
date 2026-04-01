@@ -101,7 +101,7 @@ workflow AMR_ANNOTATION {
     if (!skip_deeparg) {
         ch_faa
            .map { meta, annotations ->
-                def model = params.ch_deeparg_model
+                def model = ch_deeparg_model
                 [meta, annotations, model]
             }
             .set { ch_input_for_deeparg }

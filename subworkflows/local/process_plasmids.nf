@@ -3,7 +3,10 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SEQTK_SUBSEQ                     } from '../../modules/nf-core/seqtk/subseq'
+include { EXTRACT_REPS_STATS               } from '../../modules/local/extract_reps_stats'
+
+include { SEQTK_SUBSEQ as GREP_FNA         } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA         } from '../../modules/nf-core/seqtk/subseq'
 
 include { CLUSTERING                       } from './clustering'
 
@@ -17,6 +20,9 @@ workflow PROCESS_PLASMIDS {
 
     take:
     sequences
+    combined_faa
+    combined_gff
+    mapfile
 
     main:
 
@@ -26,7 +32,7 @@ workflow PROCESS_PLASMIDS {
     // Cluster sequences
     //
     sequences
-        .filter { meta, seqs ->
+        .filter { _meta, seqs ->
             seqs && seqs.size() > 0
         }
         .set { samples_seqs }
@@ -40,27 +46,35 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
-    if ( params.cluster_vclust ) {
-        // Take second column unique values
-        CLUSTERING.out.clusters_tsv
-            .splitCsv(sep: '\t', skip: 0)  // Adjust separator and skip header
-            .map { row -> row[1] }          // Extract second column (0-indexed)
-            .unique()                        // Get unique values
-            .collectFile(name: 'plasmid_reps_vclust.txt', newLine: true)  // Write to file
-            .set { reps_ch }
-    } else {
-        reps_ch = CLUSTERING.out.clusters_tsv.map{ id, tsv -> tsv }  // for blastn all reps are in first column
-    }
-    // Extract sequences for cluster reps
-    SEQTK_SUBSEQ (
-        sequences,
-        reps_ch
+    //
+    // -------- Statistics and taxonomy from GFF for plasmid reps
+    //
+    EXTRACT_REPS_STATS (
+        CLUSTERING.out.clusters_tsv,
+        combined_gff,
+        mapfile
     )
-    ch_versions = ch_versions.mix(SEQTK_SUBSEQ.out.versions)
+    ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
+
+    // Extract sequences for cluster reps
+    GREP_FNA (
+        sequences,
+        EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
+    )
+    ch_versions = ch_versions.mix(GREP_FNA.out.versions)
+
+    // Extract proteins for cluster reps
+    GREP_FAA (
+        combined_faa.map{faa_item -> [[id: 'plasmids'], faa_item]},
+        EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
+    )
+    ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
     emit:
 
-    reps_seqs      = SEQTK_SUBSEQ.out.sequences  // compressed
+    reps_tsv       = EXTRACT_REPS_STATS.out.reps_list
+    reps_seqs      = GREP_FNA.out.sequences      // compressed
+    reps_proteins  = GREP_FAA.out.sequences      // compressed
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

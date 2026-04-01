@@ -12,6 +12,8 @@ include { PREPROCESSING                         } from '../subworkflows/local/pr
 include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
+include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
+
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,8 +27,8 @@ workflow METAVIRAVERSE {
     ch_samplesheet // channel: samplesheet read in from --input
     main:
 
-    ch_versions = Channel.empty()
-    ch_multiqc_files = Channel.empty()
+    ch_versions = channel.empty()
+    ch_multiqc_files = channel.empty()
 
     //
     // Separate viral sequences and plasmids
@@ -36,24 +38,75 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
+    // Process viral_sequences and prophages together as "viruses"
+
+    viruses = PREPROCESSING.out.viral_sequences
+        .map{ _meta, seqs -> seqs }
+        .combine(PREPROCESSING.out.prophages
+        .map{ _meta, seqs -> seqs })
+        .flatMap { tuple -> tuple }
+        .collectFile(name: "viruses.fasta")
+        .map{ seqs -> [[id: 'viruses'], seqs]}
+
+    // publish
+    viruses.subscribe{ meta, seqs ->
+            seqs.copyTo("${params.outdir}/${meta.id}/viruses.fasta")
+        }
+    // TODO compress fasta
     //
     // Process viral sequences
     //
     PROCESS_VIRAL_SEQUENCES (
-       PREPROCESSING.out.viral_seqs,
-       PREPROCESSING.out.all_gff,
-       PREPROCESSING.out.all_faa,
+       viruses,
+       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+       PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
+       PREPROCESSING.out.metadata,
        []
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
+
+    // Process plasmids filtered from input
+
+    plasmids = PREPROCESSING.out.plasmids
+       .map{ _meta, seqs -> seqs }
+       .collectFile(name: "plasmids.fasta")
+       .map{ seqs -> [[id: 'plasmids'], seqs]}
+
+    // publish
+    plasmids.subscribe { meta, seqs ->
+        def outPath = file("${params.outdir}/${meta.id}/plasmids.fasta.gz")
+        outPath.withOutputStream { out ->
+            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
+                writer << seqs.text
+            }
+        }
+    }
 
     //
     // Process plasmids
     //
     PROCESS_PLASMIDS (
-       PREPROCESSING.out.plasmids
+       plasmids,
+       PREPROCESSING.out.combined_faa,
+       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+       []
     )
     ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
+
+
+    //
+    // Collect stats for whole catalogue into JSON
+    //
+    COLLECT_CATALOGUE_STATS (
+        PREPROCESSING.out.viral_sequences,
+        PREPROCESSING.out.prophages,
+        PREPROCESSING.out.plasmids,
+        PREPROCESSING.out.metadata,
+        PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
+        PROCESS_PLASMIDS.out.reps_tsv,
+        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
+        PROCESS_PLASMIDS.out.reps_proteins
+    )
 
     //
     // Collate and save software versions
@@ -69,18 +122,18 @@ workflow METAVIRAVERSE {
     //
     // MODULE: MultiQC
     //
-    ch_multiqc_config        = Channel.fromPath(
+    ch_multiqc_config        = channel.fromPath(
         "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
     ch_multiqc_custom_config = params.multiqc_config ?
-        Channel.fromPath(params.multiqc_config, checkIfExists: true) :
-        Channel.empty()
+        channel.fromPath(params.multiqc_config, checkIfExists: true) :
+        channel.empty()
     ch_multiqc_logo          = params.multiqc_logo ?
-        Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
-        Channel.empty()
+        channel.fromPath(params.multiqc_logo, checkIfExists: true) :
+        channel.empty()
 
     summary_params      = paramsSummaryMap(
         workflow, parameters_schema: "nextflow_schema.json")
-    ch_workflow_summary = Channel.value(paramsSummaryMultiqc(summary_params))
+    ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
     ch_multiqc_files = ch_multiqc_files.mix(
         ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
 
