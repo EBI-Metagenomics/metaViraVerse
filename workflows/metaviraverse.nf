@@ -59,15 +59,6 @@ workflow METAVIRAVERSE {
                 writer << seqs.text
             }
         }
-
-        // Generate MD5 checksum
-        def md5Path = file("${outDir}/viruses.fasta.gz.md5")
-        def md5Hash = java.security.MessageDigest.getInstance('MD5')
-            .digest(outPath.bytes)
-            .encodeHex()
-            .toString()
-
-        md5Path.text = "${md5Hash}  viruses.fasta.gz\n"
     }
 
     //
@@ -100,14 +91,6 @@ workflow METAVIRAVERSE {
                 writer << seqs.text
             }
         }
-        // Generate MD5 checksum
-        def md5Path = file("${outDir}/plasmids.fasta.gz.md5")
-        def md5Hash = java.security.MessageDigest.getInstance('MD5')
-            .digest(outPath.bytes)
-            .encodeHex()
-            .toString()
-
-        md5Path.text = "${md5Hash}  plasmids.fasta.gz\n"
     }
 
     //

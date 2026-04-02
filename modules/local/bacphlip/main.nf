@@ -8,8 +8,8 @@ process BACPHLIP {
     tuple val(meta), path(fasta)
 
     output:
-    path("*.bacphlip"),        emit: bacphlip_table
-    path "versions.yml",       emit: versions
+    tuple val(meta), path("*.bacphlip"),        emit: bacphlip_table
+    path "versions.yml",                        emit: versions
 
     script:
     """

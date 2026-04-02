@@ -3,22 +3,25 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SEQTK_SUBSEQ as GREP_FNA               } from '../../modules/nf-core/seqtk/subseq'
-include { SEQTK_SUBSEQ as GREP_FAA               } from '../../modules/nf-core/seqtk/subseq'
-include { GUNZIP as UNCOMPRESSED_REPS_FNA        } from '../../modules/nf-core/gunzip'
-include { GUNZIP as UNCOMPRESSED_REPS_FAA        } from '../../modules/nf-core/gunzip'
+include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
+include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
+include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../modules/nf-core/seqtk/subseq'
+include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_TABIX as INDEX_FAA                     } from '../../modules/nf-core/tabix/tabix'
+include { TABIX_TABIX as INDEX_FNA                     } from '../../modules/nf-core/tabix/tabix'
 
-include { BACPHLIP                               } from '../../modules/local/bacphlip'
-include { CRISPRCAS_FINDER                       } from '../../modules/local/crispcasfinder'
-include { EXTRACT_REPS_STATS                     } from '../../modules/local/extract_reps_stats'
-include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS } from '../../modules/local/generate_taxonomy_table'
-include { GENERATE_TAXONOMY_TABLE as TAX_VITAP   } from '../../modules/local/generate_taxonomy_table'
-include { VITAP                                  } from '../../modules/local/vitap'
+include { BACPHLIP                                     } from '../../modules/local/bacphlip'
+include { CRISPRCAS_FINDER                             } from '../../modules/local/crispcasfinder'
+include { EXTRACT_REPS_STATS                           } from '../../modules/local/extract_reps_stats'
+include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
+include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
+include { VITAP                                        } from '../../modules/local/vitap'
 
-include { CLUSTERING                             } from './clustering'
-include { TAXONOMY_VISUALISATION as VIS_VIPHOGS  } from './taxonomy_visualisation'
-include { TAXONOMY_VISUALISATION as VIS_VITAP    } from './taxonomy_visualisation'
-include { PROTEINS_PROCESSING                    } from './proteins_subwf'
+include { CLUSTERING                                   } from './clustering'
+include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from './taxonomy_visualisation'
+include { TAXONOMY_VISUALISATION as VIS_VITAP          } from './taxonomy_visualisation'
+include { PROTEINS_PROCESSING                          } from './proteins_subwf'
 
 
 /*
@@ -76,6 +79,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(GREP_FNA.out.versions)
 
+    INDEX_FNA (
+        GREP_FNA.out.sequences
+    )
+
     UNCOMPRESSED_REPS_FNA(
         GREP_FNA.out.sequences
     )
@@ -88,6 +95,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
         EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
+
+    INDEX_FAA (
+        GREP_FAA.out.sequences
+    )
 
     UNCOMPRESSED_REPS_FAA(
         GREP_FAA.out.sequences
@@ -113,22 +124,25 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(BACPHLIP.out.versions)
 
+    INDEX_COMPRESS_BACPHLIP (
+        BACPHLIP.out.bacphlip_table
+    )
+
     //
     // Taxonomy ViPhOGs
     //
     TAX_VIPHOGS (
-        EXTRACT_REPS_STATS.out.reps_stats_tsv,
+        EXTRACT_REPS_STATS.out.reps_stats_tsv
+        .map { meta, table ->
+            def new_meta = meta.clone()
+            new_meta.tool = 'viphogs'
+            tuple(new_meta, table)
+        },
         combined_metadata
     )
 
     VIS_VIPHOGS(
-       TAX_VIPHOGS.out.taxonomy_counts
-       .join(TAX_VIPHOGS.out.metadata_table)
-       .map { meta, taxa, metadata ->
-            def new_meta = meta.clone()
-            new_meta.tool = 'viphogs'
-            tuple(new_meta, taxa, metadata)
-        }
+       TAX_VIPHOGS.out.taxonomy_and_metadata
     )
 
     //
@@ -141,18 +155,16 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(VITAP.out.versions)
 
     TAX_VITAP (
-        VITAP.out.best_lineages,
+        VITAP.out.best_lineages.map { meta, table ->
+            def new_meta = meta.clone()
+            new_meta.tool = 'vitap'
+            tuple(new_meta, table)
+        },
         combined_metadata
     )
 
-    VIS_VITAP(
-       TAX_VITAP.out.taxonomy_counts
-       .join( TAX_VITAP.out.metadata_table )
-       .map { meta, taxa, metadata ->
-            def new_meta = meta.clone()
-            new_meta.tool = 'vitap'
-            tuple(new_meta, taxa, metadata)
-        }
+    VIS_VITAP (
+       TAX_VITAP.out.taxonomy_and_metadata
     )
 
     //
