@@ -48,7 +48,7 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish
+    // publish viruses
     viruses.subscribe { meta, seqs ->
         def outDir = file("${params.outdir}/${meta.id}")
         outDir.mkdirs()  // Create directory if it doesn't exist
@@ -80,7 +80,7 @@ workflow METAVIRAVERSE {
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
 
-    // publish
+    // publish plasmids
     plasmids.subscribe { meta, seqs ->
         def outDir = file("${params.outdir}/${meta.id}")
         outDir.mkdirs()  // Create directory if it doesn't exist

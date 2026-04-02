@@ -21,6 +21,7 @@ process PHAMMSEQS {
     echo "Running phammseqs"
     phammseqs -v \\
       --outdir ${meta.id}_pham \\
+      --cluster-mode 2 \\
       ${faa} > ${meta.id}_phammseqs.stdout
 
     echo "Running phams_to_tsv"

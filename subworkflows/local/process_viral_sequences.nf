@@ -8,6 +8,9 @@ include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-
 include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
 include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../modules/nf-core/seqtk/subseq'
 include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as INDEX_COMPRESS_GFF       } from '../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as BGZIP_FNA                } from '../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as BGZIP_FAA                } from '../../modules/nf-core/tabix/bgziptabix'
 include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../modules/nf-core/samtools/faidx'
 include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../modules/nf-core/samtools/faidx'
 
@@ -18,6 +21,7 @@ include { EXTRACT_REPS_STATS                           } from '../../modules/loc
 include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
 include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
 include { VITAP                                        } from '../../modules/local/vitap'
+include { SORT_GFF                                     } from '../../modules/local/sort_gff'
 
 include { CLUSTERING                                   } from './clustering'
 include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from './taxonomy_visualisation'
@@ -72,6 +76,14 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
+    // --- reps GFF
+    SORT_GFF (
+        EXTRACT_REPS_STATS.out.reps_gff
+    )
+    // Index and compress GFF
+    INDEX_COMPRESS_GFF (
+        SORT_GFF.out.sorted_gff
+    )
 
     // -------- Extract sequences for cluster reps
     GREP_FNA (
@@ -80,15 +92,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(GREP_FNA.out.versions)
 
-    //INDEX_FNA (
-    //    GREP_FNA.out.sequences
-    //)
-
     UNCOMPRESSED_REPS_FNA(
         GREP_FNA.out.sequences
     )
     ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FNA.out.versions)
 
+    BGZIP_FNA (UNCOMPRESSED_REPS_FNA.out.gunzip)
+
+    INDEX_FNA (
+        BGZIP_FNA.out.gz_index.map{ meta, fasta, index -> [meta, fasta, []] },
+        false
+    )
 
     // -------- Extract sequences for proteins cluster reps
     GREP_FAA (
@@ -97,14 +111,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
-    //INDEX_FAA (
-    //    GREP_FAA.out.sequences
-    //)
-
     UNCOMPRESSED_REPS_FAA(
         GREP_FAA.out.sequences
     )
     ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
+
+    BGZIP_FAA (UNCOMPRESSED_REPS_FAA.out.gunzip)
+
+    INDEX_FAA (
+        BGZIP_FAA.out.gz_index.map{ meta, fasta, index -> [meta, fasta, []] },
+        false
+    )
 
     //
     // -------- Host assignment

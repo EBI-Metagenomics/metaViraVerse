@@ -1,7 +1,7 @@
 process BUILD_FINAL_GFF {
 
     label 'process_low'
-    tag "combined"
+    tag "${meta_input.id}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
@@ -13,8 +13,8 @@ process BUILD_FINAL_GFF {
     tuple val(meta_gff), path(additional_gff)
 
     output:
-    path("*.gff"),             emit: final_gff
-    path "versions.yml",       emit: versions
+    tuple val(meta_input), path("*final.gff*"),       emit: final_gff
+    path "versions.yml",                              emit: versions
 
     script:
     """
