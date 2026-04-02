@@ -8,10 +8,11 @@ include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-
 include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
 include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../modules/nf-core/seqtk/subseq'
 include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-core/tabix/bgziptabix'
-include { TABIX_TABIX as INDEX_FAA                     } from '../../modules/nf-core/tabix/tabix'
-include { TABIX_TABIX as INDEX_FNA                     } from '../../modules/nf-core/tabix/tabix'
+include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../modules/nf-core/samtools/faidx'
+include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../modules/nf-core/samtools/faidx'
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
+include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
 include { CRISPRCAS_FINDER                             } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS                           } from '../../modules/local/extract_reps_stats'
 include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
@@ -79,9 +80,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(GREP_FNA.out.versions)
 
-    INDEX_FNA (
-        GREP_FNA.out.sequences
-    )
+    //INDEX_FNA (
+    //    GREP_FNA.out.sequences
+    //)
 
     UNCOMPRESSED_REPS_FNA(
         GREP_FNA.out.sequences
@@ -96,9 +97,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
-    INDEX_FAA (
-        GREP_FAA.out.sequences
-    )
+    //INDEX_FAA (
+    //    GREP_FAA.out.sequences
+    //)
 
     UNCOMPRESSED_REPS_FAA(
         GREP_FAA.out.sequences
@@ -174,6 +175,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
        UNCOMPRESSED_REPS_FAA.out.gunzip.join(EXTRACT_REPS_STATS.out.reps_gff)
     )
     ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
+
+    //
+    // --- Build final aggregated GFF
+    //
+    BUILD_FINAL_GFF (
+        EXTRACT_REPS_STATS.out.reps_gff,
+        BACPHLIP.out.bacphlip_table,
+        PROTEINS_PROCESSING.out.hmmer_tables,
+        PROTEINS_PROCESSING.out.amr_gff
+    )
+    ch_versions = ch_versions.mix(BUILD_FINAL_GFF.out.versions)
 
     emit:
 

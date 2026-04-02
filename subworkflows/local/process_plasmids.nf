@@ -4,12 +4,13 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { EXTRACT_REPS_STATS                      } from '../../modules/local/extract_reps_stats'
+include { SORT_GFF                                } from '../../modules/local/sort_gff'
 
 include { SEQTK_SUBSEQ as GREP_FAA                } from '../../modules/nf-core/seqtk/subseq'
 include { SEQTK_SUBSEQ as GREP_FNA                } from '../../modules/nf-core/seqtk/subseq'
 include { TABIX_BGZIPTABIX as INDEX_COMPRESS_GFF  } from '../../modules/nf-core/tabix/bgziptabix'
-include { TABIX_TABIX as INDEX_FAA                } from '../../modules/nf-core/tabix/tabix'
-include { TABIX_TABIX as INDEX_FNA                } from '../../modules/nf-core/tabix/tabix'
+include { SAMTOOLS_FAIDX as INDEX_FAA             } from '../../modules/nf-core/samtools/faidx'
+include { SAMTOOLS_FAIDX as INDEX_FNA             } from '../../modules/nf-core/samtools/faidx'
 
 include { CLUSTERING                              } from './clustering'
 
@@ -59,9 +60,12 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(EXTRACT_REPS_STATS.out.versions)
 
+    SORT_GFF (
+        EXTRACT_REPS_STATS.out.reps_gff
+    )
     // Index and compress GFF
     INDEX_COMPRESS_GFF (
-        EXTRACT_REPS_STATS.out.reps_gff
+        SORT_GFF.out.sorted_gff
     )
 
     // Extract sequences for cluster reps
@@ -72,7 +76,8 @@ workflow PROCESS_PLASMIDS {
     ch_versions = ch_versions.mix(GREP_FNA.out.versions)
 
     INDEX_FNA (
-        GREP_FNA.out.sequences
+        GREP_FNA.out.sequences.map{ meta, fasta -> [meta, fasta, []] },
+        false
     )
 
     // Extract proteins for cluster reps
@@ -83,7 +88,8 @@ workflow PROCESS_PLASMIDS {
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)
 
     INDEX_FAA (
-        GREP_FAA.out.sequences
+        GREP_FAA.out.sequences.map{ meta, fasta -> [meta, fasta, []] },
+        false
     )
 
     emit:
