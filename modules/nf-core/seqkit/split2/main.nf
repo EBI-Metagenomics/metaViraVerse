@@ -8,13 +8,13 @@ process SEQKIT_SPLIT2 {
         'biocontainers/seqkit:2.8.1--h9ee0642_0' }"
 
     input:
-    tuple val(meta), path(assembly)
+    tuple val(meta), path(input_fasta)
     val(length)
     val(size)
 
     output:
-    tuple val(meta), path("**/*.gz"), emit: assembly
-    path "versions.yml"             , emit: versions
+    tuple val(meta), path("**/*"), emit: chunked_output
+    path "versions.yml"                 , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -36,8 +36,8 @@ process SEQKIT_SPLIT2 {
         error("Must provide either 'length' or 'size' parameter. Both cannot be empty.")
     }
 
-     // We are also tweaking the prefix to prevent names like <assembly_id>.part_001.gz to be used
-     // in favour of <assembly_id>_part_001.gz which is more file name parsing friendly
+     // We are also tweaking the prefix to prevent names like <fasta_id>.part_001.gz to be used
+     // in favour of <fasta_id>_part_001.gz which is more file name parsing friendly
      // which helps when concatenating chunked post-processed fasta files, such as the results of interposcan
 
     def chunk_by_length = has_length ? "--by-length ${length} --by-length-prefix ${meta.id}_" : ""
@@ -47,7 +47,7 @@ process SEQKIT_SPLIT2 {
         split2 \\
         $args ${chunk_by_length} ${chunk_by_size} \\
         --threads $task.cpus \\
-        ${assembly} \\
+        ${input_fasta} \\
         --out-dir ${prefix}
 
     cat <<-END_VERSIONS > versions.yml

@@ -1,7 +1,7 @@
 process BACPHLIP {
 
     label 'process_low'
-    tag "combined"
+    tag "${fasta.baseName}"
     container "quay.io/microbiome-informatics/bacphlip:v0.9.3-alpha"
 
     input:

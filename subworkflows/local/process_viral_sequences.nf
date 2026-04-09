@@ -3,7 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { CAT_CAT as CONCATENATE_BACPHLIP              } from '../../modules/nf-core/cat/cat/main'
+include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
 include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
 include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
@@ -14,7 +15,7 @@ include { TABIX_BGZIPTABIX as BGZIP_FNA                } from '../../modules/nf-
 include { TABIX_BGZIPTABIX as BGZIP_FAA                } from '../../modules/nf-core/tabix/bgziptabix'
 include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../modules/nf-core/samtools/faidx'
 include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../modules/nf-core/samtools/faidx'
-include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2/main'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2'
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
@@ -114,7 +115,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
     )
     ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
-    def ch_fna_chunks = CHUNK_FNA.out.assembly.transpose()
+    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
 
     //
     // -------- Extract protein sequences for cluster reps
@@ -160,7 +161,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
     CONCATENATE_BACPHLIP (
         BACPHLIP.out.bacphlip_table.groupTuple()
     )
-    ch_versions = ch_versions.mix(CONCATENATE_BACPHLIP.out.versions)
 
     INDEX_COMPRESS_BACPHLIP (
         CONCATENATE_BACPHLIP.out.file_out
@@ -187,13 +187,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // Taxonomy VITAP
     //
     VITAP (
-        GREP_FNA.out.sequences,
+        ch_fna_chunks,
         params.vitap_db
     )
     ch_versions = ch_versions.mix(VITAP.out.versions)
 
+    CONCATENATE_VITAP (
+        VITAP.out.best_lineages.groupTuple()
+    )
+
     TAX_VITAP (
-        VITAP.out.best_lineages.map { meta, table ->
+        CONCATENATE_VITAP.out.file_out.map { meta, table ->
             def new_meta = meta.clone()
             new_meta.tool = 'vitap'
             tuple(new_meta, table)
@@ -230,7 +234,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     reps_tsv       = EXTRACT_REPS_STATS.out.reps_list
     reps_seqs      = GREP_FNA.out.sequences  // compressed
     reps_proteins  = GREP_FAA.out.sequences  // compressed
-    vitap_best     = VITAP.out.best_lineages
+    vitap_best     = CONCATENATE_VITAP.out.file_out
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
