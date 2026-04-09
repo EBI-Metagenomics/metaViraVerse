@@ -3,6 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { CAT_CAT as CONCATENATE_BACPHLIP              } from '../../modules/nf-core/cat/cat/main'
 include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
 include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
@@ -13,6 +14,7 @@ include { TABIX_BGZIPTABIX as BGZIP_FNA                } from '../../modules/nf-
 include { TABIX_BGZIPTABIX as BGZIP_FAA                } from '../../modules/nf-core/tabix/bgziptabix'
 include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../modules/nf-core/samtools/faidx'
 include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../modules/nf-core/samtools/faidx'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2/main'
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
@@ -85,7 +87,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
         SORT_GFF.out.sorted_gff
     )
 
-    // -------- Extract sequences for cluster reps
+    //
+    // -------- Extract nucleotide sequences for cluster reps
+    //
     GREP_FNA (
         sequences,
         EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
@@ -104,7 +108,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
         false
     )
 
-    // -------- Extract sequences for proteins cluster reps
+    CHUNK_FNA (
+        UNCOMPRESSED_REPS_FNA.out.gunzip,
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+    )
+    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
+    def ch_fna_chunks = CHUNK_FNA.out.assembly.transpose()
+
+    //
+    // -------- Extract protein sequences for cluster reps
+    //
     GREP_FAA (
         faa.map{faa_item -> [[id: 'viruses'], faa_item]},
         EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
@@ -136,14 +150,20 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     // -------- Lifestyle
     // predicting bacteriophage lifestyle from conserved protein domains
+    // running on chunked FNA file
     //
     BACPHLIP(
-        UNCOMPRESSED_REPS_FNA.out.gunzip
+        ch_fna_chunks
     )
     ch_versions = ch_versions.mix(BACPHLIP.out.versions)
 
+    CONCATENATE_BACPHLIP (
+        BACPHLIP.out.bacphlip_table.groupTuple()
+    )
+    ch_versions = ch_versions.mix(CONCATENATE_BACPHLIP.out.versions)
+
     INDEX_COMPRESS_BACPHLIP (
-        BACPHLIP.out.bacphlip_table
+        CONCATENATE_BACPHLIP.out.file_out
     )
 
     //
@@ -198,7 +218,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     BUILD_FINAL_GFF (
         EXTRACT_REPS_STATS.out.reps_gff,
-        BACPHLIP.out.bacphlip_table,
+        CONCATENATE_BACPHLIP.out.file_out,
         PROTEINS_PROCESSING.out.hmmer_tables,
         PROTEINS_PROCESSING.out.amr_gff
     )

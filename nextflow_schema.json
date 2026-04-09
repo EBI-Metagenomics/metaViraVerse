@@ -30,6 +30,18 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "nucleotide_fasta_chunksize": {
+                    "default": 15000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
+                "protein_annotation_fasta_chunksize": {
+                    "default": 15000,
+                    "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
                 "filter_rrna": {
                     "type": "boolean",
                     "help_text": "Filter out rRNA before processing",
