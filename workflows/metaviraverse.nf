@@ -13,6 +13,7 @@ include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/pr
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
+include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -48,13 +49,21 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish
-    viruses.subscribe{ meta, seqs ->
-            seqs.copyTo("${params.outdir}/${meta.id}/viruses.fasta")
+    // publish viruses
+    viruses.subscribe { meta, seqs ->
+        def outDir = file("${params.outdir}/${meta.id}")
+        outDir.mkdirs()  // Create directory if it doesn't exist
+
+        def outPath = file("${outDir}/viruses.fasta.gz")
+        outPath.withOutputStream { out ->
+            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
+                writer << seqs.text
+            }
         }
-    // TODO compress fasta
+    }
+
     //
-    // Process viral sequences
+    // Process viruses
     //
     PROCESS_VIRAL_SEQUENCES (
        viruses,
@@ -72,9 +81,12 @@ workflow METAVIRAVERSE {
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
 
-    // publish
+    // publish plasmids
     plasmids.subscribe { meta, seqs ->
-        def outPath = file("${params.outdir}/${meta.id}/plasmids.fasta.gz")
+        def outDir = file("${params.outdir}/${meta.id}")
+        outDir.mkdirs()  // Create directory if it doesn't exist
+
+        def outPath = file("${outDir}/plasmids.fasta.gz")
         outPath.withOutputStream { out ->
             new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
                 writer << seqs.text
@@ -107,6 +119,21 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
         PROCESS_PLASMIDS.out.reps_proteins
     )
+    ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
+
+    //
+    // Collect viral and plasmid metadata
+    //
+    COLLECT_METADATA (
+        PREPROCESSING.out.metadata,
+        PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
+        PROCESS_PLASMIDS.out.clustering_tsv,
+        params.catalogues_metadata,
+        PROCESS_VIRAL_SEQUENCES.out.vitap_best,
+        PREPROCESSING.out.combined_gff
+    )
+    ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
+
 
     //
     // Collate and save software versions

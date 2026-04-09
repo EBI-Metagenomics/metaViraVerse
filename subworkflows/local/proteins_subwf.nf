@@ -82,5 +82,10 @@ workflow PROTEINS_PROCESSING {
     ch_versions = ch_versions.mix(SUMMARISE_ANNOTATIONS.out.versions)
 
     emit:
+    hmmer_tables   = HMMER_HMMSEARCH.out.target_summary
+                      .map { meta, table -> table }                  // Extract just the table files
+                      .collect()                                     // Gather all tables into a list
+                      .map { tables -> [[id: 'viruses'], tables] }   // [meta, [.tbl.gz, ...]]
+    amr_gff        = AMR_ANNOTATION.out.gff
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 }

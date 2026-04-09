@@ -21,10 +21,11 @@ process PHAMMSEQS {
     echo "Running phammseqs"
     phammseqs -v \\
       --outdir ${meta.id}_pham \\
+      --cluster-mode 2 \\
       ${faa} > ${meta.id}_phammseqs.stdout
 
     echo "Running phams_to_tsv"
-    phams_to_tsv \\
+    phams_to_tsv.py \\
       -i ${meta.id}_pham \\
       -o ${meta.id}_phams.tsv
 

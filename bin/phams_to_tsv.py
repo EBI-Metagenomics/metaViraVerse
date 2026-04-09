@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Script to map pham IDs to gene headers using pham FASTAs as inputs"""
 
 import argparse

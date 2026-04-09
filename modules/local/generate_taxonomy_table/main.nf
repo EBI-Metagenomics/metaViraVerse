@@ -11,9 +11,8 @@ process GENERATE_TAXONOMY_TABLE {
       tuple val(meta2), path(metadata_file)
 
     output:
-      tuple val(meta), path("*_taxonomy_counts.tsv"), emit: taxonomy_counts
-      tuple val(meta), path("*_metadata_table.tsv"),  emit: metadata_table
-      path "versions.yml",                            emit: versions
+      tuple val(meta), path("*_taxonomy_counts.tsv"), path("*_metadata_table.tsv"), emit: taxonomy_and_metadata
+      path "versions.yml",                                                          emit: versions
 
     script:
     def args = task.ext.args ?: ''

@@ -23,6 +23,13 @@
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "catalogues_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with concatenated metadata from genome catalogues",
+                    "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "filter_rrna": {
                     "type": "boolean",
                     "help_text": "Filter out rRNA before processing",
