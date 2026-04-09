@@ -25,7 +25,7 @@ process PHAMMSEQS {
       ${faa} > ${meta.id}_phammseqs.stdout
 
     echo "Running phams_to_tsv"
-    phams_to_tsv \\
+    phams_to_tsv.py \\
       -i ${meta.id}_pham \\
       -o ${meta.id}_phams.tsv
 

@@ -13,6 +13,7 @@ include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/pr
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
+include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -118,6 +119,21 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
         PROCESS_PLASMIDS.out.reps_proteins
     )
+    ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
+
+    //
+    // Collect viral and plasmid metadata
+    //
+    COLLECT_METADATA (
+        PREPROCESSING.out.metadata,
+        PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
+        PROCESS_PLASMIDS.out.clustering_tsv,
+        params.catalogues_metadata,
+        PROCESS_VIRAL_SEQUENCES.out.vitap_best,
+        PREPROCESSING.out.combined_gff
+    )
+    ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
+
 
     //
     // Collate and save software versions

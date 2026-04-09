@@ -117,6 +117,7 @@ workflow PROCESS_PLASMIDS {
 
     emit:
 
+    clustering_tsv = CLUSTERING.out.clusters_tsv  // [meta, tsv]
     reps_tsv       = EXTRACT_REPS_STATS.out.reps_list
     reps_seqs      = GREP_FNA.out.sequences      // compressed
     reps_proteins  = GREP_FAA.out.sequences      // compressed
