@@ -74,7 +74,7 @@ workflow PROTEINS_PROCESSING {
             def meta = [
                 id: hmm_id.replace('.hmm', '')
             ]
-            tuple(meta, hmm_file, faa_file, true, true, true)
+            tuple(meta, hmm_file, faa_file, false, true, false)
         }
 
     HMMER_HMMSEARCH (

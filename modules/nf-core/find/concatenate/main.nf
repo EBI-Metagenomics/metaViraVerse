@@ -49,10 +49,18 @@ process FIND_CONCATENATE {
     cmd2 = !in_zip && out_zip ? "pigz -p ${task.cpus} ${args} ${out_fname}" : ""
 
     """
+    header_written=false
+
     while IFS= read -r -d \$'\\0' file; do
-            ${cmd1} \$file \\
-                >> ${out_fname}
-        done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
+        if [ "\$header_written" = false ]; then
+            # First file: write everything
+            ${cmd1} \$file >> ${out_fname}
+            header_written=true
+        else
+            # Subsequent files: skip header, write data
+            ${cmd1} \$file | awk 'BEGIN{skip=1} /^[^#]/{skip=0} skip==0{print}' >> ${out_fname}
+        fi
+    done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
 
     ${cmd2}
     """
