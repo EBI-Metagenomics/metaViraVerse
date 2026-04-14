@@ -15,6 +15,8 @@ process VITAP {
 
     script:
     def fasta_file = fasta.name.endsWith('.gz') ? fasta.baseName : fasta.name
+    def prefix = task.ext.prefix ?: "${meta.id}"
+
     """
     if [[ ${fasta} == *.gz ]]; then
         gunzip -c ${fasta} > ${fasta_file}
@@ -23,7 +25,7 @@ process VITAP {
     VITAP assignment \\
       -i ${fasta_file} \\
       -d ${db} \\
-      -o ${meta.id}_vitap
+      -o ${prefix}_vitap
 
     # filter records (because VITAP adds random genomic fragments for normalization and calibration)
     # take input sequence names

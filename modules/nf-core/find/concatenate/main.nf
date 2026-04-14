@@ -22,12 +22,12 @@ process FIND_CONCATENATE {
     script:
     def args = task.ext.args ?: ""
 
-    // | input     | output     | command1 | command2 |
-    // |-----------|------------|----------|----------|
-    // | gzipped   | gzipped    | cat      |          |
-    // | ungzipped | ungzipped  | cat      |          |
-    // | gzipped   | ungzipped  | pigz     |          |
-    // | ungzipped | gzipped    | cat      | pigz     |
+    // | input     | output     | decomp      | compress at end |
+    // |-----------|------------|-------------|-----------------|
+    // | gzipped   | gzipped    | pigz -cd    | pigz            |
+    // | ungzipped | ungzipped  | cat         |                 |
+    // | gzipped   | ungzipped  | pigz -cd    |                 |
+    // | ungzipped | gzipped    | cat         | pigz            |
 
     // Use input file ending as default
     // get file extensions, if extension is .gz then get the second to last extension as well
@@ -40,29 +40,30 @@ process FIND_CONCATENATE {
         error("All files provided to this module must either be gzipped (and have the .gz extension) or unzipped (and not have the .gz extension). A mix of both is not allowed.")
     }
 
-    in_zip = files_in[0].toString().endsWith('.gz')
+    in_zip  = files_in[0].toString().endsWith('.gz')
     out_zip = task.ext.prefix ? task.ext.prefix.endsWith('.gz') : file_extensions[0].endsWith('.gz')
 
-    out_fname = in_zip && out_zip ? prefix : prefix.endsWith('.gz') ? prefix.replace('.gz', '') : prefix
-
-    cmd1 = in_zip && !out_zip ? "pigz -cd -p ${task.cpus}" : "cat"
-    cmd2 = !in_zip && out_zip ? "pigz -p ${task.cpus} ${args} ${out_fname}" : ""
+    // Always decompress for processing so header skipping works on plain text
+    decomp   = in_zip ? "pigz -cd -p ${task.cpus}" : "cat"
+    // Write to a plain (uncompressed) intermediate, then compress once at the end if needed
+    out_bare = out_zip ? prefix.replaceAll(/\.gz$/, '') : prefix
+    cmd_compress = out_zip ? "pigz -p ${task.cpus} ${args} ${out_bare}" : ""
 
     """
-    header_written=false
+    first=true
 
     while IFS= read -r -d \$'\\0' file; do
-        if [ "\$header_written" = false ]; then
-            # First file: write everything
-            ${cmd1} \$file >> ${out_fname}
-            header_written=true
+        if [ "\$first" = true ]; then
+            # First file: decompress and write everything (including header)
+            ${decomp} \$file > ${out_bare}
+            first=false
         else
-            # Subsequent files: skip header, write data
-            ${cmd1} \$file | awk 'BEGIN{skip=1} /^[^#]/{skip=0} skip==0{print}' >> ${out_fname}
+            # Subsequent files: decompress and skip the first (header) line
+            ${decomp} \$file | tail -n +2 >> ${out_bare}
         fi
     done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
 
-    ${cmd2}
+    ${cmd_compress}
     """
 
     stub:
