@@ -159,7 +159,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(BACPHLIP.out.versions)
 
     CONCATENATE_BACPHLIP (
-        BACPHLIP.out.bacphlip_table.groupTuple()
+        BACPHLIP.out.bacphlip_table.groupTuple(),
+        1
     )
 
     INDEX_COMPRESS_BACPHLIP (
@@ -193,7 +194,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     ch_versions = ch_versions.mix(VITAP.out.versions)
 
     CONCATENATE_VITAP (
-        VITAP.out.best_lineages.groupTuple()
+        VITAP.out.best_lineages.groupTuple(),
+        1
     )
 
     TAX_VITAP (

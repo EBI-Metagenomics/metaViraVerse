@@ -9,6 +9,7 @@ process FIND_CONCATENATE {
 
     input:
     tuple val(meta), path(files_in, stageAs: 'to_concatenate/*', arity: '1..*')
+    val number_of_header_lines
 
     output:
     tuple val(meta), path("${prefix}"), emit: file_out
@@ -51,6 +52,7 @@ process FIND_CONCATENATE {
 
     """
     first=true
+    export header_lines=${number_of_header_lines}
 
     while IFS= read -r -d \$'\\0' file; do
         if [ "\$first" = true ]; then
@@ -59,7 +61,7 @@ process FIND_CONCATENATE {
             first=false
         else
             # Subsequent files: decompress and skip the first (header) line
-            ${decomp} \$file | tail -n +2 >> ${out_bare}
+            ${decomp} \$file | tail -n +\$((header_lines + 1)) >> ${out_bare}
         fi
     done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
 

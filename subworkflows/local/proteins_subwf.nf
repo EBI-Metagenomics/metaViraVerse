@@ -83,7 +83,8 @@ workflow PROTEINS_PROCESSING {
     ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
 
     CONCATENATE_HMMER_TBLOUT (
-        HMMER_HMMSEARCH.out.target_summary.groupTuple()
+        HMMER_HMMSEARCH.out.target_summary.groupTuple(),
+        3
     )
 
     //
