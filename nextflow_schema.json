@@ -66,6 +66,13 @@
                     "help_text": "You need to pre-download hmm profiles for DBs of interest",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "iphop_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to iPHoP database.",
+                    "help_text": "You need to pre-download iPHoP database https://bitbucket.org/srouxjgi/iphop/src/main/#markdown-header-host-databases-and-versions",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",

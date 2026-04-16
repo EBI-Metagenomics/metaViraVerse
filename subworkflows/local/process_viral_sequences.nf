@@ -7,6 +7,7 @@ include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-
 include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
 include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
+include { IPHOP_PREDICT                                } from '../../modules/nf-core/iphop/predict/main'
 include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
 include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../modules/nf-core/seqtk/subseq'
 include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-core/tabix/bgziptabix'
@@ -19,7 +20,6 @@ include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
-include { CRISPRCAS_FINDER                             } from '../../modules/local/crispcasfinder'
 include { EXTRACT_REPS_STATS                           } from '../../modules/local/extract_reps_stats'
 include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
 include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
@@ -141,7 +141,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
     // -------- Host assignment
     //
-
+    IPHOP_PREDICT (
+        UNCOMPRESSED_REPS_FNA.out.gunzip,
+        params.iphop_db
+    )
 
     //
     // -------- Lifestyle

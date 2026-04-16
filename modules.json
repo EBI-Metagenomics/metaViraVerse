@@ -129,6 +129,11 @@
                             "modules"
                         ]
                     },
+                    "iphop/predict": {
+                        "branch": "master",
+                        "git_sha": "ffe8f0a85ca059893a57c00fd028cb42c48bff19",
+                        "installed_by": ["modules"]
+                    },
                     "krona/ktimporttext": {
                         "branch": "master",
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
