@@ -82,8 +82,8 @@ def deduplicate_by_seq(spacers: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
-def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str) -> None:
-    """Process a single MGnify catalogue: extract CRISPRspacer data from all reps.
+def process_catalogue(catalogue_path: str) -> list[dict]:
+    """Collect raw CRISPRspacer records from all reps in a catalogue.
 
     Expected directory structure:
         catalogue_path/
@@ -91,46 +91,59 @@ def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str
                 genome/
                     MGYG..._crisprcasfinder.gff
 
-    Output:
-        {output_path}/{catalogue_name}_crispr.tsv  — unique spacers (by sequence)
+    Returns:
+        List of spacer dicts (crispr_id, name, seq, parent). Not deduplicated.
     """
     check_path_exists(catalogue_path)
     reps = sorted(item for item in os.listdir(catalogue_path) if item.startswith('MGYG'))
-    os.makedirs(output_path, exist_ok=True)
 
-    all_spacers = []
-
+    spacers = []
     for rep in reps:
         gff = os.path.join(catalogue_path, rep, 'genome', f'{rep}_crisprcasfinder.gff')
         if not os.path.exists(gff):
             continue
-        print(f'Processing: {rep}')
-        all_spacers.extend(parse_gff(gff))
+        print(f'  Processing: {rep}')
+        spacers.extend(parse_gff(gff))
+    return spacers
 
-    unique_spacers = deduplicate_by_seq(all_spacers)
-    print(f'Total: {len(all_spacers)} spacers → {len(unique_spacers)} unique by sequence')
 
-    final_tsv = os.path.join(output_path, catalogue_name + '_crispr.tsv')
+def write_outputs(unique_spacers: list[dict], output_path: str, prefix: str) -> None:
+    """Write deduplicated spacers to TSV and FASTA."""
+    os.makedirs(output_path, exist_ok=True)
+
+    final_tsv = os.path.join(output_path, prefix + '_crispr.tsv')
     with open(final_tsv, 'w', newline='') as fh:
-        writer = csv.DictWriter(fh, fieldnames=['crispr_id', 'name', 'seq', 'parent'], delimiter='\t')
+        writer = csv.DictWriter(fh, fieldnames=['crispr_id', 'name', 'parent'], delimiter='\t',
+                                extrasaction='ignore')
         writer.writeheader()
         writer.writerows(unique_spacers)
-
     print(f'Written: {final_tsv}')
+
+    final_fasta = os.path.join(output_path, prefix + '_crispr.fasta')
+    with open(final_fasta, 'w') as fh:
+        for s in unique_spacers:
+            fh.write(f'>{s["name"]}\n{s["seq"]}\n')
+    print(f'Written: {final_fasta}')
 
 
 def main() -> None:
     args = parse_arguments()
 
+    all_spacers = []
     for catalogue_path in args.catalogue_path:
         path_parts = catalogue_path.rstrip('/').split('/')
         catalogue_name = '_'.join(path_parts[-2:])
         print(f'Running search for {catalogue_name}')
-        process_catalogue(
-            catalogue_path=catalogue_path,
-            output_path=args.output_path,
-            catalogue_name=catalogue_name,
-        )
+        all_spacers.extend(process_catalogue(catalogue_path))
+
+    unique_spacers = deduplicate_by_seq(all_spacers)
+    print(f'Total: {len(all_spacers)} spacers → {len(unique_spacers)} unique by sequence')
+
+    prefix = '_'.join(
+        '_'.join(p.rstrip('/').split('/')[-2:]) for p in args.catalogue_path
+    ) if len(args.catalogue_path) > 1 else '_'.join(args.catalogue_path[0].rstrip('/').split('/')[-2:])
+
+    write_outputs(unique_spacers, args.output_path, prefix)
 
 
 if __name__ == '__main__':
