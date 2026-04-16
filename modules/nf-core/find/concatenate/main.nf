@@ -65,6 +65,9 @@ process FIND_CONCATENATE {
         fi
     done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
 
+    # Remove lines starting with # beyond the header, in-place
+    awk -v h="\$header_lines" 'NR <= h || !/^#/' ${out_bare} > ${out_bare}.tmp && mv ${out_bare}.tmp ${out_bare}
+
     ${cmd_compress}
     """
 
