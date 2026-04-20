@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import hashlib
 import os
 import sys
 
@@ -24,6 +25,13 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         help="Path to save results",
         default='.'
+    )
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        required=True,
+        help="Output filename",
+        default='crispr_results'
     )
     return parser.parse_args()
 
@@ -72,16 +80,21 @@ def parse_gff(gff: str) -> list[dict]:
     return spacers
 
 
+def seq_hash(seq: str) -> str:
+    """Return SHA256 hex digest of a sequence for identity comparison."""
+    return hashlib.sha256(seq.encode()).hexdigest()
+
+
 def deduplicate_by_seq(spacers: list[dict]) -> list[dict]:
-    """Return unique spacers by sequence, collecting all unique parents per sequence."""
-    seen = {}  # seq -> dict with merged parents
+    """Return unique spacers by sequence content (SHA256), collecting all unique parents."""
+    seen = {}  # sha256 -> dict with merged parents
     for s in spacers:
-        seq = s['seq']
-        if seq not in seen:
-            seen[seq] = {**s, '_parents': [s['parent']]}
+        key = seq_hash(s['seq'])
+        if key not in seen:
+            seen[key] = {**s, '_parents': [s['parent']]}
         else:
-            if s['parent'] not in seen[seq]['_parents']:
-                seen[seq]['_parents'].append(s['parent'])
+            if s['parent'] not in seen[key]['_parents']:
+                seen[key]['_parents'].append(s['parent'])
 
     result = []
     for entry in seen.values():
@@ -147,11 +160,7 @@ def main() -> None:
     unique_spacers = deduplicate_by_seq(all_spacers)
     print(f'Total: {len(all_spacers)} spacers → {len(unique_spacers)} unique by sequence')
 
-    prefix = '_'.join(
-        '_'.join(p.rstrip('/').split('/')[-2:]) for p in args.catalogue_path
-    ) if len(args.catalogue_path) > 1 else '_'.join(args.catalogue_path[0].rstrip('/').split('/')[-2:])
-
-    write_outputs(unique_spacers, args.output_path, prefix)
+    write_outputs(unique_spacers, args.output_path, args.prefix)
 
 
 if __name__ == '__main__':
