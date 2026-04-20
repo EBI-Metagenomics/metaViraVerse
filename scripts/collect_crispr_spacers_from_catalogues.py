@@ -27,7 +27,6 @@ def parse_arguments() -> argparse.Namespace:
         default='.'
     )
     parser.add_argument(
-        "-p",
         "--prefix",
         required=True,
         help="Output filename",
