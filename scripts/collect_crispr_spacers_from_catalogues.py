@@ -73,13 +73,21 @@ def parse_gff(gff: str) -> list[dict]:
 
 
 def deduplicate_by_seq(spacers: list[dict]) -> list[dict]:
-    """Return unique spacers keeping first occurrence per sequence."""
-    seen = {}
+    """Return unique spacers by sequence, collecting all unique parents per sequence."""
+    seen = {}  # seq -> dict with merged parents
     for s in spacers:
         seq = s['seq']
         if seq not in seen:
-            seen[seq] = s
-    return list(seen.values())
+            seen[seq] = {**s, '_parents': [s['parent']]}
+        else:
+            if s['parent'] not in seen[seq]['_parents']:
+                seen[seq]['_parents'].append(s['parent'])
+
+    result = []
+    for entry in seen.values():
+        entry['parent'] = ','.join(entry.pop('_parents'))
+        result.append(entry)
+    return result
 
 
 def process_catalogue(catalogue_path: str) -> list[dict]:
