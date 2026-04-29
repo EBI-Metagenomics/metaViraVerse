@@ -1,9 +1,11 @@
-include { PHAMMSEQS                        } from '../../modules/local/phammseqs'
-include { SUMMARISE_ANNOTATIONS            } from '../../modules/local/summarise_annotations'
+include { PHAMMSEQS                                    } from '../../modules/local/phammseqs'
+include { SUMMARISE_ANNOTATIONS                        } from '../../modules/local/summarise_annotations'
 
-include { HMMER_HMMSEARCH                  } from '../../modules/nf-core/hmmer/hmmsearch'
+include { HMMER_HMMSEARCH                              } from '../../modules/nf-core/hmmer/hmmsearch'
+include { SEQKIT_SPLIT2                                } from '../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_HMMER_TBLOUT } from '../../modules/nf-core/find/concatenate'
 
-include { AMR_ANNOTATION                   } from '../ebi-metagenomics/amr_annotation'
+include { AMR_ANNOTATION                               } from '../ebi-metagenomics/amr_annotation'
 
 
 workflow PROTEINS_PROCESSING {
@@ -16,6 +18,21 @@ workflow PROTEINS_PROCESSING {
     ch_versions = channel.empty()
 
     ch_proteins = input.map{ meta, faa, _gff -> tuple(meta, faa) }
+
+    /*********************/
+    /* PROTEINS CHUNKING */
+    /*********************/
+
+    // Chunk protein FASTA into files with N sequences each for parallel annotation
+    // Default: 50,000 sequences per chunk (override with --protein_annotation_fasta_chunksize)
+    SEQKIT_SPLIT2(
+        ch_proteins,
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
+    )
+    ch_versions = ch_versions.mix(SEQKIT_SPLIT2.out.versions)
+
+    def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
 
     //
     // -------- Antimicrobial resistence detection
@@ -45,24 +62,30 @@ workflow PROTEINS_PROCESSING {
     }
 
     //
-    // -------- Functional annotation
+    // -------- Functional annotation with HMMER
     //
     def hmm_ch = channel
         .fromPath("${params.annotation_db}/*.hmm.gz")
         .map { hmm_file -> tuple(hmm_file.baseName, hmm_file) }
 
     def hmmsearch_input = hmm_ch
-        .combine(ch_proteins)
+        .combine(ch_protein_chunks)
         .map { hmm_id, hmm_file, faa_id, faa_file ->
             def meta = [
                 id: hmm_id.replace('.hmm', '')
             ]
-            tuple(meta, hmm_file, faa_file, true, true, true)
+            tuple(meta, hmm_file, faa_file, false, true, false)
         }
+
     HMMER_HMMSEARCH (
         hmmsearch_input
     )
     ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
+
+    CONCATENATE_HMMER_TBLOUT (
+        HMMER_HMMSEARCH.out.target_summary.groupTuple(),
+        3
+    )
 
     //
     // ----- Add metadata and generate a full summary
@@ -77,12 +100,12 @@ workflow PROTEINS_PROCESSING {
         }
 
     SUMMARISE_ANNOTATIONS(
-        HMMER_HMMSEARCH.out.target_summary.join(hmm_metadata)
+        CONCATENATE_HMMER_TBLOUT.out.file_out.join(hmm_metadata)
     )
     ch_versions = ch_versions.mix(SUMMARISE_ANNOTATIONS.out.versions)
 
     emit:
-    hmmer_tables   = HMMER_HMMSEARCH.out.target_summary
+    hmmer_tables   = CONCATENATE_HMMER_TBLOUT.out.file_out
                       .map { meta, table -> table }                  // Extract just the table files
                       .collect()                                     // Gather all tables into a list
                       .map { tables -> [[id: 'viruses'], tables] }   // [meta, [.tbl.gz, ...]]

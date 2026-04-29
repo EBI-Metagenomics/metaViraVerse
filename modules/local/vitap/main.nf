@@ -10,11 +10,13 @@ process VITAP {
     path(db)
 
     output:
-    tuple val(meta), path("${meta.id}_vitap_best.tsv"), emit: best_lineages
-    path "versions.yml",                                emit: versions
+    tuple val(meta), path("*_vitap_best.tsv"), emit: best_lineages
+    path "versions.yml",                       emit: versions
 
     script:
     def fasta_file = fasta.name.endsWith('.gz') ? fasta.baseName : fasta.name
+    def prefix = task.ext.prefix ?: "${meta.id}"
+
     """
     if [[ ${fasta} == *.gz ]]; then
         gunzip -c ${fasta} > ${fasta_file}
@@ -23,17 +25,17 @@ process VITAP {
     VITAP assignment \\
       -i ${fasta_file} \\
       -d ${db} \\
-      -o ${meta.id}_vitap
+      -o ${prefix}_vitap
 
     # filter records (because VITAP adds random genomic fragments for normalization and calibration)
     # take input sequence names
     grep '>' ${fasta_file} | sed 's/>//' > names.txt
 
     # write header first
-    head -n1 ${meta.id}_vitap/best_determined_lineages.tsv > ${meta.id}_vitap_best.tsv
+    head -n1 ${prefix}_vitap/best_determined_lineages.tsv > ${prefix}_vitap_best.tsv
 
     # add filtered records
-    grep -w -f names.txt ${meta.id}_vitap/best_determined_lineages.tsv >> ${meta.id}_vitap_best.tsv
+    grep -w -f names.txt ${prefix}_vitap/best_determined_lineages.tsv >> ${prefix}_vitap_best.tsv
 
     # Attention:
     # version is hardcoded because Docker container has version 1.7 installed

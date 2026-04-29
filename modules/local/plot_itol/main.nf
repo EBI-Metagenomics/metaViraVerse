@@ -10,10 +10,12 @@ process PLOT_ITOL {
       tuple val(meta), path(table), path(metadata)
 
     output:
-      tuple val(meta), path("*_tree.nwk"),   emit: tree_nwk
-      tuple val(meta), path("*_labels.txt"), emit: tree_labels
-      tuple val(meta), path("*_counts.txt"), emit: tree_counts
-      path "versions.yml",                   emit: versions
+      tuple val(meta), path("*_tree.nwk"),          emit: tree_nwk
+      tuple val(meta), path("*_labels.txt"),        emit: tree_labels
+      tuple val(meta), path("*_counts.txt"),        emit: tree_counts
+      tuple val(meta), path("*.type.binary.txt"),   emit: tree_types  // genome/assembly
+      tuple val(meta), path("*.biomes.binary.txt"), emit: tree_biomes
+      path "versions.yml",                          emit: versions
 
     script:
     def args = task.ext.args ?: ''

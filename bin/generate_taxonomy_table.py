@@ -146,7 +146,7 @@ def generate_metadata_table(seq_tax, meta_file, meta_id_col, columns, output_fil
         for col in columns:
             val = seq_meta.get(col, "").strip()
             if val:
-                tax_meta[tax_key][col].add(val)
+                tax_meta[tax_key][col].update(val.split(','))
 
 
     with open(output_file, "w", newline="") as f:

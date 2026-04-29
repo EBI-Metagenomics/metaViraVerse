@@ -49,6 +49,11 @@ def parse_arguments() -> argparse.Namespace:
         help="Path to save results (filtered gff, fna, faa)",
         default='.'
     )
+    parser.add_argument(
+        "--old",
+        action="store_true",
+        help="For old catalogues with separate _virify.gff"
+    )
 
     return parser.parse_args()
 
@@ -212,7 +217,7 @@ def grep_sequences(
     return chosen_records
 
 
-def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str) -> None:
+def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str, old: bool) -> None:
     """Process a single MGnify catalogue: extract viral/plasmid/prophage data.
 
     Iterates over all species representatives (MGYG* directories) in the catalogue.
@@ -236,22 +241,36 @@ def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str
         catalogue_path: Path to the catalogue directory containing MGYG* subdirectories.
         output_path: Directory where output files will be written (created if needed).
         catalogue_name: Base name used for output file naming.
+        old: flag to use different structure of folders to find viral results
     """
     check_path_exists(catalogue_path)
-    reps = [item for item in os.listdir(catalogue_path) if item.startswith('MGYG')]
 
     os.makedirs(output_path, exist_ok=True)
-
     final_gff = os.path.join(output_path, catalogue_name + '_viral.gff')
     final_fna = os.path.join(output_path, catalogue_name + '_viral.fna')
     final_faa = os.path.join(output_path, catalogue_name + '_viral.faa')
+
+    if old:
+        reps_short = [item for item in os.listdir(catalogue_path) if item.startswith('MGYG')]
+        reps = []
+        for rep_short in reps_short:
+            reps.extend([f'{rep_short}/{item}' for item in os.listdir(os.path.join(catalogue_path, rep_short)) if item.startswith('MGYG')])
+        gff_prefix = '_virify.gff'
+    else:
+        reps = [item for item in os.listdir(catalogue_path) if item.startswith('MGYG')]
+        gff_prefix = '.gff'
+
     with open(final_gff, 'w') as out_gff, open(final_fna, 'w') as out_fna, open(final_faa, 'w') as out_faa:
 
         for rep in reps:
             print(f'Processing rep: {rep}')
-            gff = os.path.join(catalogue_path, rep, 'genome', f'{rep}.gff')
-            fna = os.path.join(catalogue_path, rep, 'genome', f'{rep}.fna')
-            faa = os.path.join(catalogue_path, rep, 'genome', f'{rep}.faa')
+            if '/' in rep:
+                genome_name = rep.split('/')[-1]
+            else:
+                genome_name = rep
+            gff = os.path.join(catalogue_path, rep, 'genome', f'{genome_name}{gff_prefix}')
+            fna = os.path.join(catalogue_path, rep, 'genome', f'{genome_name}.fna')
+            faa = os.path.join(catalogue_path, rep, 'genome', f'{genome_name}.faa')
 
             check_path_exists(gff)
             check_path_exists(faa)
@@ -282,7 +301,7 @@ def main() -> None:
         path_parts = catalogue_path.rstrip('/').split('/')
         catalogue_name = '_'.join(path_parts[-2:])
         print(f'Running search for {catalogue_name}')
-        process_catalogue(catalogue_path=catalogue_path, output_path=args.output_path, catalogue_name=catalogue_name)
+        process_catalogue(catalogue_path=catalogue_path, output_path=args.output_path, catalogue_name=catalogue_name, old=args.old)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 process BACPHLIP {
 
-    label 'process_low'
-    tag "combined"
+    label 'process_medium'
+    tag "${fasta.baseName}"
     container "quay.io/microbiome-informatics/bacphlip:v0.9.3-alpha"
 
     input:
@@ -17,8 +17,6 @@ process BACPHLIP {
         --multi_fasta \\
         -f \\
         --input_file ${fasta}
-
-    mv "${fasta}.bacphlip" ${meta.id}.bacphlip
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
