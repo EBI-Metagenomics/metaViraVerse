@@ -5,6 +5,8 @@
 */
 include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-core/find/concatenate'
 include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENOME } from '../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENUS  } from '../../modules/nf-core/find/concatenate'
 include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
 include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
 include { IPHOP_PREDICT                                } from '../../modules/nf-core/iphop/predict/main'
@@ -142,9 +144,22 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // -------- Host assignment
     //
     IPHOP_PREDICT (
-        UNCOMPRESSED_REPS_FNA.out.gunzip,
+        ch_fna_chunks,
         params.iphop_db
     )
+    ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
+
+    CONCATENATE_IPHOP_GENOME (
+        IPHOP_PREDICT.out.iphop_genome,
+        1
+    )
+    ch_versions = ch_versions.mix(CONCATENATE_IPHOP_GENOME.out.versions)
+
+    CONCATENATE_IPHOP_GENUS (
+        IPHOP_PREDICT.out.iphop_genus,
+        1
+    )
+    ch_versions = ch_versions.mix(CONCATENATE_IPHOP_GENUS.out.versions)
 
     //
     // -------- Lifestyle
