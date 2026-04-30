@@ -153,13 +153,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
         IPHOP_PREDICT.out.iphop_genome,
         1
     )
-    ch_versions = ch_versions.mix(CONCATENATE_IPHOP_GENOME.out.versions)
 
     CONCATENATE_IPHOP_GENUS (
         IPHOP_PREDICT.out.iphop_genus,
         1
     )
-    ch_versions = ch_versions.mix(CONCATENATE_IPHOP_GENUS.out.versions)
 
     //
     // -------- Lifestyle
