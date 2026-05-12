@@ -29,24 +29,24 @@ workflow THIRD_PARTY_DATA {
     FALINT( ch_fasta_ready )
 
     // Keep validated FASTAs
-    ch_validated = FALINT.out.success_log
+    ch_output_from_falint = FALINT.out.success_log
         .map { meta, log -> meta }
         .join( ch_fasta_ready, by: 0 )
         .join( ch_samplesheet.map { meta, fasta, type, biome -> [ meta, type, biome ] }, by: 0 )
         .map { meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
 
     // Separate viruses and plasmids
-    ch_viruses = ch_validated.filter { meta, fasta, type, biome -> type == 'virus' }
-    ch_plasmids = ch_validated.filter { meta, fasta, type, biome -> type == 'plasmid' }
+    ch_falint_for_pyrodigal_virus = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'virus' }
+    ch_falint_for_pyrodigal_plasmid = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'plasmid' }
 
     // Protein prediction
     PYRODIGAL_VIRUS(
-        ch_viruses.map { meta, fasta, type, biome -> [meta, fasta] },
-        'gff',
+        ch_falint_for_pyrodigal_virus.map { meta, fasta, type, biome -> [meta, fasta] },
+        'gff'
     )
     PYRODIGAL_PLASMID(
-        ch_plasmids.map { meta, fasta, type, biome -> [meta, fasta] },
-        'gff',
+        ch_falint_for_pyrodigal_plasmid.map { meta, fasta, type, biome -> [meta, fasta] },
+        'gff'
     )
     
     // Decompress FASTA files
@@ -60,10 +60,10 @@ workflow THIRD_PARTY_DATA {
 
     // Re-attach metadata after unzipping
     ch_virus_fna = GUNZIP_VIRUS.out.gunzip
-        .join(ch_viruses, by: 0)
+        .join(ch_falint_for_pyrodigal_virus, by: 0)
         .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
     ch_plasmid_fna = GUNZIP_PLASMID.out.gunzip
-        .join(ch_plasmids, by: 0)
+        .join(ch_falint_for_pyrodigal_plasmid, by: 0)
         .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
 
     ch_dedup = ch_virus_fna.mix(ch_plasmid_fna)
