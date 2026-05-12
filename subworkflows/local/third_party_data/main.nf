@@ -2,6 +2,7 @@
 include { FALINT                         } from '../../../modules/nf-core/falint/main'
 include { PYRODIGAL as PYRODIGAL_VIRUS   } from '../../../modules/nf-core/pyrodigal/main'
 include { PYRODIGAL as PYRODIGAL_PLASMID } from '../../../modules/nf-core/pyrodigal/main'
+include { GUNZIP as GUNZIP_INPUT         } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_VIRUS         } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PLASMID       } from '../../../modules/nf-core/gunzip/main'
 
@@ -10,16 +11,29 @@ workflow THIRD_PARTY_DATA {
     ch_samplesheet // channel: [ val(meta), path(fasta), val(type), val(biome) ]
 
     main:
+    // Decompress input FASTA files
+    ch_fasta = ch_samplesheet.map { meta, fasta, type, biome -> [ meta, fasta ] }
+
+    ch_fasta_branched = ch_fasta.branch {
+        meta, fasta ->
+        compressed:   fasta.name.endsWith('.gz')
+        uncompressed: true
+    }
+
+    GUNZIP_INPUT ( ch_fasta_branched.compressed )
+
+    ch_fasta_ready = ch_fasta_branched.uncompressed
+        .mix( GUNZIP_INPUT.out.gunzip )
 
     // FASTA validation
-    FALINT(
-        ch_samplesheet.map { meta, fasta, type, biome -> [meta, fasta] }
-    )
+    FALINT( ch_fasta_ready )
 
     // Keep validated FASTAs
     ch_validated = FALINT.out.success_log
-        .join(ch_samplesheet, by: 0)
-        .map { success_log, meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
+        .map { meta, log -> meta }
+        .join( ch_fasta_ready, by: 0 )
+        .join( ch_samplesheet.map { meta, fasta, type, biome -> [ meta, type, biome ] }, by: 0 )
+        .map { meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
 
     // Separate viruses and plasmids
     ch_viruses = ch_validated.filter { meta, fasta, type, biome -> type == 'virus' }
@@ -28,17 +42,17 @@ workflow THIRD_PARTY_DATA {
     // Protein prediction
     PYRODIGAL_VIRUS(
         ch_viruses.map { meta, fasta, type, biome -> [meta, fasta] },
-        'fna',
+        'gff',
     )
     PYRODIGAL_PLASMID(
         ch_plasmids.map { meta, fasta, type, biome -> [meta, fasta] },
-        'fna',
+        'gff',
     )
     
     // Decompress FASTA files
     GUNZIP_VIRUS(
-            PYRODIGAL_VIRUS.out.fna
-        )
+        PYRODIGAL_VIRUS.out.fna
+    )
     GUNZIP_PLASMID(
         PYRODIGAL_PLASMID.out.fna
     )

@@ -18,13 +18,13 @@ nextflow_workflow {
                 input[0] = Channel.of(
                     [
                         [ id: 'test_virus' ],
-                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/viruses.fasta.gz', checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
                         'virus',
                         'human gut'
                     ],
                     [
                         [ id: 'test_plasmid' ],
-                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/plasmids.fasta.gz', checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/plasmids.fasta.gz", checkIfExists: true),
                         'plasmid',
                         'marine sediment'
                     ]
@@ -52,7 +52,7 @@ nextflow_workflow {
                 input[0] = Channel.of(
                     [
                         [ id: 'test_no_biome' ],
-                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/viruses.fasta.gz', checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
                         'virus',
                         null
                     ]
