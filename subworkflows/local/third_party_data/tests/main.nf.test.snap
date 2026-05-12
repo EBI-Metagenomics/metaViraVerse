@@ -1,0 +1,110 @@
+{
+    "virus and plasmid fasta": {
+        "content": [
+            {
+                "0": [
+                    "test_plasmid.fna:md5,adf9e21c5fd406016a72432d22d81948",
+                    "test_virus.fna:md5,5510cbe01a75a5006871d5daa887db9b"
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test_plasmid"
+                        },
+                        "test_plasmid.faa.gz:md5,a2228e102f291dea5656d88c7be17bdd"
+                    ],
+                    [
+                        {
+                            "id": "test_virus"
+                        },
+                        "test_virus.faa.gz:md5,011dd70be65646f25fd0cd27b7d4653e"
+                    ]
+                ],
+                "2": [
+                    "plasmid",
+                    "virus"
+                ],
+                "3": [
+                    "human gut",
+                    "marine sediment"
+                ],
+                "biomes": [
+                    "human gut",
+                    "marine sediment"
+                ],
+                "faa": [
+                    [
+                        {
+                            "id": "test_plasmid"
+                        },
+                        "test_plasmid.faa.gz:md5,a2228e102f291dea5656d88c7be17bdd"
+                    ],
+                    [
+                        {
+                            "id": "test_virus"
+                        },
+                        "test_virus.faa.gz:md5,011dd70be65646f25fd0cd27b7d4653e"
+                    ]
+                ],
+                "fna": [
+                    "test_plasmid.fna:md5,adf9e21c5fd406016a72432d22d81948",
+                    "test_virus.fna:md5,5510cbe01a75a5006871d5daa887db9b"
+                ],
+                "types": [
+                    "plasmid",
+                    "virus"
+                ]
+            }
+        ],
+        "timestamp": "2026-05-12T12:38:51.322723",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "26.04.1"
+        }
+    },
+    "missing biome defaults to unknown": {
+        "content": [
+            {
+                "0": [
+                    "test_no_biome.fna:md5,6a70f5a8b62773c509898e5a28ae0e3e"
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test_no_biome"
+                        },
+                        "test_no_biome.faa.gz:md5,e139cd49b5d2ae99b344e28167d1974b"
+                    ]
+                ],
+                "2": [
+                    "virus"
+                ],
+                "3": [
+                    "unknown"
+                ],
+                "biomes": [
+                    "unknown"
+                ],
+                "faa": [
+                    [
+                        {
+                            "id": "test_no_biome"
+                        },
+                        "test_no_biome.faa.gz:md5,e139cd49b5d2ae99b344e28167d1974b"
+                    ]
+                ],
+                "fna": [
+                    "test_no_biome.fna:md5,6a70f5a8b62773c509898e5a28ae0e3e"
+                ],
+                "types": [
+                    "virus"
+                ]
+            }
+        ],
+        "timestamp": "2026-05-12T12:39:36.735637",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "26.04.1"
+        }
+    }
+}

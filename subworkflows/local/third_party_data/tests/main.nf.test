@@ -36,10 +36,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assertAll(
-                { assert workflow.out.fna    },
-                { assert workflow.out.faa    },
-                { assert workflow.out.types  },
-                { assert workflow.out.biomes }
+                { assert snapshot(workflow.out).match() }
             )
         }
     }
@@ -63,6 +60,9 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assertAll(
+                { assert snapshot(workflow.out).match() }
+            )
         }
     }
 }
