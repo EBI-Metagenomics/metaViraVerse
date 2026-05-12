@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "third_party_data"
+description: Integrate non-MGnify inputs (viruses and plasmids) sample sheet for third-party data sources.
+keywords:
+  - third-party data
+  - validation
+  - fasta
+  - plasmids
+  - virus
+components:
+  - falint
+  - pyrodigal
+  - gunzip
+input:
+  - meta:
+      type: map
+      description: Sample metadata with at minimum an 'id' field
+  - fasta:
+      type: file
+      description: FASTA file containing nucleotide sequences
+      pattern: "*.{fa,fasta,fna}"
+  - type:
+      type: string
+      description: Sequence type, either 'virus' or 'plasmid'
+      enum: ["virus", "plasmid"]
+  - biome:
+      type: string
+      description: Biome where the sequence was collected (optional, max 2 words, e.g. marine sediment or human gut)
+output:
+  - fna:
+      type: file
+      description: Gene nucleotide sequences (decompressed)
+      pattern: "*.fna"
+  - faa:
+      type: file
+      description: Predicted amino acid sequences
+      pattern: "*.faa.gz"
+  - types:
+      type: string
+      description: Sequence types (virus or plasmid)
+  - biomes:
+      type: string
+      description: Biomes where the sequences were collected
+authors:
+  - "@EfraMP"
+maintainers:
+  - "@EfraMP"

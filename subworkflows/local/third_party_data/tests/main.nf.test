@@ -1,0 +1,68 @@
+nextflow_workflow {
+
+    name "Test Subworkflow THIRD_PARTY_DATA"
+    script "../main.nf"
+    workflow "THIRD_PARTY_DATA"
+
+    tag "subworkflows"
+    tag "subworkflows/third_party_data"
+    tag "falint"
+    tag "pyrodigal"
+    tag "gunzip"
+
+    test("virus and plasmid fasta") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [
+                        [ id: 'test_virus' ],
+                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/viruses.fasta.gz', checkIfExists: true),
+                        'virus',
+                        'human gut'
+                    ],
+                    [
+                        [ id: 'test_plasmid' ],
+                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/plasmids.fasta.gz', checkIfExists: true),
+                        'plasmid',
+                        'marine sediment'
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assertAll(
+                { assert workflow.out.fna    },
+                { assert workflow.out.faa    },
+                { assert workflow.out.types  },
+                { assert workflow.out.biomes }
+            )
+        }
+    }
+
+    test("missing biome defaults to unknown") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [
+                        [ id: 'test_no_biome' ],
+                        file('https://github.com/EfraMp/metaViraVerse/raw/feat/third-party-input/assets/test_data/third_party/viruses.fasta.gz', checkIfExists: true),
+                        'virus',
+                        null
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+}
