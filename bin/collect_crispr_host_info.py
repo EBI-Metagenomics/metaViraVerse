@@ -84,6 +84,29 @@ def parse_predictions(predictions_file):
             for spacer in [v[0]]]
 
 
+def build_stats(host_lineage, viral_lineage):
+    host_parts = host_lineage.split(';')
+    viral_parts = viral_lineage.split(';')
+    family_same, genus_same, species_same = 0, 0, 0
+    family, genus, species = '', '', ''
+    # family
+    if viral_parts[4] == host_parts[4]:
+        family_same += 1
+    else:
+        family = f'{viral_parts[4]} from {host_parts[4]}'
+    # genus
+    if viral_parts[5] == host_parts[5]:
+        genus_same += 1
+    else:
+        genus = f'{viral_parts[5]} from {host_parts[5]}'
+    # species
+    if viral_parts[6] == host_parts[6]:
+        species_same += 1
+    else:
+        species = f'{viral_parts[6]} from {host_parts[6]}'
+    return family, family_same, genus, genus_same, species, species_same
+
+
 def main():
     args = parse_args()
 
@@ -93,8 +116,12 @@ def main():
 
     out = open(args.output, "w") if args.output != "-" else sys.stdout
     writer = csv.writer(out, delimiter="\t", lineterminator="\n")
-    writer.writerow(["viral_seq", "host_genome", "lineage", "evalue"])
+    writer.writerow(["viral_seq", "host_genome", "host_lineage", "evalue", "viral_seq_lineage", "match"])
 
+    family_match, genus_match, species_match = 0, 0, 0
+    family_dif = set()
+    genus_dif = set()
+    species_dif = set()
     for spacer, viral_seq, _, evalue_str in predictions:
         parents = spacer_parents.get(spacer)
         if not parents:
@@ -102,7 +129,32 @@ def main():
             continue
         for genome_id in parents:
             lineage = genome_lineages.get(genome_id, "NA")
-            writer.writerow([viral_seq, genome_id, lineage, evalue_str])
+            viral_seq_mag = viral_seq.split('_')[0]
+            viral_seq_mag_lineage = genome_lineages.get(viral_seq_mag, "NA")
+            if viral_seq_mag_lineage == lineage:
+                match = "Yes"
+            else:
+                match = "No"
+
+            if match == "No":
+                family, family_same, genus, genus_same, species, species_same = build_stats(lineage, viral_seq_mag_lineage)
+                family_match += family_same
+                genus_match += genus_same
+                species_match += species_same
+                family_dif.add(family)
+                genus_dif.add(genus)
+                species_dif.add(species)
+            writer.writerow([viral_seq, genome_id, lineage, evalue_str, viral_seq_mag_lineage, match])
+    print(f'Same family {family_match}')
+    print(f'Same genus {genus_match}')
+    print(f'Same species {species_match}')
+    with open('different.tsv', 'w') as file_out:
+        for i in family_dif:
+            file_out.write(f'Family\t{i}\n')
+        for i in genus_dif:
+            file_out.write(f'Genus\t{i}\n')
+        for i in species_dif:
+            file_out.write(f'Species\t{i}\n')
 
     if args.output != "-":
         out.close()
