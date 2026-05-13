@@ -5,6 +5,7 @@ include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/l
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
+include { THIRD_PARTY_DATA                               } from './third_party_data'
 
 workflow PREPROCESSING {
 
@@ -12,17 +13,26 @@ workflow PREPROCESSING {
 
     take:
     input
+    third_party_input
 
     main:
     ch_versions = channel.empty()
 
+    // Preprocess third party data
+    THIRD_PARTY_DATA( third_party_input )
     //
     // --- Aggregate catalogue MAGs and ASA results
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
-    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }.collect()
-    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }.collect()
-    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }.collect()
+    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }
+        .mix( THIRD_PARTY_DATA.out.fna )
+        .collect()
+    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }
+        .mix( THIRD_PARTY_DATA.out.types )
+        .collect()
+    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }
+        .mix( THIRD_PARTY_DATA.out.biomes )
+        .collect()
 
     CHOOSE_SEQUENCES(
         ch_fna_files,
@@ -84,8 +94,12 @@ workflow PREPROCESSING {
     prophages        = SEPARATE_PROPHAGES.out.chosen_sequences
     plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
 
-    combined_gff     = input.map { _meta, gff, _fna, _faa, _type, _biome -> gff }.collectFile( name: 'combined.gff' )
-    combined_faa     = input.map { _meta, _gff, _fna, faa, _type, _biome -> faa }.collectFile( name: 'combined.faa' )
+    combined_gff     = input.map { _meta, gff, _fna, _faa, _type, _biome -> gff }
+                        .mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
+                        .collectFile( name: 'combined.gff' )
+    combined_faa     = input.map { _meta, _gff, _fna, faa, _type, _biome -> faa }
+                        .mix( THIRD_PARTY_DATA.out.faa.map { meta, faa -> faa } )
+                        .collectFile( name: 'combined.faa' )
 
     versions         = ch_versions                        // channel: [ path(versions.yml) ]
 }
