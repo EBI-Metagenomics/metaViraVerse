@@ -36,6 +36,12 @@
                     "fa_icon": "fas fa-weight",
                     "type": "number"
                 },
+                "nucleotide_fasta_chunksize_iphop": {
+                    "default": 5000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
                 "protein_annotation_fasta_chunksize": {
                     "default": 15000,
                     "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
