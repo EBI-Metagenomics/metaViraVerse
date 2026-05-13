@@ -31,11 +31,24 @@ workflow METAVIRAVERSE {
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
 
+    // Third party data input channel
+    ch_third_party = params.third_party_input ? channel.fromPath(params.third_party_input, checkIfExists: true)
+        .splitCsv(header: true)
+        .map { row ->
+                  def meta = [id: row.id]
+                  def fasta = file(row.fasta, checkIfExists: true)
+                  def type  = row.type
+                  def biome = row.biome ?: null
+                  [ meta, fasta, type, biome ]
+              }
+        : channel.empty()
+
     //
     // Separate viral sequences and plasmids
     //
     PREPROCESSING (
-       ch_samplesheet
+       ch_samplesheet,
+       ch_third_party
     )
     ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
