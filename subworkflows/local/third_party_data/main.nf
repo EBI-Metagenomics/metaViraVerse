@@ -3,8 +3,13 @@ include { FALINT                         } from '../../../modules/nf-core/falint
 include { PYRODIGAL as PYRODIGAL_VIRUS   } from '../../../modules/nf-core/pyrodigal/main'
 include { PYRODIGAL as PYRODIGAL_PLASMID } from '../../../modules/nf-core/pyrodigal/main'
 include { GUNZIP as GUNZIP_INPUT         } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_VIRUS         } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_PLASMID       } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_GFF_VIRUS     } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_GFF_PLASMID   } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FAA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FAA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FNA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FNA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
+
 
 workflow THIRD_PARTY_DATA {
     take:
@@ -12,27 +17,25 @@ workflow THIRD_PARTY_DATA {
 
     main:
     // Decompress input FASTA files
-    ch_fasta = ch_samplesheet.map { meta, fasta, type, biome -> [ meta, fasta ] }
+    ch_fasta = ch_samplesheet.map { meta, fasta, type, biome -> [meta, fasta] }
 
-    ch_fasta_branched = ch_fasta.branch {
-        meta, fasta ->
-        compressed:   fasta.name.endsWith('.gz')
+    ch_fasta_branched = ch_fasta.branch { meta, fasta ->
+        compressed: fasta.name.endsWith('.gz')
         uncompressed: true
     }
 
-    GUNZIP_INPUT ( ch_fasta_branched.compressed )
+    GUNZIP_INPUT(ch_fasta_branched.compressed)
 
-    ch_fasta_ready = ch_fasta_branched.uncompressed
-        .mix( GUNZIP_INPUT.out.gunzip )
+    ch_fasta_ready = ch_fasta_branched.uncompressed.mix(GUNZIP_INPUT.out.gunzip)
 
     // FASTA validation
-    FALINT( ch_fasta_ready )
+    FALINT(ch_fasta_ready)
 
     // Keep validated FASTAs
     ch_output_from_falint = FALINT.out.success_log
         .map { meta, log -> meta }
-        .join( ch_fasta_ready, by: 0 )
-        .join( ch_samplesheet.map { meta, fasta, type, biome -> [ meta, type, biome ] }, by: 0 )
+        .join(ch_fasta_ready, by: 0)
+        .join(ch_samplesheet.map { meta, fasta, type, biome -> [meta, type, biome] }, by: 0)
         .map { meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
 
     // Separate viruses and plasmids
@@ -42,35 +45,36 @@ workflow THIRD_PARTY_DATA {
     // Protein prediction
     PYRODIGAL_VIRUS(
         ch_falint_for_pyrodigal_virus.map { meta, fasta, type, biome -> [meta, fasta] },
-        'gff'
+        'gff',
     )
     PYRODIGAL_PLASMID(
         ch_falint_for_pyrodigal_plasmid.map { meta, fasta, type, biome -> [meta, fasta] },
-        'gff'
+        'gff',
     )
-    
-    // Decompress FASTA files
-    GUNZIP_VIRUS(
-        PYRODIGAL_VIRUS.out.fna
-    )
-    GUNZIP_PLASMID(
-        PYRODIGAL_PLASMID.out.fna
-    )
+
+    // Decompress Pyrodigal files
+    GUNZIP_FNA_VIRUS(PYRODIGAL_VIRUS.out.fna)
+    GUNZIP_FNA_PLASMID(PYRODIGAL_PLASMID.out.fna)
+    GUNZIP_GFF_VIRUS(PYRODIGAL_VIRUS.out.annotations)
+    GUNZIP_GFF_PLASMID(PYRODIGAL_PLASMID.out.annotations)
+    GUNZIP_FAA_VIRUS(PYRODIGAL_VIRUS.out.faa)
+    GUNZIP_FAA_PLASMID(PYRODIGAL_PLASMID.out.faa)
 
 
     // Re-attach metadata after unzipping
-    ch_virus_fna = GUNZIP_VIRUS.out.gunzip
+    ch_virus_fna = GUNZIP_FNA_VIRUS.out.gunzip
         .join(ch_falint_for_pyrodigal_virus, by: 0)
         .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
-    ch_plasmid_fna = GUNZIP_PLASMID.out.gunzip
+    ch_plasmid_fna = GUNZIP_FNA_PLASMID.out.gunzip
         .join(ch_falint_for_pyrodigal_plasmid, by: 0)
         .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
 
     ch_dedup = ch_virus_fna.mix(ch_plasmid_fna)
 
     emit:
-    fna      = ch_dedup.map { meta, fna, type, biome -> fna }
-    faa      = PYRODIGAL_VIRUS.out.faa.mix(PYRODIGAL_PLASMID.out.faa)
-    types    = ch_dedup.map { meta, fna, type, biome -> type }
-    biomes   = ch_dedup.map { meta, fna, type, biome -> biome }
+    fna    = ch_dedup.map { meta, fna, type, biome -> fna }
+    faa    = PYRODIGAL_VIRUS.out.faa.mix(PYRODIGAL_PLASMID.out.faa)
+    gff    = GUNZIP_GFF_VIRUS.out.gunzip.mix(GUNZIP_GFF_PLASMID.out.gunzip)
+    types  = ch_dedup.map { meta, fna, type, biome -> type }
+    biomes = ch_dedup.map { meta, fna, type, biome -> biome }
 }

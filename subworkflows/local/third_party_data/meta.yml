@@ -33,8 +33,12 @@ output:
       pattern: "*.fna"
   - faa:
       type: file
-      description: Predicted amino acid sequences
+      description: Predicted amino acid sequences (decompressed)
       pattern: "*.faa.gz"
+  - gff:
+      type: file
+      description: Gene annotations in GFF format (decompressed)
+      pattern: "*.gff"
   - types:
       type: string
       description: Sequence types (virus or plasmid)
