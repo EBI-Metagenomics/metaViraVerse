@@ -79,7 +79,9 @@ workflow THIRD_PARTY_DATA {
         .join(ch_falint_for_pyrodigal_plasmid, by: 0)
         .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
 
-    ch_dedup = ch_virus_fna.mix(ch_plasmid_fna)
+    ch_dedup = ch_virus_fna
+        .map { meta, fna, fasta, type, biome -> [meta, fna, 'third_party_virus', biome] }
+        .mix(ch_plasmid_fna.map { meta, fna, fasta, type, biome -> [meta, fna, 'third_party_plasmid', biome] })
 
     emit:
     fna    = ch_dedup.map { meta, fna, type, biome -> fna }
