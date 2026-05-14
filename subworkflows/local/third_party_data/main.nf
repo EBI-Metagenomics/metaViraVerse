@@ -38,6 +38,16 @@ workflow THIRD_PARTY_DATA {
         .join(ch_samplesheet.map { meta, fasta, type, biome -> [meta, type, biome] }, by: 0)
         .map { meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
 
+    // Report invalid FASTA entries
+    FALINT.out.error_log
+        .map { meta, log -> "${meta.id}\t${log}" }
+        .collectFile(
+            name: "invalid_fastas.tsv",
+            storeDir: "${params.outdir}",
+            newLine: true,
+            seed: "sample\tfasta\n",
+        )
+
     // Separate viruses and plasmids
     ch_falint_for_pyrodigal_virus = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'virus' }
     ch_falint_for_pyrodigal_plasmid = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'plasmid' }
