@@ -24,10 +24,13 @@ workflow EXTRACT_CLUSTER_FILES {
     mapfile
     sequences
     faa
+    type
 
     main:
+    ch_versions = channel.empty()
+
     //
-    // ----------- Statistics and taxonomy from GFF for viruses reps -----------
+    // ----------- Statistics and taxonomy from GFF for reps -----------
     //
 
     EXTRACT_REPS_STATS (
@@ -57,7 +60,7 @@ workflow EXTRACT_CLUSTER_FILES {
     //
 
     GREP_FAA (
-        faa.map{faa_item -> [[id: 'viruses'], faa_item]},
+        faa.map{faa_item -> [[id: type], faa_item]},
         EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
     )
     ch_versions = ch_versions.mix(GREP_FAA.out.versions)

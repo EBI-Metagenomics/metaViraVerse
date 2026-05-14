@@ -58,7 +58,9 @@ workflow POST_PROCESSING_FOR_WEBSITE {
     //
     // ----------- bacphlip -----------
     //
-    INDEX_COMPRESS_BACPHLIP (
-        bacphlip_concatenated
-    )
+    if ( bacphlip_concatenated ) {
+        INDEX_COMPRESS_BACPHLIP (
+            bacphlip_concatenated
+        )
+    }
 }

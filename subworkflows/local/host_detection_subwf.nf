@@ -30,6 +30,7 @@ workflow HOST_DETECTION {
         params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
     )
     ch_versions = ch_versions.mix(CHUNK_FNA_IPHOP.out.versions)
+    def ch_fna_chunks = CHUNK_FNA_IPHOP.out.chunked_output.transpose()
 
     IPHOP_PREDICT (
         ch_fna_chunks,

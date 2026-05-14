@@ -14,7 +14,7 @@ include { CLUSTERING                                   } from './clustering'
 include { HOST_DETECTION                               } from './host_detection_subwf'
 include { POST_PROCESSING_FOR_WEBSITE                  } from './postprocessing_for_website'
 include { PROTEINS_PROCESSING                          } from './proteins_subwf'
-include { TAXONOMY_ASSIGNMENT                          } from './taxonomy'
+include { TAXONOMY_ASSIGNMENT                          } from './taxonomy_subwf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,7 +62,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
        gff,
        mapfile,
        sequences,
-       faa
+       faa,
+       'viruses'
     )
     ch_versions = ch_versions.mix(EXTRACT_CLUSTER_FILES.out.versions)
 
