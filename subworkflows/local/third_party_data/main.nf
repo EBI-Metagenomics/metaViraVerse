@@ -17,9 +17,9 @@ workflow THIRD_PARTY_DATA {
 
     main:
     // Decompress input FASTA files
-    ch_fasta = ch_samplesheet.map { meta, fasta, type, biome -> [meta, fasta] }
+    ch_fasta = ch_samplesheet.map { meta, fasta, _type, _biome -> [meta, fasta] }
 
-    ch_fasta_branched = ch_fasta.branch { meta, fasta ->
+    ch_fasta_branched = ch_fasta.branch { _meta, fasta ->
         compressed: fasta.name.endsWith('.gz')
         uncompressed: true
     }
@@ -33,9 +33,9 @@ workflow THIRD_PARTY_DATA {
 
     // Keep validated FASTAs
     ch_output_from_falint = FALINT.out.success_log
-        .map { meta, log -> meta }
+        .map { meta, _log -> meta }
         .join(ch_fasta_ready, by: 0)
-        .join(ch_samplesheet.map { meta, fasta, type, biome -> [meta, type, biome] }, by: 0)
+        .join(ch_samplesheet.map { meta, _fasta, type, biome -> [meta, type, biome] }, by: 0)
         .map { meta, fasta, type, biome -> [meta, fasta, type, biome ?: 'unknown'] }
 
     // Report invalid FASTA entries
@@ -49,16 +49,16 @@ workflow THIRD_PARTY_DATA {
         )
 
     // Separate viruses and plasmids
-    ch_falint_for_pyrodigal_virus = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'virus' }
-    ch_falint_for_pyrodigal_plasmid = ch_output_from_falint.filter { meta, fasta, type, biome -> type == 'plasmid' }
+    ch_falint_for_pyrodigal_virus = ch_output_from_falint.filter { _meta, _fasta, type, _biome -> type == 'virus' }
+    ch_falint_for_pyrodigal_plasmid = ch_output_from_falint.filter { _meta, _fasta, type, _biome -> type == 'plasmid' }
 
     // Protein prediction
     PYRODIGAL_VIRUS(
-        ch_falint_for_pyrodigal_virus.map { meta, fasta, type, biome -> [meta, fasta] },
+        ch_falint_for_pyrodigal_virus.map { meta, fasta, _type, _biome -> [meta, fasta] },
         'gff',
     )
     PYRODIGAL_PLASMID(
-        ch_falint_for_pyrodigal_plasmid.map { meta, fasta, type, biome -> [meta, fasta] },
+        ch_falint_for_pyrodigal_plasmid.map { meta, fasta, _type, _biome -> [meta, fasta] },
         'gff',
     )
 
@@ -74,19 +74,19 @@ workflow THIRD_PARTY_DATA {
     // Re-attach metadata after unzipping
     ch_virus_fna = GUNZIP_FNA_VIRUS.out.gunzip
         .join(ch_falint_for_pyrodigal_virus, by: 0)
-        .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
+        .map { meta, fna, _fasta, type, biome -> [meta, fna, type, biome] }
     ch_plasmid_fna = GUNZIP_FNA_PLASMID.out.gunzip
         .join(ch_falint_for_pyrodigal_plasmid, by: 0)
-        .map { meta, fna, fasta, type, biome -> [meta, fna, type, biome] }
+        .map { meta, fna, _fasta, type, biome -> [meta, fna, type, biome] }
 
     ch_dedup = ch_virus_fna
-        .map { meta, fna, fasta, type, biome -> [meta, fna, 'third_party_virus', biome] }
-        .mix(ch_plasmid_fna.map { meta, fna, fasta, type, biome -> [meta, fna, 'third_party_plasmid', biome] })
+        .map { meta, fna, _fasta, _type, biome -> [meta, fna, 'third_party_virus', biome] }
+        .mix(ch_plasmid_fna.map { meta, fna, _fasta, _type, biome -> [meta, fna, 'third_party_plasmid', biome] })
 
     emit:
-    fna    = ch_dedup.map { meta, fna, type, biome -> fna }
+    fna    = ch_dedup.map { _meta, fna, _type, _biome -> fna }
     faa    = PYRODIGAL_VIRUS.out.faa.mix(PYRODIGAL_PLASMID.out.faa)
     gff    = GUNZIP_GFF_VIRUS.out.gunzip.mix(GUNZIP_GFF_PLASMID.out.gunzip)
-    types  = ch_dedup.map { meta, fna, type, biome -> type }
-    biomes = ch_dedup.map { meta, fna, type, biome -> biome }
+    types  = ch_dedup.map { _meta, _fna, type, _biome -> type }
+    biomes = ch_dedup.map { _meta, _fna, _type, biome -> biome }
 }
