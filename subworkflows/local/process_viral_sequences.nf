@@ -100,7 +100,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     UNCOMPRESSED_REPS_FNA(
         GREP_FNA.out.sequences
     )
-    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FNA.out.versions)
+    // ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FNA.out.versions)
 
     BGZIP_FNA (UNCOMPRESSED_REPS_FNA.out.gunzip)
 
@@ -129,7 +129,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     UNCOMPRESSED_REPS_FAA(
         GREP_FAA.out.sequences
     )
-    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
+    // ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
 
     BGZIP_FAA (UNCOMPRESSED_REPS_FAA.out.gunzip)
 
