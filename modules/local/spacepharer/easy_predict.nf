@@ -7,7 +7,7 @@ process SPACEPHARER_EASYPREDICT {
 
     input:
     tuple val(meta), path(crispr_fasta)
-    path(target_db_name)
+    val(target_db_name)
     path(target_db)
     path(target_db_rev)
 
