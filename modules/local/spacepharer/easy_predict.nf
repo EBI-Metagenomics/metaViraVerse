@@ -7,6 +7,7 @@ process SPACEPHARER_EASYPREDICT {
 
     input:
     tuple val(meta), path(crispr_fasta)
+    path(target_db_name)
     path(target_db)
     path(target_db_rev)
 
@@ -19,7 +20,7 @@ process SPACEPHARER_EASYPREDICT {
     spacepharer easy-predict \\
       --threads $task.cpus \\
       ${crispr_fasta} \\
-      ${target_db} \\
+      ${target_db_name} \\
       ${meta.id}_predictions.tsv \\
       tmp
 

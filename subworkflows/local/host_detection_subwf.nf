@@ -73,6 +73,7 @@ workflow HOST_DETECTION {
 
         SPACEPHARER_EASYPREDICT(
             channel.of(params.mgnify_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
+            "targetSetDB",
             SPACEPHARER_CREATEDB.out.db.map { meta, db -> db },
             SPACEPHARER_CREATEDB_REV.out.db.map { meta, db -> db }
         )
