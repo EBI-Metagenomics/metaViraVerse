@@ -10,7 +10,7 @@ process SPACEPHARER_CREATEDB {
     val(target_db_name)
 
     output:
-    tuple val(meta), path("${target_db_name}"), emit: db
+    tuple val(meta), path("${target_db_name}*"), emit: db
     path "versions.yml",                        emit: versions
 
     script:

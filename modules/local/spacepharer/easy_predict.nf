@@ -16,7 +16,7 @@ process SPACEPHARER_EASYPREDICT {
 
     script:
     """
-    easy-predict \\
+    spacepharer easy-predict \\
       --threads $task.cpus \\
       ${crispr_fasta} \\
       ${target_db} \\
