@@ -2,19 +2,29 @@
  * subworkflows/local/protein_structure/main.nf
  *
  * Protein structure prediction and annotation subworkflow for metaViraVerse.
+ *
  * Triggered only when `.faa` is present in the samplesheet.
- * Existing pipeline behaviour is unchanged for users without protein sequences.
+ * Existing pipeline behaviour is completely unchanged for users who do not
+ * supply protein sequences (caveat 8 — graceful optional handling).
+ *
+ * Execution order:
+ *   FILTER_FAA         → removes seqs >1000aa or >5% ambiguous residues
+ *   ESMFOLD            → predicts structures; pLDDT per residue in B-factor
+ *   FOLDSEEK_SEARCH    → structural homology vs BFVD (+ optional PDB100)
+ *   ECOD_ANNOTATE      → HHsearch-based domain classification from Zenodo DB
+ *   MERGE_STRUCT_ANNOT → joins all annotations into extended stats TSV
  *
  * Input:
- *   ch_faa       — channel of [ meta, faa_file ] tuples (optional; may be empty)
- *   bfvd_db      — path to Foldseek BFVD database directory (or 'BFVD' to stream)
- *   plddt_cutoff — float: minimum mean pLDDT for ECOD/ProteinCartography (default 0.7)
- *   reps_stats   — path to existing viral_sequences_reps_stats.tsv
+ *   ch_faa       — channel of [ meta, faa_file ] tuples; may be empty
+ *   ch_reps_stats — channel of [ meta, tsv ] from upstream clustering step
+ *   bfvd_db      — path or 'BFVD' (streams via bfvd.foldseek.com)
+ *   plddt_cutoff — float; minimum mean pLDDT for ECOD/ProteinCartography
  *
  * Output:
- *   struct_stats — enriched stats TSV with 9 structural columns
- *   pdb_dir      — directory of predicted .pdb files
+ *   struct_stats — extended stats TSV (10 new structural columns)
+ *   pdb_dir      — directory of per-protein .pdb files
  *   bfvd_hits    — Foldseek BFVD results TSV
+ *   ecod_tsv     — ECOD domain annotation TSV
  */
 
 include { FILTER_FAA          } from '../../../modules/local/filter_faa/main'
@@ -25,46 +35,57 @@ include { MERGE_STRUCT_ANNOT  } from '../../../modules/local/merge_struct_annota
 
 workflow PROTEIN_STRUCTURE {
     take:
-    ch_faa           // channel: [ val(meta), path(faa) ] — may be empty Channel
-    bfvd_db          // path
-    plddt_cutoff     // val(float)
-    reps_stats       // channel: [ val(meta), path(tsv) ]
+    ch_faa        // channel: [ val(meta), path(faa) ] — may be empty
+    ch_reps_stats // channel: [ val(meta), path(tsv) ]
+    bfvd_db       // val: path string or 'BFVD'
+    plddt_cutoff  // val: float
 
     main:
-    // Guard: warn and short-circuit if no .faa provided
-    ch_faa_valid = ch_faa.filter { meta, faa ->
-        def has_faa = faa && faa.exists() && faa.size() > 0
-        if (!has_faa) {
-            log.warn "[PROTEIN_STRUCTURE] No .faa provided for sample ${meta.id} — skipping protein structure subworkflow"
+    // ── Guard: warn and drop samples with no .faa ────────────
+    ch_faa_valid = ch_faa
+        .filter { meta, faa ->
+            def present = faa && faa.exists() && faa.size() > 0
+            if (!present) {
+                log.warn "[PROTEIN_STRUCTURE] No .faa for sample '${meta.id}' — " +
+                         "skipping protein structure annotation for this sample."
+            }
+            return present
         }
-        return has_faa
-    }
 
-    // Step 1 — filter sequences for ESMFold compatibility
+    // ── Step 1: filter sequences ─────────────────────────────
     FILTER_FAA(ch_faa_valid)
 
-    // Step 2 + 3 — predict structures + implicit pLDDT QC in confidence TSV
+    // ── Step 2: predict structures ───────────────────────────
     ESMFOLD(FILTER_FAA.out.filtered_faa)
 
-    // Step 4 + 5 — structural homology search vs BFVD (+ optional PDB)
+    // ── Step 3+4: structural homology search ─────────────────
     FOLDSEEK_SEARCH(
         ESMFOLD.out.pdb_dir,
         bfvd_db
     )
 
-    // Step 6 + 7 — ECOD domain annotation + SCOP cross-refs
+    // ── Step 5: ECOD domain annotation ───────────────────────
     ECOD_ANNOTATE(
         ESMFOLD.out.pdb_dir,
         ESMFOLD.out.confidence_tsv,
         plddt_cutoff
     )
 
-    // Step 8 — merge all annotations into extended stats TSV
+    // ── Step 6: merge all annotations ────────────────────────
+    // Join reps_stats with per-sample annotation outputs by meta.id
+    ch_merge_input = ch_reps_stats
+        .join(ESMFOLD.out.confidence_tsv,      by: [0])
+        .join(FOLDSEEK_SEARCH.out.bfvd_hits,   by: [0])
+        .join(ECOD_ANNOTATE.out.ecod_tsv,      by: [0])
+        .map { meta, reps, conf, bfvd, ecod ->
+            [ meta, reps, conf, bfvd, ecod ]
+        }
+
     MERGE_STRUCT_ANNOT(
-        reps_stats,
-        ESMFOLD.out.confidence_tsv,
-        FOLDSEEK_SEARCH.out.bfvd_hits,
-        ECOD_ANNOTATE.out.ecod_tsv
+        ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, reps  ] },
+        ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, conf  ] },
+        ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, bfvd  ] },
+        ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, ecod  ] }
     )
 
     emit:
