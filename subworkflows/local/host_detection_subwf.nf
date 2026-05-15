@@ -4,10 +4,16 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENOME } from '../../modules/nf-core/find/concatenate'
-include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENUS  } from '../../modules/nf-core/find/concatenate'
-include { IPHOP_PREDICT                                } from '../../modules/nf-core/iphop/predict/main'
-include { SEQKIT_SPLIT2 as CHUNK_FNA_IPHOP             } from '../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENOME     } from '../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENUS      } from '../../modules/nf-core/find/concatenate'
+include { IPHOP_PREDICT                                    } from '../../modules/nf-core/iphop/predict/main'
+include { SEQKIT_SPLIT2 as CHUNK_FNA_IPHOP                 } from '../../modules/nf-core/seqkit/split2'
+
+include { COLLECT_HOST_INFO                                } from '../../modules/local/spacepharer/collect_crispr_host_info'
+include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB     } from '../../modules/local/spacepharer/createdb'
+include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB_REV } from '../../modules/local/spacepharer/createdb'
+include { SPACEPHARER_EASYPREDICT                          } from '../../modules/local/spacepharer/easy_predict'
+include { CHANGE_SPACE_TO_UNDERSCORE                       } from '../../modules/local/utils'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,6 +25,7 @@ workflow HOST_DETECTION {
 
     take:
     fna
+    metadata
 
     main:
 
@@ -47,6 +54,37 @@ workflow HOST_DETECTION {
         IPHOP_PREDICT.out.iphop_genus,
         1
     )
+
+    if (params.predict_host_from_mgnify_spacers) {
+        CHANGE_SPACE_TO_UNDERSCORE(fna)
+        ch_versions = ch_versions.mix(CHANGE_SPACE_TO_UNDERSCORE.out.versions)
+
+        SPACEPHARER_CREATEDB (
+            CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
+            "targetSetDB"
+        )
+        ch_versions = ch_versions.mix(SPACEPHARER_CREATEDB.out.versions)
+
+        SPACEPHARER_CREATEDB_REV (
+            CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
+            "targetSetDB_rev"
+        )
+        ch_versions = ch_versions.mix(SPACEPHARER_CREATEDB_REV.out.versions)
+
+        SPACEPHARER_EASYPREDICT(
+            channel.of(params.mgnify_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
+            SPACEPHARER_CREATEDB.out.db.map { meta, db -> db },
+            SPACEPHARER_CREATEDB_REV.out.db.map { meta, db -> db }
+        )
+        ch_versions = ch_versions.mix(SPACEPHARER_EASYPREDICT.out.versions)
+
+        COLLECT_HOST_INFO (
+           SPACEPHARER_EASYPREDICT.out.predictions,
+           channel.of(params.mgnify_spacers_metadata).map{tsv -> [[id:'spacers'], tsv]},
+           metadata
+        )
+        ch_versions = ch_versions.mix(COLLECT_HOST_INFO.out.versions)
+    }
 
     emit:
     iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out

@@ -79,6 +79,26 @@
                     "help_text": "You need to pre-download iPHoP database https://bitbucket.org/srouxjgi/iphop/src/main/#markdown-header-host-databases-and-versions",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "predict_host_from_mgnify_spacers": {
+                    "type": "boolean",
+                    "description": "Flag to run spacepharer on MGnify spacers",
+                    "help_text": "Host detection based only on MGnify genome predicted spacers",
+                    "default": true
+                },
+                "mgnify_spacers_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "FASTA with MGnify spacers",
+                    "help_text": "Unique MGnify spaces sequences",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "mgnify_spacers_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with MGnify spacers metadata",
+                    "help_text": "Unique MGnify spaces metadata",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
