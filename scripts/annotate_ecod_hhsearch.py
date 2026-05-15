@@ -5,45 +5,44 @@ Annotates predicted PDB structures with ECOD domain classifications using
 HHsearch against the ECOD HHM database fetched from Zenodo at runtime.
 
 ECOD Zenodo record: https://zenodo.org/records/13993145
-  - DB is downloaded once and cached; not re-fetched between runs.
-  - SCOP cross-references are parsed from ECOD hit annotations.
+  - DB downloaded once and cached; not re-fetched between runs.
+  - SCOP cross-references parsed from HHsearch hit descriptions.
 
-ECOD levels returned:
+ECOD levels:
   X-group: possible very distant homology
   H-group: probable homology
   T-group: topological similarity
   F-group: family (sequence-similar)
 
-Pre-filters to pLDDT > plddt_cutoff before annotation.
-Structures below cutoff are written as 'low_plddt' in output (not omitted).
+Structures below plddt_cutoff are written with status='low_plddt' (not skipped)
+so the merge step retains full sequence coverage.
 
-Requires: hhsuite >=3.3, requests, biopython
+Requires: hhsuite >= 3.3, requests
 
 Usage:
     python annotate_ecod_hhsearch.py \
-        --pdb-dir structures/ \
+        --pdb-dir        structures/ \
         --confidence-tsv structure_confidence.tsv \
-        --plddt-cutoff 0.7 \
-        --output ecod_annotations.tsv \
-        --scop-output scop_annotations.tsv \
-        --zenodo-url https://zenodo.org/records/13993145/files/ecod_hhm_db.tar.gz \
-        --threads 8 \
-        --cache-dir /path/to/cache
+        --plddt-cutoff   0.7 \
+        --output         ecod_annotations.tsv \
+        --scop-output    scop_annotations.tsv \
+        --zenodo-url     https://zenodo.org/records/13993145/files/ecod_hhm_db.tar.gz \
+        --threads        8 \
+        --cache-dir      /path/to/cache
 """
 
 import argparse
 import os
+import re
 import subprocess
+import sys
 import tarfile
 import tempfile
-import time
-import requests
 from pathlib import Path
 
+import requests
+
 PLDDT_CUTOFF_DEFAULT = 0.7
-ECOD_LEVELS = ["ecod_uid", "ecod_xgroup", "ecod_hgroup", "ecod_tgroup",
-               "ecod_fgroup", "ecod_evalue"]
-SCOP_LEVELS = ["scop_class", "scop_fold", "scop_superfamily", "scop_family"]
 
 AA_MAP = {
     "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
@@ -52,77 +51,109 @@ AA_MAP = {
     "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
 }
 
+ECOD_COLS  = ["ecod_uid", "ecod_xgroup", "ecod_hgroup",
+              "ecod_tgroup", "ecod_fgroup", "ecod_evalue"]
+SCOP_COLS  = ["scop_class", "scop_fold", "scop_superfamily", "scop_family"]
+NA_ECOD    = {k: "NA" for k in ECOD_COLS}
+NA_SCOP    = {k: "NA" for k in SCOP_COLS}
+
+
+# ── Database fetch ────────────────────────────────────────────
 
 def fetch_ecod_db(zenodo_url: str, cache_dir: Path) -> Path:
-    """Download and extract ECOD HHM DB from Zenodo if not already cached."""
+    """Download and extract ECOD HHM DB from Zenodo if not cached."""
     cache_dir.mkdir(parents=True, exist_ok=True)
+    marker  = cache_dir / ".ecod_db_ready"
     db_path = cache_dir / "ecod_hhm_db"
-    marker = cache_dir / ".ecod_db_ready"
 
     if marker.exists() and db_path.exists():
-        print(f"  ECOD HHM DB found in cache: {db_path}")
+        print(f"  ECOD HHM DB found in cache: {db_path}", file=sys.stderr)
         return db_path
 
-    archive_path = cache_dir / "ecod_hhm_db.tar.gz"
-    print(f"  Fetching ECOD HHM DB from Zenodo: {zenodo_url}")
-    with requests.get(zenodo_url, stream=True, timeout=300) as r:
+    archive = cache_dir / "ecod_hhm_db.tar.gz"
+    print(f"  Fetching ECOD HHM DB from Zenodo ({zenodo_url})...", file=sys.stderr)
+    with requests.get(zenodo_url, stream=True, timeout=600) as r:
         r.raise_for_status()
-        with open(archive_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+        total = int(r.headers.get("content-length", 0))
+        downloaded = 0
+        with open(archive, "wb") as fh:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                fh.write(chunk)
+                downloaded += len(chunk)
+                if total:
+                    pct = downloaded / total * 100
+                    print(f"  Downloading... {pct:.1f}%", end="\r", file=sys.stderr)
+    print("", file=sys.stderr)
 
-    print(f"  Extracting ECOD HHM DB...")
-    with tarfile.open(archive_path, "r:gz") as tar:
+    print("  Extracting ECOD HHM DB...", file=sys.stderr)
+    with tarfile.open(archive, "r:gz") as tar:
         tar.extractall(cache_dir)
-    archive_path.unlink()
+    archive.unlink()
     marker.touch()
-    print(f"  ECOD HHM DB ready at: {db_path}")
+    print(f"  ECOD HHM DB ready: {db_path}", file=sys.stderr)
     return db_path
 
 
+# ── PDB parsing ───────────────────────────────────────────────
+
 def extract_sequence_from_pdb(pdb_path: Path) -> str:
+    """Extract one-letter amino acid sequence from ATOM records."""
     seen = {}
     with open(pdb_path) as f:
         for line in f:
-            if line.startswith("ATOM"):
-                res_name = line[17:20].strip()
+            if not line.startswith("ATOM"):
+                continue
+            res_name = line[17:20].strip()
+            chain    = line[21]
+            try:
                 res_num = int(line[22:26].strip())
-                chain = line[21]
-                if (chain, res_num) not in seen:
-                    seen[(chain, res_num)] = AA_MAP.get(res_name, "X")
+            except ValueError:
+                continue
+            key = (chain, res_num)
+            if key not in seen:
+                seen[key] = AA_MAP.get(res_name, "X")
     return "".join(seen[k] for k in sorted(seen))
 
 
-def write_a3m(seq_id: str, seq: str, path: Path):
-    """Write a minimal .a3m query file for HHsearch (single sequence, no MSA)."""
-    with open(path, "w") as f:
-        f.write(f">{seq_id}\n{seq}\n")
+# ── HHsearch ─────────────────────────────────────────────────
+
+def write_a3m(seq_id: str, seq: str, path: Path) -> None:
+    """Minimal single-sequence A3M query (no MSA needed for domain scan)."""
+    path.write_text(f">{seq_id}\n{seq}\n")
 
 
 def run_hhsearch(query_a3m: Path, db_path: Path, threads: int) -> Path:
-    """Run HHsearch and return path to .hhr result file."""
-    result_hhr = query_a3m.with_suffix(".hhr")
+    hhr = query_a3m.with_suffix(".hhr")
     cmd = [
         "hhsearch",
-        "-i", str(query_a3m),
-        "-d", str(db_path / "ecod_hhm_db"),
-        "-o", str(result_hhr),
+        "-i",   str(query_a3m),
+        "-d",   str(db_path / "ecod_hhm_db"),
+        "-o",   str(hhr),
         "-cpu", str(threads),
-        "-e", "1e-3",
-        "-B", "5",
-        "-Z", "5",
+        "-e",   "1e-3",
+        "-B",   "5",
+        "-Z",   "5",
+        "-v",   "0",          # suppress verbose output
     ]
-    subprocess.run(cmd, check=True, capture_output=True)
-    return result_hhr
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"HHsearch failed: {result.stderr[:300]}")
+    return hhr
 
 
-def parse_hhr(hhr_path: Path, seq_id: str) -> dict:
-    """Parse ECOD domain hit from HHsearch .hhr output."""
-    result = {k: "NA" for k in ECOD_LEVELS + SCOP_LEVELS}
-    result["seq_id"] = seq_id
+# ── HHR parsing ───────────────────────────────────────────────
+
+def parse_hhr(hhr_path: Path, seq_id: str) -> tuple[dict, dict]:
+    """
+    Parse top ECOD hit from HHsearch .hhr output.
+    ECOD hit IDs have format: ECOD_UID|X-group|H-group|T-group|F-group
+    Returns (ecod_dict, scop_dict).
+    """
+    ecod = {"seq_id": seq_id, **NA_ECOD}
+    scop = {"seq_id": seq_id, **NA_SCOP}
 
     if not hhr_path.exists():
-        return result
+        return ecod, scop
 
     in_hits = False
     with open(hhr_path) as f:
@@ -130,54 +161,67 @@ def parse_hhr(hhr_path: Path, seq_id: str) -> dict:
             if line.startswith(" No Hit"):
                 in_hits = True
                 continue
-            if in_hits and line.strip() and line[0] == " " and line[1].isdigit():
-                # First hit line: rank, hit_id, prob, evalue, etc.
+            if not in_hits:
+                continue
+            # Hit table lines start with rank digit after a space
+            if line and line[0] == " " and len(line) > 4 and line[1].isdigit():
                 parts = line.split()
                 if len(parts) < 4:
                     break
-                # ECOD hit IDs have format: ECOD_UID|X-group|H-group|T-group|F-group
                 hit_id = parts[1]
                 evalue = parts[3]
-                ecod_parts = hit_id.split("|")
-                if len(ecod_parts) >= 5:
-                    result["ecod_uid"]    = ecod_parts[0]
-                    result["ecod_xgroup"] = ecod_parts[1]
-                    result["ecod_hgroup"] = ecod_parts[2]
-                    result["ecod_tgroup"] = ecod_parts[3]
-                    result["ecod_fgroup"] = ecod_parts[4]
-                result["ecod_evalue"] = evalue
-                # SCOP cross-refs in brackets in hit description if present
-                if "SCOP" in line:
-                    import re
-                    scop_match = re.search(r"SCOP:([a-z]\.\d+\.\d+\.\d+)", line)
-                    if scop_match:
-                        scop_id = scop_match.group(1)
-                        scop_parts = scop_id.split(".")
-                        result["scop_class"]       = scop_parts[0] if len(scop_parts) > 0 else "NA"
-                        result["scop_fold"]        = ".".join(scop_parts[:2]) if len(scop_parts) > 1 else "NA"
-                        result["scop_superfamily"] = ".".join(scop_parts[:3]) if len(scop_parts) > 2 else "NA"
-                        result["scop_family"]      = scop_id if len(scop_parts) > 3 else "NA"
-                break
-    return result
+                # Parse ECOD pipe-delimited hit ID
+                ep = hit_id.split("|")
+                if len(ep) >= 5:
+                    ecod.update({
+                        "ecod_uid":    ep[0],
+                        "ecod_xgroup": ep[1],
+                        "ecod_hgroup": ep[2],
+                        "ecod_tgroup": ep[3],
+                        "ecod_fgroup": ep[4],
+                        "ecod_evalue": evalue,
+                    })
+                # Parse optional SCOP cross-ref from description
+                scop_m = re.search(r"SCOP:([a-z]\.\d+\.\d+\.\d+)", line)
+                if scop_m:
+                    sid = scop_m.group(1)
+                    sp  = sid.split(".")
+                    scop.update({
+                        "scop_class":       sp[0]               if len(sp) > 0 else "NA",
+                        "scop_fold":        ".".join(sp[:2])    if len(sp) > 1 else "NA",
+                        "scop_superfamily": ".".join(sp[:3])    if len(sp) > 2 else "NA",
+                        "scop_family":      sid                 if len(sp) > 3 else "NA",
+                    })
+                break   # only top hit needed
+
+    return ecod, scop
 
 
-def load_confidence(tsv_path: Path, plddt_cutoff: float) -> dict:
-    """Return dict of seq_id -> (mean_plddt, passes_cutoff)."""
+# ── Confidence loading ────────────────────────────────────────
+
+def load_confidence(tsv_path: Path, cutoff: float) -> dict:
+    """Return {seq_id: (plddt_float, passes_bool)} for all 'success' rows."""
     data = {}
     with open(tsv_path) as f:
-        next(f)
+        next(f)  # header
         for line in f:
             parts = line.strip().split("\t")
-            if len(parts) >= 4 and parts[3] == "success":
-                try:
-                    plddt = float(parts[2])
-                    data[parts[0]] = (plddt, plddt >= plddt_cutoff)
-                except ValueError:
-                    data[parts[0]] = (None, False)
+            if len(parts) < 4:
+                continue
+            seq_id, _, plddt_str, status = parts[0], parts[1], parts[2], parts[3]
+            if status != "success":
+                continue
+            try:
+                plddt = float(plddt_str)
+                data[seq_id] = (plddt, plddt >= cutoff)
+            except ValueError:
+                data[seq_id] = (None, False)
     return data
 
 
-def main():
+# ── Main ─────────────────────────────────────────────────────
+
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb-dir",        required=True)
     parser.add_argument("--confidence-tsv", required=True)
@@ -194,55 +238,70 @@ def main():
     pdb_dir   = Path(args.pdb_dir)
     conf      = load_confidence(Path(args.confidence_tsv), args.plddt_cutoff)
 
-    ecod_header = "seq_id\tecod_uid\tecod_xgroup\tecod_hgroup\tecod_tgroup\tecod_fgroup\tecod_evalue\n"
+    ecod_header = ("seq_id\tecod_uid\tecod_xgroup\tecod_hgroup\t"
+                   "ecod_tgroup\tecod_fgroup\tecod_evalue\tstatus\n")
     scop_header = "seq_id\tscop_class\tscop_fold\tscop_superfamily\tscop_family\n"
 
-    with open(args.output, "w") as ecod_out, \
+    with open(args.output, "w")      as ecod_out, \
          open(args.scop_output, "w") as scop_out, \
          tempfile.TemporaryDirectory() as tmpdir:
 
         ecod_out.write(ecod_header)
         scop_out.write(scop_header)
-        tmpdir = Path(tmpdir)
+        tmp = Path(tmpdir)
 
         for pdb_path in sorted(pdb_dir.glob("*.pdb")):
-            seq_id = pdb_path.stem
+            seq_id     = pdb_path.stem
             plddt_info = conf.get(seq_id)
 
+            # Sequences not in confidence TSV (prediction failed entirely)
             if plddt_info is None:
-                print(f"  Skipping {seq_id} (not in confidence TSV)")
+                ecod_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 6) + "\tnot_predicted\n")
+                scop_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 4) + "\n")
                 continue
+
             plddt_val, passes = plddt_info
+
             if not passes:
-                print(f"  Skipping {seq_id} (mean pLDDT={plddt_val:.3f} < {args.plddt_cutoff})")
+                print(f"  {seq_id}: pLDDT={plddt_val:.3f} < {args.plddt_cutoff} — skipping HHsearch",
+                      file=sys.stderr)
+                ecod_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 6) + "\tlow_plddt\n")
+                scop_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 4) + "\n")
                 continue
 
             seq = extract_sequence_from_pdb(pdb_path)
             if not seq:
-                print(f"  No sequence extracted from {pdb_path.name}")
+                print(f"  {seq_id}: no ATOM records found — skipping", file=sys.stderr)
+                ecod_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 6) + "\tno_atoms\n")
+                scop_out.write(f"{seq_id}\t" + "\t".join(["NA"] * 4) + "\n")
                 continue
 
-            print(f"  Annotating {seq_id} (pLDDT={plddt_val:.3f})...")
-            a3m_path = tmpdir / f"{seq_id}.a3m"
-            write_a3m(seq_id, seq, a3m_path)
+            print(f"  Annotating {seq_id} (len={len(seq)}, pLDDT={plddt_val:.3f})...",
+                  file=sys.stderr)
+            a3m = tmp / f"{seq_id}.a3m"
+            write_a3m(seq_id, seq, a3m)
 
             try:
-                hhr_path = run_hhsearch(a3m_path, db_path, args.threads)
-                hit = parse_hhr(hhr_path, seq_id)
-            except subprocess.CalledProcessError as e:
-                print(f"  HHsearch failed for {seq_id}: {e}")
-                hit = {k: "NA" for k in ECOD_LEVELS + SCOP_LEVELS}
-                hit["seq_id"] = seq_id
+                hhr  = run_hhsearch(a3m, db_path, args.threads)
+                ecod, scop = parse_hhr(hhr, seq_id)
+                status = "annotated" if ecod["ecod_uid"] != "NA" else "no_hit"
+            except RuntimeError as e:
+                print(f"  HHsearch error for {seq_id}: {e}", file=sys.stderr)
+                ecod  = {"seq_id": seq_id, **NA_ECOD}
+                scop  = {"seq_id": seq_id, **NA_SCOP}
+                status = "hhsearch_failed"
 
             ecod_out.write(
-                f"{seq_id}\t{hit['ecod_uid']}\t{hit['ecod_xgroup']}\t"
-                f"{hit['ecod_hgroup']}\t{hit['ecod_tgroup']}\t"
-                f"{hit['ecod_fgroup']}\t{hit['ecod_evalue']}\n"
+                f"{seq_id}\t{ecod['ecod_uid']}\t{ecod['ecod_xgroup']}\t"
+                f"{ecod['ecod_hgroup']}\t{ecod['ecod_tgroup']}\t"
+                f"{ecod['ecod_fgroup']}\t{ecod['ecod_evalue']}\t{status}\n"
             )
             scop_out.write(
-                f"{seq_id}\t{hit['scop_class']}\t{hit['scop_fold']}\t"
-                f"{hit['scop_superfamily']}\t{hit['scop_family']}\n"
+                f"{seq_id}\t{scop['scop_class']}\t{scop['scop_fold']}\t"
+                f"{scop['scop_superfamily']}\t{scop['scop_family']}\n"
             )
+
+    print("ECOD annotation complete.", file=sys.stderr)
 
 
 if __name__ == "__main__":
