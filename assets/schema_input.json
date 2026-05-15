@@ -1,37 +1,41 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/viraverse/main/assets/schema_input.json",
-    "title": "EBI-Metagenomics/viraverse pipeline - params.input schema",
+    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/assets/schema_input.json",
+    "title": "EBI-Metagenomics/metaviraverse pipeline - params.input schema",
     "description": "Schema for the file provided with params.input",
     "type": "array",
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "id": {
                 "type": "string",
+                "description": "For catalogue data: catalogueName_version, example, tomato-rhizosphere_1.0. For assembly data: ERZ accession",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": [
                     "id"
                 ]
             },
-            "fastq_1": {
+            "gff": {
                 "type": "string",
                 "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "errorMessage": "GFF file containing viral data"
             },
-            "fastq_2": {
+            "fna": {
                 "type": "string",
                 "format": "file-path",
+feature/OncoProteinStructure
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
                 "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+=======
+                "errorMessage": "FASTA file corresponding to GFF with viral sequences"
+dev
             },
             "faa": {
                 "type": "string",
                 "format": "file-path",
+feature/OncoProteinStructure
                 "exists": false,
                 "pattern": "^(\\S+\\.f(aa|asta|sa)(\\.gz)?)?$",
                 "description": "Path to protein FASTA (.faa) for structure prediction. Optional \u2014 subworkflow skipped if absent.",
@@ -41,5 +45,20 @@
         "required": [
             "sample"
         ]
+=======
+                "errorMessage": "FASTA file corresponding to GFF with protein sequences"
+            },
+            "type": {
+                "type": "string",
+                "enum": ["genome", "metagenome"],
+                "description": "Use genome for MAG or isolate; use metagenome for assembly"
+            },
+            "biome": {
+                "type": "string",
+                "description": "Environmental biome"
+            }
+        },
+        "required": ["id", "gff", "fna", "type"]
+dev
     }
 }

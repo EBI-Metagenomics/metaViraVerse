@@ -1,0 +1,33 @@
+Changes in component 'nf-core/seqtk/subseq'
+'modules/nf-core/seqtk/subseq/environment.yml' is unchanged
+'modules/nf-core/seqtk/subseq/meta.yml' is unchanged
+Changes in 'seqtk/subseq/main.nf':
+--- modules/nf-core/seqtk/subseq/main.nf
++++ modules/nf-core/seqtk/subseq/main.nf
+@@ -21,17 +21,16 @@
+     script:
+     def args   = task.ext.args   ?: ''
+     def prefix = task.ext.prefix ?: "${meta.id}"
+-    def ext = "fa"
+-    if ("$sequences" ==~ /.+\.fq|.+\.fq.gz|.+\.fastq|.+\.fastq.gz/) {
+-        ext = "fq"
+-    }
++    def base = sequences.name.replaceFirst(/\.gz$/, '')
++    def ext  = base.tokenize('.')[-1]
++
+     """
+     seqtk \\
+         subseq \\
+         $args \\
+         $sequences \\
+         $filter_list | \\
+-        gzip --no-name > ${sequences}${prefix}.${ext}.gz
++        gzip --no-name > ${meta.id}${prefix}.${ext}.gz
+ 
+     cat <<-END_VERSIONS > versions.yml
+     "${task.process}":
+
+'modules/nf-core/seqtk/subseq/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/seqtk/subseq/tests/standard.config' is unchanged
+'modules/nf-core/seqtk/subseq/tests/main.nf.test' is unchanged
+************************************************************

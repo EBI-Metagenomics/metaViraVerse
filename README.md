@@ -1,73 +1,113 @@
-# EBI-Metagenomics/viraverse
+# metaViraVerse
 
-## Introduction
+<img align="right" width="120" height="120" src="assets/logo.png">
 
-**EBI-Metagenomics/viraverse** is a bioinformatics pipeline that ...
+[MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline to generate **viral catalogue** from assemblies.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
-
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+<p align="center">
+    <img src="assets/schema.png" alt="Pipeline overview" width="90%">
+</p>
 
 ## Usage
 
 > [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
-
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
+> This pipeline is based on results provided by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP). In order to generate a catalogue you need to launch VIRify on each sequence file in advance and then use VIRify GFF in MAP execution.
 
 First, prepare a samplesheet with your input data that looks as follows:
 
 `samplesheet.csv`:
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+id,gff,fna,faa,type,biome
+unique_identifier,viral.gff,viral.fna,viral.faa,metagenome/genome,biome
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+`id` (mandatory) - unique identifier (It is recommended to use ERZ accession if your MAG or assembly was taken ENA) \
+`gff` (mandatory) - GFF file containing records in types: _viral_sequence_, _plasmid_, _prophage_. It might also contain CDS records for chosen regions \
+`fna` (mandatory) - FASTA file with nucleotide sequences corresponding to chosen regions from GFF \
+`faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
+`type` (mandatory) - string value _genome_ or _metagenome_ describing initial sequence \
+`biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
 
--->
-
-Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+## Run
 
 ```bash
-nextflow run EBI-Metagenomics/viraverse \
+nextflow run EBI-Metagenomics/metaviraverse \
    -profile <docker/singularity/.../institute> \
    --input samplesheet.csv \
    --outdir <OUTDIR>
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
+## Output
 
-## Credits
+```
+├── plasmids
+├── viral_sequences
+├── pipeline_info
+```
 
-EBI-Metagenomics/viraverse was originally written by KateSakharova.
+Folder `plasmids`:
 
-We thank the following people for their extensive assistance in the development of this pipeline:
+```
+├── cluster_reps
+ ──── plasmids_reps.fasta.gz    # cluster rep compressed fasta
 
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+├── clustering
+ ──── plasmids_clusters.tsv     # clusters (representative \t members)
+ ──── plasmids_pairani.tsv      # blastn pairani table
 
-## Contributions and Support
+├── plasmids.fasta              # all sequences
+```
 
-If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
+Folder `viral_sequences`:
+
+```
+├── cluster_reps
+
+ ──── crisprcasfinder
+ ──────── viral_sequences_crisprcasfinder.gff
+ ──────── viral_sequences_crisprcasfinder.tsv
+ ──────── viral_sequences_crisprcasfinder_hq.gff
+
+ ──── taxonomy_plot                          # ViPhOG taxonomy
+ ──────── viral_sequences_krona.html         # krona plot
+ ──────── viral_sequences_krona.tsv          # taxonomy table with counts (count \t taxonomy tav-separated)
+ ──────── viral_sequences_sankey.html        # sankey plot
+
+ ──── taxonomy_vitap                         # ICTV taxonomy
+ ──────── viral_sequences_vitap_best.tsv     # taxonomy table with counts (count \t taxonomy tav-separated)
+ ──────── viral_sequences_vitap_sankey.html  # sankey plot
+
+ ──── viral_sequences_reps.fasta.gz          # cluster rep compressed fasta
+ ──── viral_sequences_reps_stats.tsv         # basic statistics calculated per each cluster representative
+
+├── clustering
+ ──── viral_sequences_clusters.tsv           # clusters (representative \t members)
+ ──── viral_sequences_pairani.tsv            # blastn pairani table
+
+├── viral_sequences.fasta                    # all sequences
+```
+
+### Under review:
+
+**VITAP** (https://www.nature.com/articles/s41467-025-57500-7)
+Database: https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3?file=49682337
+taxonomy + sankey plot
+
+**PLSDB** (https://academic.oup.com/nar/article/53/D1/D189/7905312)
+plasmids only screening with mash
 
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use EBI-Metagenomics/viraverse for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
+If you use this pipeline please make sure to cite all used software.
 This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
 
+> **MGnify: the microbiome sequence data analysis resource in 2023**
+>
+> Richardson L, Allen B, Baldi G, Beracochea M, Bileschi ML, Burdett T, et al.
+>
+> Vol. 51, Nucleic Acids Research. Oxford University Press (OUP); 2022. p. D753–9. Available from: http://dx.doi.org/10.1093/nar/gkac1080
+>
 > **The nf-core framework for community-curated bioinformatics pipelines.**
 >
 > Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.

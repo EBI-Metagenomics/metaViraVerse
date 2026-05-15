@@ -1,0 +1,83 @@
+Changes in component 'nf-core/find/concatenate'
+'modules/nf-core/find/concatenate/environment.yml' is unchanged
+'modules/nf-core/find/concatenate/meta.yml' is unchanged
+Changes in 'find/concatenate/main.nf':
+--- modules/nf-core/find/concatenate/main.nf
++++ modules/nf-core/find/concatenate/main.nf
+@@ -9,6 +9,7 @@
+ 
+     input:
+     tuple val(meta), path(files_in, stageAs: 'to_concatenate/*', arity: '1..*')
++    val number_of_header_lines
+ 
+     output:
+     tuple val(meta), path("${prefix}"), emit: file_out
+@@ -22,12 +23,12 @@
+     script:
+     def args = task.ext.args ?: ""
+ 
+-    // | input     | output     | command1 | command2 |
+-    // |-----------|------------|----------|----------|
+-    // | gzipped   | gzipped    | cat      |          |
+-    // | ungzipped | ungzipped  | cat      |          |
+-    // | gzipped   | ungzipped  | pigz     |          |
+-    // | ungzipped | gzipped    | cat      | pigz     |
++    // | input     | output     | decomp      | compress at end |
++    // |-----------|------------|-------------|-----------------|
++    // | gzipped   | gzipped    | pigz -cd    | pigz            |
++    // | ungzipped | ungzipped  | cat         |                 |
++    // | gzipped   | ungzipped  | pigz -cd    |                 |
++    // | ungzipped | gzipped    | cat         | pigz            |
+ 
+     // Use input file ending as default
+     // get file extensions, if extension is .gz then get the second to last extension as well
+@@ -40,21 +41,34 @@
+         error("All files provided to this module must either be gzipped (and have the .gz extension) or unzipped (and not have the .gz extension). A mix of both is not allowed.")
+     }
+ 
+-    in_zip = files_in[0].toString().endsWith('.gz')
++    in_zip  = files_in[0].toString().endsWith('.gz')
+     out_zip = task.ext.prefix ? task.ext.prefix.endsWith('.gz') : file_extensions[0].endsWith('.gz')
+ 
+-    out_fname = in_zip && out_zip ? prefix : prefix.endsWith('.gz') ? prefix.replace('.gz', '') : prefix
+-
+-    cmd1 = in_zip && !out_zip ? "pigz -cd -p ${task.cpus}" : "cat"
+-    cmd2 = !in_zip && out_zip ? "pigz -p ${task.cpus} ${args} ${out_fname}" : ""
++    // Always decompress for processing so header skipping works on plain text
++    decomp   = in_zip ? "pigz -cd -p ${task.cpus}" : "cat"
++    // Write to a plain (uncompressed) intermediate, then compress once at the end if needed
++    out_bare = out_zip ? prefix.replaceAll(/\.gz$/, '') : prefix
++    cmd_compress = out_zip ? "pigz -p ${task.cpus} ${args} ${out_bare}" : ""
+ 
+     """
++    first=true
++    export header_lines=${number_of_header_lines}
++
+     while IFS= read -r -d \$'\\0' file; do
+-            ${cmd1} \$file \\
+-                >> ${out_fname}
+-        done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
++        if [ "\$first" = true ]; then
++            # First file: decompress and write everything (including header)
++            ${decomp} \$file > ${out_bare}
++            first=false
++        else
++            # Subsequent files: decompress and skip the first (header) line
++            ${decomp} \$file | tail -n +\$((header_lines + 1)) >> ${out_bare}
++        fi
++    done < <( find to_concatenate/ -mindepth 1 -print0 | sort -z )
+ 
+-    ${cmd2}
++    # Remove lines starting with # beyond the header, in-place
++    awk -v h="\$header_lines" 'NR <= h || !/^#/' ${out_bare} > ${out_bare}.tmp && mv ${out_bare}.tmp ${out_bare}
++
++    ${cmd_compress}
+     """
+ 
+     stub:
+
+'modules/nf-core/find/concatenate/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/find/concatenate/tests/nextflow_zipped_unzipped.config' is unchanged
+'modules/nf-core/find/concatenate/tests/nextflow_unzipped_zipped.config' is unchanged
+'modules/nf-core/find/concatenate/tests/main.nf.test' is unchanged
+************************************************************

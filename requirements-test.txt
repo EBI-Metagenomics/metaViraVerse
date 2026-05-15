@@ -1,0 +1,11 @@
+# Python requirements for scripts in bin/ folder
+# Generated based on imports in Python scripts
+
+# Used by: anicalc.py, process_crispr_results.py
+biopython>=1.84
+
+# Used by: anicalc.py
+numpy>=1.26.0
+
+# Used by: plot_taxonomy_sankey.py
+plotly>=5.24.0

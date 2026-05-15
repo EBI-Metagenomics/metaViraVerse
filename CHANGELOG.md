@@ -5,7 +5,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v1.0.0dev - [date]
 
-Initial release of EBI-Metagenomics/viraverse, created with the [nf-core](https://nf-co.re/) template.
+Initial release of EBI-Metagenomics/metaviraverse, created with the [nf-core](https://nf-co.re/) template.
 
 ### `Added`
 

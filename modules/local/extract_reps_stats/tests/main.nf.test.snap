@@ -1,0 +1,83 @@
+{
+    "Should run without failures": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps_stats.tsv:md5,8e2c2786c0ad25b344ea8b95fa462854"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps.tsv:md5,a72f5dd80712f5c5b1c2355d477105cf"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps.gff:md5,df19e1b84ba6f691d20c72b397c88abf"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084"
+                    ]
+                ],
+                "4": [
+                    "versions.yml:md5,3cf643fc1af75843b66031799a44a592"
+                ],
+                "reps_gff": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps.gff:md5,df19e1b84ba6f691d20c72b397c88abf"
+                    ]
+                ],
+                "reps_krona_tsv": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_krona.tsv:md5,95016163ca1f738f2cc694bb4327d084"
+                    ]
+                ],
+                "reps_list": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps.tsv:md5,a72f5dd80712f5c5b1c2355d477105cf"
+                    ]
+                ],
+                "reps_stats_tsv": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_reps_stats.tsv:md5,8e2c2786c0ad25b344ea8b95fa462854"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,3cf643fc1af75843b66031799a44a592"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.0"
+        },
+        "timestamp": "2026-02-23T12:19:04.812232"
+    }
+}

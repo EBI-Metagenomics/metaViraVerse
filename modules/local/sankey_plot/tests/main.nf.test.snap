@@ -1,0 +1,15 @@
+{
+    "Should run without failures": {
+        "content": [
+            "test_sankey.html",
+            [
+                "versions.yml:md5,b38d6bfaec218bcdaacf8120f7087af1"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.0"
+        },
+        "timestamp": "2025-12-11T12:04:18.20011"
+    }
+}

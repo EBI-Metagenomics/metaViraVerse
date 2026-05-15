@@ -1,0 +1,11 @@
+##gff-version 3
+MGYG000517048_21	VIRify	viral_sequence	1	40229	.	.	.	ID=MGYG000517048_21|viral_sequence-1:40229;virify_quality=HC;mobile_element_type=phage_circular;checkv_provirus=No;checkv_quality=Medium-quality;checkv_miuvig_quality=Genome-fragment;checkv_kmer_freq=1.0;checkv_viral_genes=16;taxonomy=Viruses%3BHeunggongvirae%3BUroviricota%3BCaudoviricetes%3BBclasvirinae
+MGYG000517048_21	Prodigal:002006	CDS	369	1106	.	-	0	ID=MGYG000517048_03173;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03173;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	1268	1465	.	-	0	ID=MGYG000517048_03174;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03174;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	1480	1689	.	-	0	ID=MGYG000517048_03175;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03175;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	1776	2042	.	-	0	ID=MGYG000517048_03176;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03176;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	2346	2549	.	-	0	ID=MGYG000517048_03177;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03177;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	2630	2791	.	-	0	ID=MGYG000517048_03178;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03178;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	2788	3459	.	-	0	ID=MGYG000517048_03179;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03179;product=hypothetical protein;eggNOG=1056816.JAFQ01000001_gene7386
+MGYG000517048_21	Prodigal:002006	CDS	3795	3938	.	-	0	ID=MGYG000517048_03180;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03180;product=hypothetical protein
+MGYG000517048_21	Prodigal:002006	CDS	3952	4425	.	-	0	ID=MGYG000517048_03181;inference=ab initio prediction:Prodigal:002006;locus_tag=MGYG000517048_03181;product=hypothetical protein

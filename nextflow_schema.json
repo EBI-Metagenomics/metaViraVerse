@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/viraverse/main/nextflow_schema.json",
-    "title": "EBI-Metagenomics/viraverse pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/nextflow_schema.json",
+    "title": "EBI-Metagenomics/metaviraverse pipeline parameters",
     "description": "Viral catalogue generation pipeline",
     "type": "object",
     "$defs": {
@@ -26,6 +26,54 @@
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "catalogues_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with concatenated metadata from genome catalogues",
+                    "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "nucleotide_fasta_chunksize": {
+                    "default": 15000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
+                "protein_annotation_fasta_chunksize": {
+                    "default": 15000,
+                    "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
+                "filter_rrna": {
+                    "type": "boolean",
+                    "help_text": "Filter out rRNA before processing",
+                    "default": false
+                },
+                "phammseqs": {
+                    "type": "boolean",
+                    "help_text": "Run phams generation",
+                    "default": false
+                },
+                "vitap_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to VITAP DB.",
+                    "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "annotation_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to annotation DB containing hmm profiles.",
+                    "help_text": "You need to pre-download hmm profiles for DBs of interest",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "run_crisprcasfinder": {
+                    "type": "boolean",
+                    "help_text": "Run ChrisprCasFinder",
+                    "default": false
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -36,6 +84,72 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
+                }
+            }
+        },
+        "clustering_options": {
+            "title": "Clustering thresholds for ANI and coverage",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define clustering thresholds for ANI and coverage",
+            "properties": {
+                "cluster_vclust": {
+                    "type": "boolean",
+                    "help_text": "Use vclust as clustering tool",
+                    "default": true
+                }
+            }
+        },
+        "amr_options": {
+            "title": "Antimicrobial resistence dbs and options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define AMR databases and options",
+            "properties": {
+                "amrfinderplus_db": {
+                    "type": "string",
+                    "help_text": "Path to amrfinderplus database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_db": {
+                    "type": "string",
+                    "help_text": "Path to deeparg database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_db_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg database",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_model": {
+                    "type": "string",
+                    "help_text": "Model of deeparg",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "deeparg_tool_version": {
+                    "type": "string",
+                    "help_text": "Version of deeparg tool",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "rgi_db": {
+                    "type": "string",
+                    "help_text": "Path of RGI db",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "skip_amrfinderplus": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip amrfinderplus ",
+                    "default": false
+                },
+                "skip_deeparg": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip deeparg ",
+                    "default": false
+                },
+                "skip_rgi": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip RGI ",
+                    "default": false
                 }
             }
         },
@@ -213,6 +327,12 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/clustering_options"
+        },
+        {
+            "$ref": "#/$defs/amr_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

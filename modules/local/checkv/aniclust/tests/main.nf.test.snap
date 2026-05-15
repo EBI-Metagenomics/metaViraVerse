@@ -1,0 +1,35 @@
+{
+    "Should generate 2 clusters": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_clusters.tsv:md5,3ce83142690e0e58aec1fdd2dd78680f"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,9bcb8b10e9e891f05fe990f1763dfed2"
+                ],
+                "clusters_tsv": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_clusters.tsv:md5,3ce83142690e0e58aec1fdd2dd78680f"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,9bcb8b10e9e891f05fe990f1763dfed2"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.0"
+        },
+        "timestamp": "2025-12-11T10:54:57.373237"
+    }
+}
