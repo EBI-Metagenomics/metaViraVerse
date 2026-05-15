@@ -11,7 +11,9 @@
                 "type": "string",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "meta": [
+                    "id"
+                ]
             },
             "fastq_1": {
                 "type": "string",
@@ -26,8 +28,18 @@
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
                 "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+            },
+            "faa": {
+                "type": "string",
+                "format": "file-path",
+                "exists": false,
+                "pattern": "^(\\S+\\.f(aa|asta|sa)(\\.gz)?)?$",
+                "description": "Path to protein FASTA (.faa) for structure prediction. Optional \u2014 subworkflow skipped if absent.",
+                "errorMessage": "Protein FASTA must have extension .faa, .fasta or .fsa (optionally gzipped)"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": [
+            "sample"
+        ]
     }
 }
