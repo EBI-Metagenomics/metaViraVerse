@@ -32,6 +32,7 @@ include { ESMFOLD             } from '../../../modules/local/esmfold/main'
 include { FOLDSEEK_SEARCH     } from '../../../modules/local/foldseek/main'
 include { ECOD_ANNOTATE       } from '../../../modules/local/ecod/main'
 include { MERGE_STRUCT_ANNOT  } from '../../../modules/local/merge_struct_annotations/main'
+include { PROTEINCARTOGRAPHY  } from '../../../modules/local/proteincartography/main'
 
 workflow PROTEIN_STRUCTURE {
     take:
@@ -87,6 +88,19 @@ workflow PROTEIN_STRUCTURE {
         ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, bfvd  ] },
         ch_merge_input.map { meta, reps, conf, bfvd, ecod -> [ meta, ecod  ] }
     )
+
+    // ── Optional: ProteinCartography structural landscape ────
+    if (params.run_proteincartography) {
+        // taxonomy_tsv: pass empty file if not available
+        ch_taxonomy = ch_reps_stats
+            .map { meta, tsv -> [ meta, tsv ] }
+
+        PROTEINCARTOGRAPHY(
+            ESMFOLD.out.pdb_dir,
+            ESMFOLD.out.confidence_tsv,
+            ch_taxonomy.map { meta, tsv -> [ meta, tsv ] }
+        )
+    }
 
     emit:
     struct_stats = MERGE_STRUCT_ANNOT.out.struct_stats_tsv
