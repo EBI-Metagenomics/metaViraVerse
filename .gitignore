@@ -1,23 +1,11 @@
 .nextflow*
 work/
-development/data/
+data/
 results/
 .DS_Store
 testing/
 testing*
 *.pyc
 null/
-# IDE files
-.idea/
-
-# nf-test artifacts
-.nf-test.log
-.nf-test/
-
-# Test output files
-*.html
-*.tsv
-test2/
-
-# Sample/test results
-sample_mobtyper_results.txt
+metaViraVerse_issue16_SCAFFOLD.sh
+scaffold_structure.sh
