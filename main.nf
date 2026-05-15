@@ -1,9 +1,9 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    EBI-Metagenomics/metaviraverse
+    EBI-Metagenomics/viraverse
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/EBI-Metagenomics/metaviraverse
+    Github : https://github.com/EBI-Metagenomics/viraverse
 ----------------------------------------------------------------------------------------
 */
 
@@ -13,9 +13,11 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { METAVIRAVERSE           } from './workflows/metaviraverse'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
+include { VIRAVERSE  } from './workflows/viraverse'
+include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
+include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
+
+include { PROTEIN_STRUCTURE } from './subworkflows/local/protein_structure/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
@@ -25,23 +27,21 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_meta
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
-workflow EBIMETAGENOMICS_METAVIRAVERSE {
+workflow EBIMETAGENOMICS_VIRAVERSE {
 
     take:
-    samplesheet             // channel: samplesheet read in from --input
-    samplesheet_third_party // channel: samplesheet read in from --third_party_input
+    samplesheet // channel: samplesheet read in from --input
 
     main:
 
     //
     // WORKFLOW: Run pipeline
     //
-    METAVIRAVERSE (
-        samplesheet,
-        samplesheet_third_party
+    VIRAVERSE (
+        samplesheet
     )
     emit:
-    multiqc_report = METAVIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html
+    multiqc_report = VIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,16 +61,14 @@ workflow {
         params.monochrome_logs,
         args,
         params.outdir,
-        params.input,
-        params.third_party_input
+        params.input
     )
 
     //
     // WORKFLOW: Run main workflow
     //
-    EBIMETAGENOMICS_METAVIRAVERSE (
-        PIPELINE_INITIALISATION.out.samplesheet,
-        PIPELINE_INITIALISATION.out.samplesheet_third_party
+    EBIMETAGENOMICS_VIRAVERSE (
+        PIPELINE_INITIALISATION.out.samplesheet
     )
     //
     // SUBWORKFLOW: Run completion tasks
@@ -78,8 +76,26 @@ workflow {
     PIPELINE_COMPLETION (
         params.outdir,
         params.monochrome_logs,
-        EBIMETAGENOMICS_METAVIRAVERSE.out.multiqc_report
+        EBIMETAGENOMICS_VIRAVERSE.out.multiqc_report
     )
+    //
+    // OPTIONAL: Protein structure prediction and annotation
+    // Activated when params.run_protein_structure = true
+    // and .faa is provided in the samplesheet
+    //
+    if (params.run_protein_structure) {
+        ch_faa = ch_samplesheet
+            .map { meta, reads, faa -> faa ? [ meta, file(faa) ] : null }
+            .filter { it != null }
+
+        PROTEIN_STRUCTURE (
+            ch_faa,
+            ch_reps_stats,          // from upstream clustering process
+            params.bfvd_db      ?: 'BFVD',
+            params.plddt_cutoff ?: 0.7
+        )
+    }
+
 }
 
 /*
