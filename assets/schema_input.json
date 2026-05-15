@@ -12,7 +12,9 @@
                 "description": "For catalogue data: catalogueName_version, example, tomato-rhizosphere_1.0. For assembly data: ERZ accession",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "meta": [
+                    "id"
+                ]
             },
             "fna": {
                 "type": "string",
@@ -27,6 +29,7 @@
             "faa": {
                 "type": "string",
                 "format": "file-path",
+                "description": "Path to protein FASTA (.faa) for structure prediction. Optional — subworkflow skipped if absent.",
                 "errorMessage": "FASTA file corresponding to GFF with protein sequences"
             },
             "source": {
@@ -42,6 +45,6 @@
                 "meta": ["biome"]
             }
         },
-        "required": ["id", "gff", "fna", "faa"]
+        "required": ["id", "gff", "fna"]
     }
 }
