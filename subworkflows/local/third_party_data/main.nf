@@ -80,8 +80,8 @@ workflow THIRD_PARTY_DATA {
         .map { meta, fna, _fasta, type, biome -> [meta, fna, type, biome] }
 
     ch_dedup = ch_virus_fna
-        .map { meta, fna, _fasta, _type, biome -> [meta, fna, 'third_party_virus', biome] }
-        .mix(ch_plasmid_fna.map { meta, fna, _fasta, _type, biome -> [meta, fna, 'third_party_plasmid', biome] })
+        .map { meta, fna, _type, biome -> [meta, fna, 'third_party_virus', biome] }
+        .mix(ch_plasmid_fna.map { meta, fna, _type, biome -> [meta, fna, 'third_party_plasmid', biome] })
 
     emit:
     fna    = ch_dedup.map { _meta, fna, _type, _biome -> fna }
