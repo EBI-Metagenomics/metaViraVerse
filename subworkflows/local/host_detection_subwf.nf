@@ -55,7 +55,7 @@ workflow HOST_DETECTION {
         1
     )
 
-    if (params.predict_host_from_mgnify_spacers) {
+    if (params.predict_host_from_custom_spacers) {
         CHANGE_SPACE_TO_UNDERSCORE(fna)
         ch_versions = ch_versions.mix(CHANGE_SPACE_TO_UNDERSCORE.out.versions)
 
@@ -72,7 +72,7 @@ workflow HOST_DETECTION {
         ch_versions = ch_versions.mix(SPACEPHARER_CREATEDB_REV.out.versions)
 
         SPACEPHARER_EASYPREDICT(
-            channel.of(params.mgnify_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
+            channel.of(params.custom_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
             "targetSetDB",
             SPACEPHARER_CREATEDB.out.db.map { meta, db -> db },
             SPACEPHARER_CREATEDB_REV.out.db.map { meta, db -> db }
@@ -81,7 +81,7 @@ workflow HOST_DETECTION {
 
         COLLECT_HOST_INFO (
            SPACEPHARER_EASYPREDICT.out.predictions,
-           channel.of(params.mgnify_spacers_metadata).map{tsv -> [[id:'spacers'], tsv]},
+           channel.of(params.custom_spacers_metadata).map{tsv -> [[id:'spacers'], tsv]},
            metadata
         )
         ch_versions = ch_versions.mix(COLLECT_HOST_INFO.out.versions)

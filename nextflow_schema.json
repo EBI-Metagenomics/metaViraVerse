@@ -79,24 +79,24 @@
                     "help_text": "You need to pre-download iPHoP database https://bitbucket.org/srouxjgi/iphop/src/main/#markdown-header-host-databases-and-versions",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "predict_host_from_mgnify_spacers": {
+                "predict_host_from_custom_spacers": {
                     "type": "boolean",
-                    "description": "Flag to run spacepharer on MGnify spacers",
-                    "help_text": "Host detection based only on MGnify genome predicted spacers",
+                    "description": "Flag to run spacepharer on custom spacers",
+                    "help_text": "Host detection based on custom spacers list",
                     "default": true
                 },
-                "mgnify_spacers_fasta": {
+                "custom_spacers_fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "FASTA with MGnify spacers",
-                    "help_text": "Unique MGnify spaces sequences",
+                    "description": "FASTA with custom spacers",
+                    "help_text": "Unique custom spaces sequences in FASTA format",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "mgnify_spacers_metadata": {
+                "custom_spacers_metadata": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "TSV with MGnify spacers metadata",
-                    "help_text": "Unique MGnify spaces metadata",
+                    "description": "TSV with custom spacers metadata",
+                    "help_text": "Unique custom spaces metadata (Columns: crispr_id, name, parent)",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "outdir": {

@@ -12,7 +12,7 @@ process COLLECT_HOST_INFO {
     path(metadata)
 
     output:
-    tuple val(meta_predictions), path("mgnify_chosen_host.tsv"),    emit: tsv
+    tuple val(meta_predictions), path("custom_chosen_host.tsv"),    emit: tsv
     path "versions.yml",                                      emit: versions
 
     script:
@@ -21,7 +21,7 @@ process COLLECT_HOST_INFO {
         -p ${predictions} \\
         -c ${spacers_metadata} \\
         -m ${metadata} \\
-        -o mgnify_chosen_host.tsv
+        -o custom_chosen_host.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
