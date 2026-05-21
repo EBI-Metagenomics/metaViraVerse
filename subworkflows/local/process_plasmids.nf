@@ -5,7 +5,7 @@
 */
 include { CLUSTERING                              } from './clustering'
 include { EXTRACT_CLUSTER_FILES                   } from './extract_cluster_files'
-include { POST_PROCESSING_FOR_WEBSITE             } from './postprocessing_for_website'
+include { INDEX_RESULTS                           } from './index_results'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +60,7 @@ workflow PROCESS_PLASMIDS {
     // ----------- post-processing (indexing) for website -----------
     //
 
-    POST_PROCESSING_FOR_WEBSITE (
+    INDEX_RESULTS (
         EXTRACT_CLUSTER_FILES.out.reps_gff,
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
         EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,

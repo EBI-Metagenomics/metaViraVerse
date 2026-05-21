@@ -13,7 +13,7 @@ include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-
 include { SORT_GFF                                     } from '../../modules/local/sort_gff'
 
 
-workflow POST_PROCESSING_FOR_WEBSITE {
+workflow INDEX_RESULTS {
 
     take:
     reps_gff
