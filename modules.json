@@ -72,6 +72,11 @@
                         "git_sha": "7ee128aeeab26d51d33c8df0ef0238e971000025",
                         "installed_by": ["amr_annotation"]
                     },
+                    "falint": {
+                        "branch": "master",
+                        "git_sha": "f4952081c36cd091ef1693e7f0b11d8569ae5107",
+                        "installed_by": ["modules"]
+                    },
                     "find/concatenate": {
                         "branch": "master",
                         "git_sha": "8d8ab5d337f91c136f0bf78ec137e0599a2024ce",
@@ -80,7 +85,7 @@
                     },
                     "gunzip": {
                         "branch": "master",
-                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "git_sha": "0902eac3012baaf4f9ab6513c8c55acc9353c96c",
                         "installed_by": ["modules"]
                     },
                     "hamronization/deeparg": {
@@ -112,6 +117,11 @@
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "80cba9452fb1e9bb79884976fa1ca0e671949aa2",
+                        "installed_by": ["modules"]
+                    },
+                    "pyrodigal": {
+                        "branch": "master",
+                        "git_sha": "0ca6ca6c6e068635d01f979d0aed2f59c5d7cec4",
                         "installed_by": ["modules"]
                     },
                     "rgi/cardannotation": {

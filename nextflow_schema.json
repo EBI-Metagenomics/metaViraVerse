@@ -314,5 +314,10 @@
         {
             "$ref": "#/$defs/generic_options"
         }
-    ]
+    ],
+    "properties": {
+        "third_party_input": {
+            "type": "string"
+        }
+    }
 }

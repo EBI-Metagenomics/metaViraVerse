@@ -72,6 +72,8 @@ def parse_arguments() -> argparse.Namespace:
 TYPE_PRIORITY = {
     'metagenome': 0,
     'genome': 1,
+    'third_party_virus': 2,
+    'third_party_plasmid': 3,
 }
 
 
