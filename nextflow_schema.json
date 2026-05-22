@@ -31,7 +31,7 @@
                     "fa_icon": "fas fa-folder-open"
                 },
                 "nucleotide_fasta_chunksize": {
-                    "default": 15000,
+                    "default": 25000,
                     "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
                     "fa_icon": "fas fa-weight",
                     "type": "number"
@@ -43,7 +43,7 @@
                     "type": "number"
                 },
                 "protein_annotation_fasta_chunksize": {
-                    "default": 15000,
+                    "default": 300000,
                     "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
                     "fa_icon": "fas fa-weight",
                     "type": "number"
@@ -83,7 +83,7 @@
                     "type": "boolean",
                     "description": "Flag to run spacepharer on custom spacers",
                     "help_text": "Host detection based on custom spacers list",
-                    "default": true
+                    "default": false
                 },
                 "custom_spacers_fasta": {
                     "type": "string",
