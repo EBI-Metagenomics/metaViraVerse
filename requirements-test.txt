@@ -1,7 +1,7 @@
 # Python requirements for scripts in bin/ folder
 # Generated based on imports in Python scripts
 
-# Used by: anicalc.py, process_crispr_results.py
+# Used by: anicalc.py
 biopython>=1.84
 
 # Used by: anicalc.py

@@ -31,13 +31,19 @@
                     "fa_icon": "fas fa-folder-open"
                 },
                 "nucleotide_fasta_chunksize": {
-                    "default": 15000.0,
+                    "default": 25000,
                     "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
                     "fa_icon": "fas fa-weight",
                     "type": "number"
                 },
+                "nucleotide_fasta_chunksize_iphop": {
+                    "default": 5000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
                 "protein_annotation_fasta_chunksize": {
-                    "default": 15000.0,
+                    "default": 300000,
                     "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
                     "fa_icon": "fas fa-weight",
                     "type": "number"
@@ -66,10 +72,32 @@
                     "help_text": "You need to pre-download hmm profiles for DBs of interest",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "run_crisprcasfinder": {
+                "iphop_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to iPHoP database.",
+                    "help_text": "You need to pre-download iPHoP database https://bitbucket.org/srouxjgi/iphop/src/main/#markdown-header-host-databases-and-versions",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "predict_host_from_custom_spacers": {
                     "type": "boolean",
-                    "help_text": "Run ChrisprCasFinder",
+                    "description": "Flag to run spacepharer on custom spacers",
+                    "help_text": "Host detection based on custom spacers list",
                     "default": false
+                },
+                "custom_spacers_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "FASTA with custom spacers",
+                    "help_text": "Unique custom spaces sequences in FASTA format",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "custom_spacers_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with custom spacers metadata",
+                    "help_text": "Unique custom spaces metadata (Columns: crispr_id, name, parent)",
+                    "fa_icon": "fas fa-folder-open"
                 },
                 "outdir": {
                     "type": "string",
