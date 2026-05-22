@@ -5,6 +5,7 @@
 */
 include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-core/find/concatenate'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2'
+include { CHECKV_ENDTOEND                              } from '../../modules/nf-core/checkv/endtoend'
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
@@ -80,6 +81,15 @@ workflow PROCESS_VIRAL_SEQUENCES {
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
 
     //
+    // ----------- Evaluate a quality of cluster reps sequences
+    //
+
+    CHECKV_ENDTOEND (
+        ch_fna_chunks,
+        params.checkv_db
+    )
+
+    //
     // ----------- Host assignment -----------
     // IPHOP process has chunking with another fasta size
     //
@@ -113,7 +123,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     TAXONOMY_ASSIGNMENT (
        EXTRACT_CLUSTER_FILES.out.reps_stats_tsv,
        combined_metadata,
-       ch_fna_chunks
+       ch_fna_chunks,
+       params.skip_vitap
     )
     ch_versions = ch_versions.mix(TAXONOMY_ASSIGNMENT.out.versions)
 

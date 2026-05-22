@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
+include { GENOMAD_ENDTOEND                             } from '../../modules/nf-core/genomad/endtoend'
 include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
 include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
 include { VITAP                                        } from '../../modules/local/vitap'
@@ -25,10 +26,20 @@ workflow TAXONOMY_ASSIGNMENT {
     reps_stats_tsv
     combined_metadata
     ch_fna_chunks
+    skip_vitap
 
     main:
 
     ch_versions = channel.empty()
+    vitap_best  = channel.empty()
+
+    //
+    // Taxonomy genoMAD
+    //
+    GENOMAD_ENDTOEND (
+        ch_fna_chunks,
+        params.genomad_db
+    )
 
     //
     // Taxonomy Viphogs
@@ -49,34 +60,37 @@ workflow TAXONOMY_ASSIGNMENT {
     )
     ch_versions = ch_versions.mix(VIS_VIPHOGS.out.versions)
 
-    //
-    // Taxonomy VITAP
-    //
-    VITAP (
-        ch_fna_chunks,
-        params.vitap_db
-    )
-    ch_versions = ch_versions.mix(VITAP.out.versions)
+    if ( !skip_vitap ) {
+        //
+        // Taxonomy VITAP
+        //
+        VITAP (
+            ch_fna_chunks,
+            params.vitap_db
+        )
+        ch_versions = ch_versions.mix(VITAP.out.versions)
 
-    CONCATENATE_VITAP (
-        VITAP.out.best_lineages.groupTuple(),
-        1
-    )
+        CONCATENATE_VITAP (
+            VITAP.out.best_lineages.groupTuple(),
+            1
+        )
 
-    TAX_VITAP (
-        CONCATENATE_VITAP.out.file_out.map { meta, table ->
-            def new_meta = meta.clone()
-            new_meta.tool = 'vitap'
-            tuple(new_meta, table)
-        },
-        combined_metadata
-    )
-    ch_versions = ch_versions.mix(TAX_VITAP.out.versions)
+        TAX_VITAP (
+            CONCATENATE_VITAP.out.file_out.map { meta, table ->
+                def new_meta = meta.clone()
+                new_meta.tool = 'vitap'
+                tuple(new_meta, table)
+            },
+            combined_metadata
+        )
+        ch_versions = ch_versions.mix(TAX_VITAP.out.versions)
 
-    VIS_VITAP (
-       TAX_VITAP.out.taxonomy_and_metadata
-    )
-    ch_versions = ch_versions.mix(VIS_VITAP.out.versions)
+        VIS_VITAP (
+           TAX_VITAP.out.taxonomy_and_metadata
+        )
+        ch_versions = ch_versions.mix(VIS_VITAP.out.versions)
+    }
+
 
     emit:
     vitap_best     = CONCATENATE_VITAP.out.file_out

@@ -30,24 +30,6 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "nucleotide_fasta_chunksize": {
-                    "default": 25000,
-                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
-                    "fa_icon": "fas fa-weight",
-                    "type": "number"
-                },
-                "nucleotide_fasta_chunksize_iphop": {
-                    "default": 5000,
-                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
-                    "fa_icon": "fas fa-weight",
-                    "type": "number"
-                },
-                "protein_annotation_fasta_chunksize": {
-                    "default": 300000,
-                    "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
-                    "fa_icon": "fas fa-weight",
-                    "type": "number"
-                },
                 "filter_rrna": {
                     "type": "boolean",
                     "help_text": "Filter out rRNA before processing",
@@ -58,13 +40,6 @@
                     "help_text": "Run phams generation",
                     "default": false
                 },
-                "vitap_db": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to VITAP DB.",
-                    "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
-                    "fa_icon": "fas fa-folder-open"
-                },
                 "annotation_db": {
                     "type": "string",
                     "format": "directory-path",
@@ -72,7 +47,26 @@
                     "help_text": "You need to pre-download hmm profiles for DBs of interest",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "iphop_db": {
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "multiqc_title": {
+                    "type": "string",
+                    "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
+                    "fa_icon": "fas fa-file-signature"
+                }
+            }
+        },
+        "host_detection_options": {
+            "title": "Viral host detection",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define tools and DBs for host assignment using spacers",
+            "properties": {
+                 "iphop_db": {
                     "type": "string",
                     "format": "directory-path",
                     "description": "Path to iPHoP database.",
@@ -99,16 +93,11 @@
                     "help_text": "Unique custom spaces metadata (Columns: crispr_id, name, parent)",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "outdir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
-                },
-                "multiqc_title": {
-                    "type": "string",
-                    "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
-                    "fa_icon": "fas fa-file-signature"
+                "nucleotide_fasta_chunksize_iphop": {
+                    "default": 5000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
                 }
             }
         },
@@ -122,6 +111,68 @@
                     "type": "boolean",
                     "help_text": "Use vclust as clustering tool",
                     "default": true
+                }
+            }
+        },
+        "chunking_options": {
+            "title": "Chunking FASTA files",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define size of chunk",
+            "properties": {
+                 "nucleotide_fasta_chunksize": {
+                    "default": 25000,
+                    "description": "Controls the chunking of nucleotide FASTA files for parallel annotation. Format follows seqkit --by-size (this expects a integer).",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
+                "protein_annotation_fasta_chunksize": {
+                    "default": 300000,
+                    "description": "Controls the chunking of protein FASTA files for parallel functional annotation. Format follows seqkit --by-size (this expects a integer). Used in tools such as hmmsearch in the functional annotation subworkflow.",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                }
+            }
+        },
+        "quality_evaluation_options": {
+            "title": "Quality of viral sequences",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define checkV DB",
+            "properties": {
+                "checkv_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to CheckV DB.",
+                    "help_text": "You need to pre-download CheckV DB https://bitbucket.org/berkeleylab/checkv/src/master/#markdown-header-checkv-database",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "taxonomy_options": {
+            "title": "Taxonomy assignment and processing",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define taxonomy DBs and flags",
+            "properties": {
+                 "skip_vitap": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip VITAP ",
+                    "default": false
+                },
+                "vitap_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to VITAP DB.",
+                    "help_text": "You need to pre-download VITAP DB https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "genomad_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to genomAD DB.",
+                    "help_text": "You need to pre-download genomAD DB https://portal.nersc.gov/genomad/quickstart.html",
+                    "fa_icon": "fas fa-folder-open"
                 }
             }
         },
@@ -304,6 +355,18 @@
         },
         {
             "$ref": "#/$defs/clustering_options"
+        },
+        {
+            "$ref": "#/$defs/taxonomy_options"
+        },
+        {
+            "$ref": "#/$defs/host_detection_options"
+        },
+        {
+            "$ref": "#/$defs/chunking_options"
+        },
+        {
+            "$ref": "#/$defs/quality_evaluation_options"
         },
         {
             "$ref": "#/$defs/amr_options"
