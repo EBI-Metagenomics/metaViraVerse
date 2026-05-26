@@ -24,7 +24,7 @@ workflow VIPHOGS_ANNOTATION {
         [],                                        // length: (disabled) max number of nucleotides per chunk
         params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
     )
-    def ch_protein_chunks = SEQKIT_SPLIT2.out.assembly.transpose()
+    def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
 
     HMMER_VIPHOGS(
        ch_protein_chunks,
