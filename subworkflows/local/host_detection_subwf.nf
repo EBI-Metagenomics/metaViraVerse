@@ -30,6 +30,9 @@ workflow HOST_DETECTION {
     main:
 
     ch_versions = channel.empty()
+    iphop_host_genome = channel.empty()
+    iphop_host_genus = channel.empty()
+
     if ( !params.skip_iphop) {
         CHUNK_FNA_IPHOP (
             fna,
@@ -54,6 +57,9 @@ workflow HOST_DETECTION {
             IPHOP_PREDICT.out.iphop_genus,
             1
         )
+
+        iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out
+        iphop_host_genus    = CONCATENATE_IPHOP_GENUS.out.file_out
     }
 
     if (params.predict_host_from_custom_spacers) {
@@ -89,7 +95,7 @@ workflow HOST_DETECTION {
     }
 
     emit:
-    iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out
-    iphop_host_genus    = CONCATENATE_IPHOP_GENUS.out.file_out
+    iphop_host_genome   = iphop_host_genome
+    iphop_host_genus    = iphop_host_genus
     versions            = ch_versions                 // channel: [ path(versions.yml) ]
 }
