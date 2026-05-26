@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import gzip
 from pathlib import Path
 
 _table_headers = [
@@ -30,6 +31,15 @@ _table_headers = [
     "description of target"
 ]
 
+
+def open_file(path):
+    """Open a plain or gzip-compressed file for reading as text."""
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt")
+    return open(path)
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Format hmmer domain hits table.")
@@ -54,7 +64,7 @@ if __name__ == "__main__":
         tsv_writer = csv.writer(out_table, delimiter="\t",
                                 quoting=csv.QUOTE_MINIMAL)
         tsv_writer.writerow(_table_headers)
-        with open(domain_table, mode="r") as dt_reader:
+        with open_file(domain_table) as dt_reader:
             for line in dt_reader:
                 if line.startswith("#"):
                     continue
