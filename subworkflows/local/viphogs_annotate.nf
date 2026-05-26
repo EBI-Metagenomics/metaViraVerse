@@ -32,7 +32,8 @@ workflow VIPHOGS_ANNOTATION {
     )
 
     FIND_CONCATENATE(
-        HMMER_VIPHOGS.out.target_summary.groupTuple(by: [0,1])
+        HMMER_VIPHOGS.out.target_summary.groupTuple(by: [0,1]),
+        3
     )
 
     HMM_POSTPROCESSING(
