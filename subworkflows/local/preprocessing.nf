@@ -1,15 +1,14 @@
-include { CHOOSE_SEQUENCES                                } from '../../modules/local/choose_sequences'
+include { CHOOSE_SEQUENCES                               } from '../../modules/local/choose_sequences'
 include { RENAME_CONTIGS                                 } from '../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
+include { CHECKV_ENDTOEND                                } from '../../modules/nf-core/checkv/endtoend'
 include { THIRD_PARTY_DATA                               } from './third_party_data'
 
 workflow PREPROCESSING {
-
-    // TODO: process separately ASA, MAGs and third party and then combine
 
     take:
     input
@@ -20,6 +19,7 @@ workflow PREPROCESSING {
 
     // Preprocess third party data
     THIRD_PARTY_DATA( third_party_input )
+
     //
     // --- Aggregate catalogue MAGs and ASA results
     // Deduplicate sequences across samples, prioritising assembly over MAG
@@ -33,6 +33,15 @@ workflow PREPROCESSING {
     ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }
         .mix( THIRD_PARTY_DATA.out.biomes )
         .collect()
+
+    //
+    // ----------- Evaluate a quality for all coming sequences
+    //
+
+    CHECKV_ENDTOEND (
+        ch_fna_files.collectFile(name: "input.fna").map {fna -> tuple([id:'combined'], fna)},
+        params.checkv_db
+    )
 
     CHOOSE_SEQUENCES(
         ch_fna_files,

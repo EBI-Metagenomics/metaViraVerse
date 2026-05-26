@@ -5,7 +5,6 @@
 */
 include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-core/find/concatenate'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2'
-include { CHECKV_ENDTOEND                              } from '../../modules/nf-core/checkv/endtoend'
 
 include { BACPHLIP                                     } from '../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
@@ -79,15 +78,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
     )
     ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
-
-    //
-    // ----------- Evaluate a quality of cluster reps sequences
-    //
-
-    CHECKV_ENDTOEND (
-        ch_fna_chunks,
-        params.checkv_db
-    )
 
     //
     // ----------- Host assignment -----------
