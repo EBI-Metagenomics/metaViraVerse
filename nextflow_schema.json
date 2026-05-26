@@ -73,6 +73,11 @@
                     "help_text": "You need to pre-download iPHoP database https://bitbucket.org/srouxjgi/iphop/src/main/#markdown-header-host-databases-and-versions",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "skip_iphop": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip iphop",
+                    "default": false
+                },
                 "predict_host_from_custom_spacers": {
                     "type": "boolean",
                     "description": "Flag to run spacepharer on custom spacers",
