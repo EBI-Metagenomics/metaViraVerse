@@ -16,7 +16,7 @@ process HMM_POSTPROCESSING {
     
     script:
     """
-    hmmer_format_table.py -i ${hmmer_tbl} -o ${meta.id}_modified -t ${params.hmmer_tool}
+    hmmer_format_table.py -i ${hmmer_tbl} -o ${meta.id}_modified -t ${params.viphogs_hmmer_tool}
     """
 }
 
