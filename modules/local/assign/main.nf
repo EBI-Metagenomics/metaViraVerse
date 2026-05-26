@@ -4,18 +4,18 @@ process ASSIGN {
      * provides the taxonomic lineage of each viral contig, based on the corresponding ViPhOG annotations
     */
 
-    tag "${meta.id} ${set_name}"
+    tag "${meta.id}"
     label 'process_single'
 
     container 'quay.io/microbiome-informatics/virify-python3:1.1'
 
     input:
-    tuple val(meta), val(set_name), path(tab)
+    tuple val(meta), path(tab)
     path db
     path factor
 
     output:
-    tuple val(meta), val(set_name), path("*_taxonomy.tsv")
+    tuple val(meta), path("*_taxonomy.tsv")
 
     script:
     def version4 = params.meta_version == 'v4' ? '--version4' : ''
