@@ -26,7 +26,7 @@ workflow PREPROCESSING {
     //
     ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }
         .mix( THIRD_PARTY_DATA.out.fna )
-        .collect()
+
     ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }
         .mix( THIRD_PARTY_DATA.out.types )
         .collect()
@@ -39,12 +39,14 @@ workflow PREPROCESSING {
     //
 
     CHECKV_ENDTOEND (
-        ch_fna_files.collectFile(name: "input.fna").map {fna -> tuple([id:'combined'], fna)},
+        ch_fna_files
+            .collectFile(name: "input.fna")
+            .map { fna -> tuple([id: 'combined'], fna) },
         params.checkv_db
     )
 
     CHOOSE_SEQUENCES(
-        ch_fna_files,
+        ch_fna_files.collect(),
         ch_types,
         ch_biomes
     )
