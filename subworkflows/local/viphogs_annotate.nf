@@ -26,12 +26,9 @@ workflow VIPHOGS_ANNOTATION {
     )
     def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
 
+    hmmer_input = ch_protein_chunks.map{ meta, proteins -> tuple(meta, viphog_db, proteins, false, true, false) }
     HMMER_VIPHOGS(
-       ch_protein_chunks,
-       viphog_db,
-       false,
-       true,
-       false
+        hmmer_input
     )
 
     FIND_CONCATENATE(
