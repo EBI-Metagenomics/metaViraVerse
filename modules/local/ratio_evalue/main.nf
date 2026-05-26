@@ -21,7 +21,6 @@ process RATIO_EVALUE {
 
     script:
     """
-    [ -d "models" ] && cp models/* .
-    ratio_evalue_table.py -i ${modified_table} -t ${model_metadata} -o ${meta.id}_modified_informative.tsv -e ${params.evalue}
+    ratio_evalue_table.py -i ${modified_table} -t ${model_metadata} -o ${meta.id}_modified_informative.tsv -e ${params.viphogs_evalue}
     """
 }

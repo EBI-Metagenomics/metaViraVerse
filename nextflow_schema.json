@@ -210,6 +210,12 @@
                     "type": "string",
                     "description": "hmmer tool used to run viphogs",
                     "default": "hmmsearch"
+                },
+                "viphogs_evalue": {
+                    "default": 0.01,
+                    "description": "E-value limit for viphogs filtering",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
                 }
             }
         },
