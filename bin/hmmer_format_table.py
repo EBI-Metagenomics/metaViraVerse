@@ -34,7 +34,8 @@ _table_headers = [
 
 def open_file(path):
     """Open a plain or gzip-compressed file for reading as text."""
-    if path.endswith(".gz"):
+    path = Path(path)
+    if path.suffix == ".gz":
         return gzip.open(path, "rt")
     return open(path)
 
