@@ -124,7 +124,15 @@ workflow PROCESS_VIRAL_SEQUENCES {
        EXTRACT_CLUSTER_FILES.out.reps_stats_tsv,
        combined_metadata,
        ch_fna_chunks,
-       params.skip_vitap
+       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
+       EXTRACT_CLUSTER_FILES.out.reps_gff,
+       params.skip_vitap,
+       params.skip_genomad,
+       params.skip_viphogs,
+       params.viphog_db,
+       params.additional_model_data,
+       params.ncbi_db,
+       params.factor_file
     )
     ch_versions = ch_versions.mix(TAXONOMY_ASSIGNMENT.out.versions)
 

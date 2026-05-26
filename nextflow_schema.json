@@ -157,7 +157,17 @@
             "properties": {
                  "skip_vitap": {
                     "type": "boolean",
-                    "help_text": "Flag to skip VITAP ",
+                    "help_text": "Flag to skip VITAP",
+                    "default": false
+                },
+                "skip_genomad": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip genomAD",
+                    "default": false
+                },
+                "skip_viphogs": {
+                    "type": "boolean",
+                    "help_text": "Flag to skip viphogs annotation",
                     "default": false
                 },
                 "vitap_db": {
@@ -173,6 +183,23 @@
                     "description": "Path to genomAD DB.",
                     "help_text": "You need to pre-download genomAD DB https://portal.nersc.gov/genomad/quickstart.html",
                     "fa_icon": "fas fa-folder-open"
+                },
+                "viphog_db": {
+                    "type": "string",
+                    "description": "the ViPhOG database, hmmpress'ed"
+                },
+                "additional_model_data": {
+                    "type": "string",
+                    "description": "the ViPhOG additional file from ftp://ftp.ebi.ac.uk/pub/databases/metagenomics/viral-pipeline/additional_data_vpHMMs_${params.meta_version}.tsv"
+                },
+                "ncbi_db": {
+                    "type": "string",
+                    "description": "the NCBI tax DB to map names"
+                },
+                "factor_file": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to file with viral assemblies metadata, including taxon-specific factors"
                 }
             }
         },

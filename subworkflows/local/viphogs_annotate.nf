@@ -1,0 +1,62 @@
+include { HMMER as HMMER_VIPHOGS      } from '../../modules/nf-core/hmmer/hmmsearch'
+include { FIND_CONCATENATE            } from '../../modules/nf-core/find/concatenate'
+include { SEQKIT_SPLIT2               } from '../../modules/nf-core/seqkit/split2/main'
+
+include { ANNOTATION                  } from '../../modules/local/annotation'
+include { ASSIGN                      } from '../../modules/local/assign'
+include { HMM_POSTPROCESSING          } from '../../modules/local/hmm_postprocessing'
+include { RATIO_EVALUE                } from '../../modules/local/ratio_evalue'
+
+workflow VIPHOGS_ANNOTATION {
+
+    take:
+    proteins_faa
+    proteins_gff
+    viphog_db
+    additional_model_data
+    ncbi_db
+    factor_file
+
+    main:
+    // chunk big fasta file
+    SEQKIT_SPLIT2(
+        proteins_faa,
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
+    )
+    def ch_protein_chunks = SEQKIT_SPLIT2.out.assembly.transpose()
+
+    HMMER_VIPHOGS(
+       ch_protein_chunks,
+       viphog_db,
+       false,
+       true,
+       false
+    )
+
+    FIND_CONCATENATE(
+        HMMER_VIPHOGS.out.groupTuple(by: [0,1])
+    )
+
+    HMM_POSTPROCESSING(
+       FIND_CONCATENATE.out.file_out
+    )
+
+    // calculate hit qual per protein
+    RATIO_EVALUE(
+       HMM_POSTPROCESSING.out,
+       additional_model_data
+    )
+
+    // annotate contigs based on ViPhOGs
+    ANNOTATION(
+       RATIO_EVALUE.out.join(proteins_gff, by:[0,1])
+    )
+
+    // assign lineages
+    ASSIGN(
+       ANNOTATION.out.annotations,
+       ncbi_db,
+       factor_file
+    )
+}

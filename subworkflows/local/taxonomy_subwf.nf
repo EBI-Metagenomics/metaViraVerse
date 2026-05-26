@@ -9,6 +9,7 @@ include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/loc
 include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
 include { VITAP                                        } from '../../modules/local/vitap'
 
+include { VIPHOGS_ANNOTATION                           } from './viphogs_annotate'
 include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from './taxonomy_visualisation'
 include { TAXONOMY_VISUALISATION as VIS_VITAP          } from './taxonomy_visualisation'
 
@@ -26,7 +27,15 @@ workflow TAXONOMY_ASSIGNMENT {
     reps_stats_tsv
     combined_metadata
     ch_fna_chunks
+    reps_faa
+    reps_gff
     skip_vitap
+    skip_genomad
+    skip_viphogs
+    viphog_db
+    additional_model_data
+    ncbi_db
+    factor_file
 
     main:
 
@@ -36,14 +45,27 @@ workflow TAXONOMY_ASSIGNMENT {
     //
     // Taxonomy genoMAD
     //
-    GENOMAD_ENDTOEND (
-        ch_fna_chunks,
-        params.genomad_db
-    )
+    if ( !skip_genomad ) {
+        GENOMAD_ENDTOEND (
+            ch_fna_chunks,
+            params.genomad_db
+        )
+    }
 
     //
     // Taxonomy Viphogs
     //
+    if ( !skip_viphogs ) {
+        VIPHOGS_ANNOTATION (
+            reps_faa,
+            reps_gff,
+            viphog_db,
+            additional_model_data,
+            ncbi_db,
+            factor_file
+        )
+    }
+
     TAX_VIPHOGS (
         reps_stats_tsv
         .map { meta, table ->
