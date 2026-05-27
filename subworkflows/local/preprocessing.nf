@@ -29,7 +29,7 @@ workflow PREPROCESSING {
     //
     if ( !params.skip_rename ) {
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
-            .collect( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
+            .mix( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) ).collect()
         rename_input.view()
         RENAME_CONTIGS_TMP(
             rename_input,
