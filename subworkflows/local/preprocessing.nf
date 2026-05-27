@@ -28,6 +28,7 @@ workflow PREPROCESSING {
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
+        input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }.view()
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
             .combine( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
         rename_input.view()
