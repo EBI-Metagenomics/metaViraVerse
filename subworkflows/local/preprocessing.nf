@@ -23,14 +23,13 @@ workflow PREPROCESSING {
     THIRD_PARTY_DATA (
          third_party_input 
     )
-    third_party_output = THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff)
 
     //
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
-            .mix( third_party_output )
+            .mix( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
         rename_input.view()
         RENAME_CONTIGS(
             rename_input,
