@@ -95,14 +95,18 @@ def rename_gff(input_gff, map_dir):
                     continue
                 line = line.strip().split('\t')
                 if len(line) == 9:
-                    attrs, _ = parse_attrs(line[8])
-                    id = attrs.get("ID", "")
-                    full_line = '\t'.join(line)
-                    if id in map_dir:
-                        new_line = full_line.replace(id, map_dir[id])
-                        file_out.write(new_line)
+                    if line[2] == "CDS":
+                        file_out.write({'\t'.join(line)} + '\n')
+                        continue
                     else:
-                        file_out.write(full_line)
+                        attrs, _ = parse_attrs(line[8])
+                        id = attrs.get("ID", "")
+                        full_line = '\t'.join(line)
+                        if id in map_dir:
+                            new_line = full_line.replace(id, map_dir[id])
+                            file_out.write(new_line + '\n')
+                        else:
+                            file_out.write(full_line + '\n')
                 else:
                     file_out.write({'\t'.join(line)} + '\n')
                     continue
