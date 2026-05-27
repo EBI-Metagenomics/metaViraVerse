@@ -10,7 +10,10 @@ process RENAME_CONTIGS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(gff), path(fasta)
+    tuple val(meta), path(fna), path(gff)
+    val(accession)
+    val(start_accession)
+    val(end_accession)
 
     output:
     tuple val(meta), path("*_renamed.fasta"),    emit: contigs_renamed
@@ -21,7 +24,7 @@ process RENAME_CONTIGS {
     script:
     """
     rename_contigs.py \\
-       --input ${fasta} \\
+       --input ${fna} \\
        --gff ${gff} \\
        --map ${meta.id}.map.tsv \\
        --prefix ${meta.id}

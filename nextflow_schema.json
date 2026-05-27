@@ -30,11 +30,6 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "filter_rrna": {
-                    "type": "boolean",
-                    "help_text": "Filter out rRNA before processing",
-                    "default": false
-                },
                 "phammseqs": {
                     "type": "boolean",
                     "help_text": "Run phams generation",
@@ -57,6 +52,37 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
+                }
+            }
+        },
+        "preprocessing_options": {
+            "title": "Preprocessing input data",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Rename input contigs and find rRNA contamination",
+            "properties": {
+                "skip_rrna_detection": {
+                    "type": "boolean",
+                    "help_text": "Skip step to detect rRNA",
+                    "default": false
+                },
+                "skip_rename": {
+                    "type": "boolean",
+                    "help_text": "Skip contigs renaming step",
+                    "default": false
+                },
+                "rename_accession": {
+                    "type": "string",
+                    "help_text": "Rename all input sequences into simpler naming space, for example, seq1",
+                    "default": "seq"
+                },
+                "start_accession": {
+                    "type": "number",
+                    "help_text": "First ID that would be used in renaming, for example, seq1"
+                },
+                "end_accession": {
+                    "type": "number",
+                    "help_text": "Last ID that would be used in renaming, for example, seq100 (that argument can be skipped)"
                 }
             }
         },
@@ -395,6 +421,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/preprocessing_options"
         },
         {
             "$ref": "#/$defs/clustering_options"
