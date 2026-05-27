@@ -78,11 +78,13 @@
                 },
                 "start_accession": {
                     "type": "number",
-                    "help_text": "First ID that would be used in renaming, for example, seq1"
+                    "help_text": "First ID that would be used in renaming, for example, seq1",
+                    "default": 1
                 },
                 "end_accession": {
                     "type": "number",
-                    "help_text": "Last ID that would be used in renaming, for example, seq100 (that argument can be skipped)"
+                    "help_text": "Last ID that would be used in renaming, for example, seq100 (that argument can be skipped)",
+                    "default": 1
                 }
             }
         },
