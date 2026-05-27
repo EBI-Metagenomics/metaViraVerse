@@ -8,6 +8,7 @@ process CHOOSE_SEQUENCES {
 
     input:
     path(fna_files)
+    tuple val(meta), path(quality)
     val(types)
     val(biomes)
 

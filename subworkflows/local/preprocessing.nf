@@ -23,6 +23,9 @@ workflow PREPROCESSING {
     THIRD_PARTY_DATA (
          third_party_input 
     )
+
+    ch_fna_files = input.map { meta, gff, fna, faa -> fna}
+
     // TODO add third party data outputs
     // Review renaming for third party
     // review rename for ASA inputs
@@ -30,48 +33,34 @@ workflow PREPROCESSING {
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
-        rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
+        rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, gff]) }
         RENAME_CONTIGS_TMP(
             rename_input,
             params.start_accession,
             params.end_accession
         )
+        ch_fna_files = RENAME_CONTIGS_TMP.out.contigs_renamed.map{meta, fna -> fna}
     }
+
+    combined_fna = ch_fna_files
+        .collectFile(name: "input.fna")
+        .map { fna -> tuple([id: 'combined'], fna) }
 
     //
     // ----------- Evaluate a quality for all coming sequences
     //
-    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna}
+
     CHECKV_ENDTOEND (
-        RENAME_CONTIGS_TMP.out.contigs_renamed
-            .collectFile(name: "input.fna")
-            .map { fna -> tuple([id: 'combined'], fna) },
+        combined_fna,
         params.checkv_db
     )
 
     //
-    // ----------- Filter sequences, leave unique and save metadata
-    // Deduplicate sequences across samples, prioritising assembly over MAG
-    //
-    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }.collect()
-
-    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }.collect()
-
-    CHOOSE_SEQUENCES (
-        ch_fna_files.collect(),
-        ch_types,
-        ch_biomes
-    )
-    ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
-
-    ch_fna_sequences = CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) }
-
-    //
     // ----- Detect rRNA sequences ------
-    // TODO: implement that step for third party rename and probably ASA results
+    //
     if ( ! params.skip_rrna_detection ) {
         BARRNAP(
-          ch_fna_sequences.map {id, fasta -> [id, fasta, "bac"]}
+          combined_fna.map {id, fasta -> [id, fasta, "bac"]}
         )
         ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
@@ -79,6 +68,33 @@ workflow PREPROCESSING {
     } else {
         rna_gff = tuple([id:'combined'], [])
     }
+
+    //
+    // ----------- Filter sequences, leave unique and save metadata
+    // Deduplicate sequences across samples, prioritising assembly over MAG
+    //
+    ch_grouped = ch_fna_files
+        .collect()               // produces one list: [[meta1, fna1], [meta2, fna2], ...]
+        .map { tuples ->
+            def fnas   = tuples.collect { it[1] }
+            def types  = tuples.collect { it[0].type }
+            def biomes = tuples.collect { it[0].biome }
+            [fnas, types, biomes]
+        }
+
+    ch_types     = ch_grouped.map { fnas, types, biomes -> types }
+    ch_biomes    = ch_grouped.map { fnas, types, biomes -> biomes }
+
+    CHOOSE_SEQUENCES (
+        ch_fna_files.collect(),
+        CHECKV_ENDTOEND.out.quality_summary,
+        ch_types,
+        ch_biomes,
+
+    )
+    ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
+
+    ch_fna_sequences = CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) }
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------
@@ -112,11 +128,11 @@ workflow PREPROCESSING {
     prophages        = SEPARATE_PROPHAGES.out.chosen_sequences
     plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
 
-    combined_gff     = input.map { _meta, gff, _fna, _faa, _type, _biome -> gff }
+    combined_gff     = input.map { _meta, gff, _fna, _faa -> gff }
                         .collectFile( name: 'combined.gff' )
                         //.mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
 
-    combined_faa     = input.map { _meta, _gff, _fna, faa, _type, _biome -> faa }
+    combined_faa     = input.map { _meta, _gff, _fna, faa -> faa }
                         .collectFile( name: 'combined.faa' )
                         //.mix( THIRD_PARTY_DATA.out.faa.map { meta, faa -> faa } )
 
