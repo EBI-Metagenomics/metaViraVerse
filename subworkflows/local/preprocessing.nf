@@ -74,11 +74,11 @@ workflow PREPROCESSING {
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
     ch_grouped = ch_fna_files
-        .collect()               // produces one list: [[meta1, fna1], [meta2, fna2], ...]
+        .collect()
         .map { tuples ->
-            def fnas   = tuples.collect { it[1] }
-            def types  = tuples.collect { it[0].type }
-            def biomes = tuples.collect { it[0].biome }
+            def fnas   = tuples.collect { meta, fna -> fna }
+            def types  = tuples.collect { meta, fna -> meta.type }
+            def biomes = tuples.collect { meta, fna -> meta.biome }
             [fnas, types, biomes]
         }
 
