@@ -23,14 +23,12 @@ workflow PREPROCESSING {
     THIRD_PARTY_DATA (
          third_party_input 
     )
-
+    // TODO add third party data outputs
     //
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
-            .mix( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) ).collect()
-        rename_input.view()
         RENAME_CONTIGS_TMP(
             rename_input,
             params.start_accession,
@@ -41,7 +39,7 @@ workflow PREPROCESSING {
     //
     // ----------- Evaluate a quality for all coming sequences
     //
-    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna}.mix(THIRD_PARTY_DATA.out.fna)
+    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna}
     CHECKV_ENDTOEND (
         ch_fna_files
             .collectFile(name: "input.fna")
@@ -54,11 +52,8 @@ workflow PREPROCESSING {
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
     ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }
-        .mix( THIRD_PARTY_DATA.out.types )
-        .collect()
+
     ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }
-        .mix( THIRD_PARTY_DATA.out.biomes )
-        .collect()
 
     CHOOSE_SEQUENCES (
         ch_fna_files.collect(),
@@ -116,11 +111,12 @@ workflow PREPROCESSING {
     plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
 
     combined_gff     = input.map { _meta, gff, _fna, _faa, _type, _biome -> gff }
-                        .mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
                         .collectFile( name: 'combined.gff' )
+                        //.mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
+
     combined_faa     = input.map { _meta, _gff, _fna, faa, _type, _biome -> faa }
-                        .mix( THIRD_PARTY_DATA.out.faa.map { meta, faa -> faa } )
                         .collectFile( name: 'combined.faa' )
+                        //.mix( THIRD_PARTY_DATA.out.faa.map { meta, faa -> faa } )
 
     versions         = ch_versions                        // channel: [ path(versions.yml) ]
 }
