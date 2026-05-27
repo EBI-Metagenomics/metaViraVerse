@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+from __future__ import annotations
 
 import argparse
 import csv
@@ -64,13 +66,15 @@ def rename_fasta(input_fasta, mapfilename, prefix):
                     count += 1
                     temporary_name = f"{prefix}_{count}"
                     name = line.strip().replace('>', '')
+                    viral_identifier = None
                     if '|' in name:
                         viral_identifier = name.split('|')[1]
                         temporary_name = temporary_name + '|' + viral_identifier
                     short_name = name.split(' ')[0]
                     fasta_out.write(f">{temporary_name}\n")
                     tsv_map.writerow([name, temporary_name, short_name])
-                    map_dir[name.replace('|' + viral_identifier, '')] = temporary_name
+                    map_key = name.replace('|' + viral_identifier, '') if viral_identifier else name
+                    map_dir[map_key] = temporary_name
                 else:
                     fasta_out.write(line)
     print(f"Wrote {count} sequences to {output}.")
@@ -96,7 +100,7 @@ def rename_gff(input_gff, map_dir):
                 line = line.strip().split('\t')
                 if len(line) == 9:
                     if line[2] == "CDS":
-                        file_out.write({'\t'.join(line)} + '\n')
+                        file_out.write('\t'.join(line) + '\n')
                         continue
                     else:
                         attrs, _ = parse_attrs(line[8])
@@ -108,7 +112,7 @@ def rename_gff(input_gff, map_dir):
                         else:
                             file_out.write(full_line + '\n')
                 else:
-                    file_out.write({'\t'.join(line)} + '\n')
+                    file_out.write('\t'.join(line) + '\n')
                     continue
     print(f"Wrote {count} sequences to {output}.")
 
