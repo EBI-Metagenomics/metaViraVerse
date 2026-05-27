@@ -16,7 +16,7 @@ workflow PREPROCESSING {
 
     main:
     ch_versions = channel.empty()
-    third_party_output = channel.empty()
+
     //
     // ----------- Preprocess third party data (coming not from MGnify)
     //
@@ -24,13 +24,11 @@ workflow PREPROCESSING {
          third_party_input 
     )
     third_party_output = THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff)
-    third_party_output.view()
 
     //
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
-        input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }.view()
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
             .mix( third_party_output )
         rename_input.view()
