@@ -85,8 +85,8 @@ workflow THIRD_PARTY_DATA {
 
     emit:
     fna    = ch_dedup.map { _meta, fna, _type, _biome -> fna }
-    faa    = PYRODIGAL_VIRUS.out.faa.combine(PYRODIGAL_PLASMID.out.faa)
-    gff    = GUNZIP_GFF_VIRUS.out.gunzip.combine(GUNZIP_GFF_PLASMID.out.gunzip)
+    faa    = PYRODIGAL_VIRUS.out.faa.mix(PYRODIGAL_PLASMID.out.faa).collect()
+    gff    = GUNZIP_GFF_VIRUS.out.gunzip.mix(GUNZIP_GFF_PLASMID.out.gunzip).collect()
     types  = ch_dedup.map { _meta, _fna, type, _biome -> type }
     biomes = ch_dedup.map { _meta, _fna, _type, biome -> biome }
 }
