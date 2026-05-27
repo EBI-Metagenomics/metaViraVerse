@@ -24,6 +24,8 @@ workflow PREPROCESSING {
          third_party_input 
     )
     // TODO add third party data outputs
+    // Review renaming for third party
+    // review rename for ASA inputs
     //
     // ----------- Assign unique identifiers to all coming sequences
     //
@@ -41,7 +43,7 @@ workflow PREPROCESSING {
     //
     ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna}
     CHECKV_ENDTOEND (
-        ch_fna_files
+        RENAME_CONTIGS_TMP.out.contigs_renamed
             .collectFile(name: "input.fna")
             .map { fna -> tuple([id: 'combined'], fna) },
         params.checkv_db
