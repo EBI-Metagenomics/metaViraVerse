@@ -20,13 +20,15 @@ workflow PREPROCESSING {
     //
     // ----------- Preprocess third party data (coming not from MGnify)
     //
-    THIRD_PARTY_DATA( third_party_input )
+    THIRD_PARTY_DATA (
+         third_party_input 
+    )
 
     //
     // ----------- Assign unique identifiers to all coming sequences
     //
     if ( !params.skip_rename ) {
-        rename_input = input.map { meta, gff, fna, faa, type, biome -> meta, fna, gff }
+        rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
             .combine( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
         rename_input.view()
         RENAME_CONTIGS(
@@ -59,7 +61,7 @@ workflow PREPROCESSING {
         .mix( THIRD_PARTY_DATA.out.biomes )
         .collect()
 
-    CHOOSE_SEQUENCES(
+    CHOOSE_SEQUENCES (
         ch_fna_files.collect(),
         ch_types,
         ch_biomes
