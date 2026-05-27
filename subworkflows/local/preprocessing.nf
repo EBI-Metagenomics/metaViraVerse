@@ -1,5 +1,5 @@
 include { CHOOSE_SEQUENCES                               } from '../../modules/local/choose_sequences'
-include { RENAME_CONTIGS                                 } from '../../modules/local/rename_contigs'
+include { RENAME_CONTIGS as RENAME_CONTIGS_TMP           } from '../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
@@ -29,11 +29,10 @@ workflow PREPROCESSING {
     //
     if ( !params.skip_rename ) {
         rename_input = input.map { meta, gff, fna, faa, type, biome -> tuple([meta, fna, gff]) }
-            .mix( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
+            .combine( THIRD_PARTY_DATA.out.fna.join(THIRD_PARTY_DATA.out.gff) )
         rename_input.view()
-        RENAME_CONTIGS(
+        RENAME_CONTIGS_TMP(
             rename_input,
-            params.rename_accession,
             params.start_accession,
             params.end_accession
         )

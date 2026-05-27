@@ -11,7 +11,6 @@ process RENAME_CONTIGS {
 
     input:
     tuple val(meta), path(fna), path(gff)
-    val(accession)
     val(start_accession)
     val(end_accession)
 
@@ -22,12 +21,13 @@ process RENAME_CONTIGS {
     path "versions.yml",                         emit: versions
 
     script:
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     rename_contigs.py \\
        --input ${fna} \\
        --gff ${gff} \\
        --map ${meta.id}.map.tsv \\
-       --prefix ${meta.id}
+       --prefix ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
