@@ -51,9 +51,9 @@ workflow PREPROCESSING {
     // ----------- Filter sequences, leave unique and save metadata
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
-    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }
+    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }.collect()
 
-    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }
+    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }.collect()
 
     CHOOSE_SEQUENCES (
         ch_fna_files.collect(),

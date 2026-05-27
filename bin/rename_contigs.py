@@ -27,6 +27,23 @@ def input_args():
     return args
 
 
+def parse_attrs(attrs_str: str) -> tuple[dict[str, str], list[str]]:
+    """Parse a GFF3 column-9 attributes string into a dict and an ordered key list.
+
+    :param attrs_str: Semicolon-separated key=value attribute string from GFF column 9.
+    :return: Tuple of (attrs dict, list of keys in original order).
+    """
+    attrs, order = {}, []
+    for part in attrs_str.rstrip(";").split(";"):
+        part = part.strip()
+        if "=" in part:
+            k, v = part.split("=", 1)
+            if k not in attrs:
+                order.append(k)
+            attrs[k] = v
+    return attrs, order
+
+
 def rename_fasta(input_fasta, mapfilename, prefix):
     """Rename a multi-fasta fasta entries with <name>.<counter> and store the
     mapping between new and old files in tsv
@@ -76,11 +93,19 @@ def rename_gff(input_gff, map_dir):
                 if '##' in line:
                     file_out.write(line)
                     continue
-                line = str(line).strip().split('\t')
-                name = line[0]
-                data = '\t'.join(line[1:])
-                temporary_name = map_dir[name]
-                file_out.write(f"{temporary_name}\t{data}\n")
+                line = line.strip().split('\t')
+                if len(line) == 9:
+                    attrs, _ = parse_attrs(line[8])
+                    id = attrs.get("ID", "")
+                    full_line = '\t'.join(line)
+                    if id in map_dir:
+                        new_line = full_line.replace(id, map_dir[id])
+                        file_out.write(new_line)
+                    else:
+                        file_out.write(full_line)
+                else:
+                    file_out.write({'\t'.join(line)} + '\n')
+                    continue
     print(f"Wrote {count} sequences to {output}.")
 
 
