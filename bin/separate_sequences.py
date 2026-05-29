@@ -96,11 +96,9 @@ def separate_sequences(
     pattern_filtered = 0
 
     for record in SeqIO.parse(input_fasta, "fasta"):
-        if regex.search(record.description):
-            if mapping:
-                original = mapping.get(record.id, record.id)
-                record.id = original
-                record.description = original
+        if mapping:
+            original = mapping.get(record.id, record.id)
+        if regex.search(original):
             kept.append(record)
         else:
             pattern_filtered += 1

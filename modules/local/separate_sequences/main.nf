@@ -21,7 +21,7 @@ process SEPARATE_SEQUENCES {
     """
     separate_sequences.py \\
        --input ${fasta} \\
-       --output ${meta.id}_${pattern}.fa \\
+       --output ${meta.id}_${pattern}.fasta \\
        --pattern ${pattern} \\
        ${mapping}
 
