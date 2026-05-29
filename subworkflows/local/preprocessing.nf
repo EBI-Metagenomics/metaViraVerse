@@ -24,7 +24,8 @@ workflow PREPROCESSING {
          third_party_input 
     )
 
-    ch_fna_files = input.map { meta, gff, fna, faa -> fna}
+    ch_fna_files = input.map { meta, gff, fna, faa -> tuple([meta, fna])}
+    map_file = channel.empty()
 
     // TODO add third party data outputs
     // Review renaming for third party
@@ -39,10 +40,11 @@ workflow PREPROCESSING {
             params.start_accession,
             params.end_accession
         )
-        ch_fna_files = RENAME_CONTIGS_TMP.out.contigs_renamed.map{meta, fna -> fna}
+        ch_fna_files = RENAME_CONTIGS_TMP.out.contigs_renamed
+        map_file = RENAME_CONTIGS_TMP.out.map_file
     }
 
-    combined_fna = ch_fna_files
+    combined_fna = ch_fna_files.map{meta, fna -> fna}
         .collectFile(name: "input.fna")
         .map { fna -> tuple([id: 'combined'], fna) }
 
@@ -73,49 +75,39 @@ workflow PREPROCESSING {
     // ----------- Filter sequences, leave unique and save metadata
     // Deduplicate sequences across samples, prioritising assembly over MAG
     //
-    ch_grouped = ch_fna_files
-        .collect()
-        .map { tuples ->
-            def fnas   = tuples.collect { meta, fna -> fna }
-            def types  = tuples.collect { meta, fna -> meta.type }
-            def biomes = tuples.collect { meta, fna -> meta.biome }
-            [fnas, types, biomes]
-        }
-
-    ch_types     = ch_grouped.map { fnas, types, biomes -> types }
-    ch_biomes    = ch_grouped.map { fnas, types, biomes -> biomes }
+    ch_types     = ch_fna_files.map { meta, fna -> tuple([meta.type]) }
+    ch_biomes    = ch_fna_files.map { meta, fna -> tuple([meta.biome]) }
 
     CHOOSE_SEQUENCES (
-        ch_fna_files.collect(),
+        ch_fna_files.map { meta, fna -> fna }.collect(),
         CHECKV_ENDTOEND.out.quality_summary,
         ch_types,
         ch_biomes,
-
+        rna_gff,
+        map_file
     )
+
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
-    ch_fna_sequences = CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) }
+    ch_fna_sequences = CHOOSE_SEQUENCES.out.filtered_fna
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------
     //
     SEPARATE_VIRAL_SEQUENCES(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "viral_sequence",
-       rna_gff
+       ch_fna_sequences,
+       "viral_sequence"
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "prophage",
-       rna_gff
+       ch_fna_sequences,
+       "prophage"
     )
 
     SEPARATE_PLASMIDS(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
-       "plasmid",
-       rna_gff
+       ch_fna_sequences,
+       "plasmid"
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 

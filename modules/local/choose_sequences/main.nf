@@ -8,26 +8,38 @@ process CHOOSE_SEQUENCES {
 
     input:
     path(fna_files)
-    tuple val(meta), path(quality)
+    tuple val(meta_quality), path(quality)
     val(types)
     val(biomes)
+    tuple val(meta_gff), path(rna_gff)
+    tuple val(meta_map), path(map_file)
+
 
     output:
-    path("combined.fna"),      emit: combined_fna
-    path("combined_meta.tsv"), emit: metadata
-    path "versions.yml",       emit: versions
+    tuple val(meta_quality), path("${meta_quality.id}.fna"),      emit: combined_fna
+    tuple val(meta_quality), path("${meta_quality.id}.tsv"),      emit: metadata
+    tuple val(meta_quality), path("filtered*.fna"),               emit: filtered_fna
+    tuple val(meta_quality), path("filtered*.tsv"),               emit: filtered_metadata
+    path "versions.yml",                                          emit: versions
 
     script:
     def fna_args   = fna_files.collect { it }.join(' ')
     def type_args  = types.join(' ')
     def biome_args = biomes.join(' ')
+    def rrna = rna_gff ? "--rrna ${rna_gff}" : ""
+    def quality = quality ? "--quality ${quality}" : ""
+    def mapping = map_file ? "--map ${map_file}" : ""
+
     """
     choose_sequences.py \\
         --fna ${fna_args} \\
         --type ${type_args} \\
         --biome ${biome_args} \\
-        --output-fna combined.fna \\
-        --output-tsv combined_meta.tsv
+        ${rrna} \\
+        ${quality} \\
+        ${mapping} \\
+        --output-fna ${meta_quality.id}.fna \\
+        --output-tsv ${meta_quality.id}.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
