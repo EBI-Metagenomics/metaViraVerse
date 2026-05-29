@@ -300,12 +300,10 @@ def main() -> None:
     # Write outputs
     records_written = 0
     records_filtered = 0
-    with (
-        open(args.output_fna, 'w') as out_fna,
-        open(args.output_tsv, 'w') as out_tsv,
-        open(filtered_fna, 'w') as out_fna_f,
-        open(filtered_tsv, 'w') as out_tsv_f,
-    ):
+    with open(args.output_fna, 'w') as out_fna, \
+         open(args.output_tsv, 'w') as out_tsv, \
+         open(filtered_fna, 'w') as out_fna_f, \
+         open(filtered_tsv, 'w') as out_tsv_f:
         quality_header = '\t'.join(QUALITY_COLUMNS)
         header = (
             f"sequence_id\toriginal_name\tdescription\ttype\tbiomes\t"
