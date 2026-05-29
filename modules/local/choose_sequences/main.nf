@@ -12,7 +12,7 @@ process CHOOSE_SEQUENCES {
     val(types)
     val(biomes)
     tuple val(meta_gff), path(rna_gff)
-    tuple val(meta_map), path(map_file)
+    path(map_file)
 
 
     output:

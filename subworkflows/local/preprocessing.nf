@@ -6,28 +6,19 @@ include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/l
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
 include { CHECKV_ENDTOEND                                } from '../../modules/nf-core/checkv/endtoend'
-include { THIRD_PARTY_DATA                               } from './third_party_data'
 
 workflow PREPROCESSING {
 
     take:
-    input
-    third_party_input
+    input   // [meta, gff, fna, faa]
 
     main:
     ch_versions = channel.empty()
 
-    //
-    // ----------- Preprocess third party data (coming not from MGnify)
-    //
-    THIRD_PARTY_DATA (
-         third_party_input 
-    )
-
     ch_fna_files = input.map { meta, gff, fna, faa -> tuple([meta, fna])}
     map_file = channel.empty()
 
-    // TODO add third party data outputs
+    //
     // Review renaming for third party
     // review rename for ASA inputs
     //
@@ -84,7 +75,7 @@ workflow PREPROCESSING {
         ch_types,
         ch_biomes,
         rna_gff,
-        map_file
+        map_file.map { meta, fna -> fna }.collect()
     )
 
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
@@ -96,18 +87,21 @@ workflow PREPROCESSING {
     //
     SEPARATE_VIRAL_SEQUENCES(
        ch_fna_sequences,
-       "viral_sequence"
+       "viral_sequence",
+       map_file.map { meta, fna -> fna }.collect()
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
        ch_fna_sequences,
-       "prophage"
+       "prophage",
+       map_file.map { meta, fna -> fna }.collect()
     )
 
     SEPARATE_PLASMIDS(
        ch_fna_sequences,
-       "plasmid"
+       "plasmid",
+       map_file.map { meta, fna -> fna }.collect()
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 
