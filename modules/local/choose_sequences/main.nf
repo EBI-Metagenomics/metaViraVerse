@@ -44,7 +44,7 @@ process CHOOSE_SEQUENCES {
         ${mapping} \\
         --output-fna ${meta_quality.id}.fna \\
         --output-tsv ${meta_quality.id}.tsv \\
-        --output_gff ${meta_quality.id}.gff
+        --output-gff ${meta_quality.id}.gff
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
