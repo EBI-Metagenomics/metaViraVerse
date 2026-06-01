@@ -30,7 +30,7 @@ workflow PREPROCESSING {
     // No need to rename GFF here because GFF file would not be used in pre-processing
     //
     if ( !params.skip_rename ) {
-        rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, null]) }
+        rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, gff]) }
         RENAME_CONTIGS_TMP(
             rename_input,
             false,
