@@ -66,11 +66,6 @@
                     "help_text": "Skip step to detect rRNA",
                     "default": false
                 },
-                "skip_rename": {
-                    "type": "boolean",
-                    "help_text": "Skip contigs renaming step",
-                    "default": false
-                },
                 "rename_accession": {
                     "type": "string",
                     "help_text": "Rename all input sequences into simpler naming space, for example, seq1",

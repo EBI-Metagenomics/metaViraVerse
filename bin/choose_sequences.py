@@ -67,18 +67,6 @@ def parse_arguments() -> argparse.Namespace:
         help="CheckV results quality_summary.tsv"
     )
     parser.add_argument(
-        "--type",
-        required=True,
-        nargs='+',
-        help="Source type for each FNA file: 'metagenome'/'genome'/'third_party_virus'/'third_party_plasmid'"
-    )
-    parser.add_argument(
-        "--biome",
-        required=True,
-        nargs='+',
-        help="Biome label for each FNA file"
-    )
-    parser.add_argument(
         "--output-fna",
         required=True,
         help="Path for output deduplicated FNA file"
@@ -95,8 +83,8 @@ def parse_arguments() -> argparse.Namespace:
     )
     args = parser.parse_args()
 
-    if len(args.fna) != len(args.type) or len(args.fna) != len(args.biome) or len(args.gff) != len(args.fna):
-        parser.error("--fna, --gff, --type, and --biome must have the same number of values")
+    if len(args.gff) != len(args.fna):
+        parser.error("--fna and --gff must have the same number of values")
 
     return args
 
@@ -122,34 +110,36 @@ def seq_hash(sequence: str) -> str:
     return hashlib.sha256(sequence.upper().strip().encode()).hexdigest()
 
 
-def read_map(map_files: list[str]) -> dict[str, str]:
-    """Read one or more TSV mapping files from temporary to original contig names.
+def read_map(map_files: list[str]) -> dict[str, dict[str, str]]:
+    """Read one or more TSV mapping files and return per-contig metadata.
 
-    Each file is expected to have a header row containing 'original' and 'temporary',
-    followed by rows with (original_name, temporary_name) tab-separated columns.
+    Expects a header row with at least ``original`` and ``temporary`` columns.
+    The ``biome`` and ``type`` columns are read when present (written by
+    rename_contigs.py); absent columns fall back to ``'NA'``.
 
     Args:
         map_files: Paths to mapping TSV files.
 
     Returns:
-        Dict mapping temporary contig name -> original contig name.
+        Dict mapping temporary contig name ->
+        ``{'original': str, 'biome': str, 'type': str}``.
 
     Raises:
         SystemExit: If a temporary name appears in more than one mapping entry.
     """
-    mapping: dict[str, str] = {}
+    mapping: dict[str, dict[str, str]] = {}
     for map_file in map_files:
-        with open(map_file, 'r') as file_in:
-            for line in file_in:
-                if 'original' in line and 'temporary' in line:
-                    continue
-                parts = line.strip().split('\t')
-                original = parts[0]
-                temporary = parts[1]
+        with open(map_file, 'r') as f:
+            for row in csv.DictReader(f, delimiter='\t'):
+                temporary = row['temporary']
                 if temporary in mapping:
                     print(f'Mapping already exists {temporary}. Exit')
                     exit(1)
-                mapping[temporary] = original
+                mapping[temporary] = {
+                    'original': row['original'],
+                    'biome':    row.get('biome', 'NA'),
+                    'type':     row.get('type',  'NA'),
+                }
     return mapping
 
 
@@ -293,9 +283,7 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
 
 def choose_seqs(
     fnas: list[str],
-    types: list[str],
-    biomes: list[str],
-    mapping: dict[str, str],
+    mapping: dict[str, dict[str, str]],
     rna_sequences: set[str],
     quality_data: dict[str, dict[str, str]],
 ) -> dict[str, dict]:
@@ -304,12 +292,11 @@ def choose_seqs(
     For each unique sequence (by SHA256), the record from the source with the
     lowest TYPE_PRIORITY value is retained.  Biome labels from all sources are
     merged.  Quality and rRNA annotations are carried from the winning record.
+    Biome and type are read from the mapping (populated by rename_contigs.py).
 
     Args:
         fnas: Paths to input FNA files.
-        types: Source type label for each FNA file (must be a key in TYPE_PRIORITY).
-        biomes: Biome label for each FNA file.
-        mapping: Dict of temporary -> original contig names (may be empty).
+        mapping: Dict of temporary -> {'original', 'biome', 'type'} (from read_map).
         rna_sequences: Set of sequence IDs that carry rRNA/tRNA/tmRNA annotations.
         quality_data: Dict of contig_id -> CheckV quality column dict.
 
@@ -318,13 +305,15 @@ def choose_seqs(
     """
     seen: dict[str, dict] = {}
 
-    for fna_file, source_type, biome in zip(fnas, types, biomes):
-        if source_type not in TYPE_PRIORITY:
-            print(f"Warning: unknown type '{source_type}', treating as lowest priority")
-
+    for fna_file in fnas:
         for record in SeqIO.parse(fna_file, "fasta"):
             h = seq_hash(str(record.seq))
-            original_name = mapping.get(record.id, record.id)
+            map_entry = mapping.get(record.id, {})
+            original_name = map_entry.get('original', record.id)
+            source_type   = map_entry.get('type',     'NA')
+            biome         = map_entry.get('biome',    'NA')
+            if source_type not in TYPE_PRIORITY:
+                print(f"Warning: unknown type '{source_type}', treating as lowest priority")
             rrna = ('Yes' if record.id in rna_sequences else 'No') if rna_sequences else 'not-provided'
 
             if h not in seen:
@@ -449,7 +438,9 @@ def write_final_files(
     print(f"Filtered sequences written: {records_filtered}")
     print(f"Written sequences {gff_seqs_written} into GFF")
     print(f"Total written lines to filtered GFF {gff_records_written}")
-
+    if records_filtered != gff_seqs_written:
+        print("Number of GFF records does not match number of sequences in fasta file. Exit")
+        exit(1)
 
 def main() -> None:
     """Deduplicate sequences across all input FNA files and write merged outputs.
@@ -483,7 +474,7 @@ def main() -> None:
     # Read GFFs
     input_gff, attr_id_to_seq_id = read_input_gff(args.gff)
 
-    seen = choose_seqs(args.fna, args.type, args.biome, mapping, rna_sequences, quality_data)
+    seen = choose_seqs(args.fna, mapping, rna_sequences, quality_data)
 
     # Derive filtered output paths by prepending "filtered_" to the filename
     p_fna = Path(args.output_fna)

@@ -10,8 +10,6 @@ process CHOOSE_SEQUENCES {
     path(fna_files)
     path(gff_files)
     tuple val(meta_quality), path(quality)
-    val(types)
-    val(biomes)
     tuple val(meta_gff), path(rna_gff)
     path(map_file)
 
@@ -27,8 +25,6 @@ process CHOOSE_SEQUENCES {
     script:
     def fna_args   = fna_files.collect { it }.join(' ')
     def gff_args   = gff_files.collect { it }.join(' ')
-    def type_args  = types.join(' ')
-    def biome_args = biomes.join(' ')
     def rrna = rna_gff ? "--rrna ${rna_gff}" : ""
     def quality_arg = quality ? "--quality ${quality}" : ""
     def mapping = map_file ? "--map ${map_file}" : ""
@@ -37,8 +33,6 @@ process CHOOSE_SEQUENCES {
     choose_sequences.py \\
         --fna ${fna_args} \\
         --gff ${gff_args} \\
-        --type ${type_args} \\
-        --biome ${biome_args} \\
         ${rrna} \\
         ${quality_arg} \\
         ${mapping} \\

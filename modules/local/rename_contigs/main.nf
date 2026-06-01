@@ -13,27 +13,36 @@ process RENAME_CONTIGS {
     tuple val(meta), path(fna), path(gff)
     val(start_accession)
     val(end_accession)
+    val(types)
+    val(biomes)
 
     output:
-    tuple val(meta), path("*_renamed.fasta"),    emit: contigs_renamed
-    tuple val(meta), path("*_renamed.gff"),      emit: gff_renamed
-    tuple val(meta), path("${meta.id}.map.tsv"), emit: map_file
+    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("*renamed*.fasta"),    emit: fna_renamed
+    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("*renamed*.gff"),      emit: gff_renamed
+    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("${meta.id}.map.tsv"), emit: map_file
     path "versions.yml",                         emit: versions
 
     script:
+    def args   = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def gff_arg = gff ? "--gff ${gff}" : ""
+    def fna_args   = fna.collect { it }.join(' ')
+    def gff_args   = gff.collect { it }.join(' ')
     def start = start_accession ? "--start ${start_accession}" : ""
     def end = end_accession ? "--end ${end_accession}" : ""
+    def type_args  = types.join(' ')
+    def biome_args = biomes.join(' ')
 
     """
     rename_contigs.py \\
-       --input ${fna} \\
-       ${gff_arg} \\
+       --fasta ${fna_args} \\
+       --gff ${gff_args} \\
        --map ${meta.id}.map.tsv \\
        --prefix ${prefix} \\
        ${start} \\
-       ${end}
+       ${end} \\
+       --type ${type_args} \\
+       --biome ${biome_args} \\
+       ${args}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
