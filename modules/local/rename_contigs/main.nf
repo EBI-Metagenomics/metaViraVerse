@@ -18,9 +18,9 @@ process RENAME_CONTIGS {
     val(biomes)
 
     output:
-    path("*renamed*.fasta"),    emit: fna_renamed
-    path("*renamed*.gff"),      emit: gff_renamed
-    path("map.tsv"),            emit: map_file
+    path("*combined*.f*"),    emit: fna_renamed
+    path("*combined*.gff"),      emit: gff_renamed
+    path("combined.tsv"),            emit: map_file
     path "versions.yml",        emit: versions
 
     script:
