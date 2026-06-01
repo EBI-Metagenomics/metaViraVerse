@@ -388,6 +388,7 @@ def write_final_files(
     records_written = 0
     records_filtered = 0
     gff_records_written = 0
+    gff_seqs_written = 0
     with open(output_fna, 'w') as out_fna, \
             open(output_tsv, 'w') as out_tsv, \
             open(filtered_fna, 'w') as out_fna_f, \
@@ -432,15 +433,21 @@ def write_final_files(
                 out_tsv_f.write(tsv_row)
                 records_filtered += 1
 
-                gff_records = gff_data.get(entry['seq_id'])
-                if gff_records:
-                    gff_records_written += len(gff_records)
-                    filt_gff.write(''.join(gff_records))
+                gff_record_id = attr_id_to_seq_id[entry['seq_id']]
+                if gff_record_id:
+                    gff_records = gff_data.get(gff_record_id)
+                    if gff_records:
+                        filt_gff.write(''.join(gff_records))
+                        gff_records_written += len(gff_records)
+                        gff_seqs_written += 1
+                    else:
+                        print(f"{entry['seq_id']} has no GFF records")
                 else:
-                    print(f"{entry['seq_id']} has no GFF records")
+                    print(f"No {entry['seq_id']} in mapping")
 
     print(f"Total unique sequences written: {records_written}")
     print(f"Filtered sequences written: {records_filtered}")
+    print(f"Written sequences {gff_seqs_written} into GFF")
     print(f"Total written lines to filtered GFF {gff_records_written}")
 
 
