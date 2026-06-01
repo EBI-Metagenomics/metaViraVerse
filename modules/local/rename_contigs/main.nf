@@ -16,18 +16,23 @@ process RENAME_CONTIGS {
 
     output:
     tuple val(meta), path("*_renamed.fasta"),    emit: contigs_renamed
-    tuple val(meta), path("*_renamed.gff"),      emit: gff_renamed
+    tuple val(meta), path("*_renamed.gff"),      emit: gff_renamed, optional: true
     tuple val(meta), path("${meta.id}.map.tsv"), emit: map_file
     path "versions.yml",                         emit: versions
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def gff_arg = gff ? "--gff ${gff}" ? ""
+    def start = start_accession ? "--start {start_accession}" ? ""
+    def end = end_accession ? "--end {end_accession}" ? ""
     """
     rename_contigs.py \\
        --input ${fna} \\
-       --gff ${gff} \\
+       ${gff_arg} \\
        --map ${meta.id}.map.tsv \\
-       --prefix ${prefix}
+       --prefix ${prefix} \\
+       ${start} \\
+       ${end}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

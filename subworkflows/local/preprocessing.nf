@@ -1,5 +1,6 @@
 include { CHOOSE_SEQUENCES                               } from '../../modules/local/choose_sequences'
 include { RENAME_CONTIGS as RENAME_CONTIGS_TMP           } from '../../modules/local/rename_contigs'
+include { RENAME_CONTIGS as RENAME_CONTIGS_COMBINED      } from '../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
@@ -22,14 +23,18 @@ workflow PREPROCESSING {
     // Review renaming for third party
     // review rename for ASA inputs
     //
-    // ----------- Assign unique identifiers to all coming sequences
+    // ----------- Assign unique identifiers to all coming sequences by each record in samplesheet
+    // We can't combine all sequences together here because we need to record it's biome and type later
+    // That is why we have to give sequences temporary names (checkV can complain on original)
+    // Those temporary names would be {meta.id}, ex. >barley1
+    // No need to rename GFF here because GFF file would not be used in pre-processing
     //
     if ( !params.skip_rename ) {
-        rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, gff]) }
+        rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, null]) }
         RENAME_CONTIGS_TMP(
             rename_input,
-            params.start_accession,
-            params.end_accession
+            false,
+            false
         )
         ch_fna_files = RENAME_CONTIGS_TMP.out.contigs_renamed
         map_file = RENAME_CONTIGS_TMP.out.map_file
@@ -42,7 +47,6 @@ workflow PREPROCESSING {
     //
     // ----------- Evaluate a quality for all coming sequences
     //
-
     CHECKV_ENDTOEND (
         combined_fna,
         params.checkv_db
@@ -80,7 +84,23 @@ workflow PREPROCESSING {
 
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
-    ch_fna_sequences = CHOOSE_SEQUENCES.out.filtered_fna
+    //
+    // ----------- Rename all filtered sequences into one space
+    // On that step we have all unique sequences passed quality control
+    // They should now have unique identifiers coming from params.rename_accession
+    //
+    combined_gff = input.map { meta, gff, fna, faa -> gff }
+        .collectFile(name: "input.gff")
+        .map { gff -> tuple([id: 'combined'], gff) }
+    RENAME_CONTIGS_COMBINED (
+        CHOOSE_SEQUENCES.out.filtered_fna.join(combined_gff),
+        params.start_accession,
+        params.end_accession
+    )
+
+    // TODO add two mapping files combined file with original, temporary and unique
+    ch_fna_sequences = RENAME_CONTIGS_COMBINED.out.contigs_renamed
+    mapping = RENAME_CONTIGS_COMBINED.out.map_file
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------
@@ -88,20 +108,20 @@ workflow PREPROCESSING {
     SEPARATE_VIRAL_SEQUENCES(
        ch_fna_sequences,
        "viral_sequence",
-       map_file.map { meta, fna -> fna }.collect()
+       mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
        ch_fna_sequences,
        "prophage",
-       map_file.map { meta, fna -> fna }.collect()
+       mapping
     )
 
     SEPARATE_PLASMIDS(
        ch_fna_sequences,
        "plasmid",
-       map_file.map { meta, fna -> fna }.collect()
+       mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 

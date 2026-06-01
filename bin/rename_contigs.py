@@ -9,6 +9,9 @@ import fileinput
 import re
 
 
+NUM_MGYV_DIGITS = 10
+
+
 def input_args():
     """Multi fasta rename"""
     parser = argparse.ArgumentParser(
@@ -18,16 +21,22 @@ def input_args():
         "-f", "--input", help="indicate input FASTA file", required=True
     )
     parser.add_argument(
-        "-g", "--gff", help="indicate input GFF file", required=True
+        "-g", "--gff", help="indicate input GFF file", required=False
     )
     parser.add_argument(
         "-m", "--map", help="map file for names", required=False, default="map.txt"
     )
     parser.add_argument(
-        "-p", "--prefix", help="Prefix that would be included to header <prefix><digit>", required=False
+        "-p", "--prefix", help="Prefix that would be included to header <prefix><digit>", required=False, default="seq"
     )
     parser.add_argument(
         "-k", "--keep-viral-identifier", help="Keep info after | in new name", action='store_true'
+    )
+    parser.add_argument(
+        "--start", help="First digit for renaming, ex. prefix1", required=False, default=0, type=int
+    )
+    parser.add_argument(
+        "--end", help="Last digit for renaming, ex. prefix100. Can be skipped", required=False, type=int
     )
     args = parser.parse_args()
     return args
@@ -50,7 +59,15 @@ def parse_attrs(attrs_str: str) -> tuple[dict[str, str], list[str]]:
     return attrs, order
 
 
-def rename_fasta(input_fasta, mapfilename, prefix, keep_viral_identifier):
+def define_prefix(prefix, num):
+    if prefix == "MGYV":
+        accession = f"MGYV{num:0{NUM_MGYV_DIGITS}d}"
+    else:
+        accession = f"{prefix}{num}"
+    return accession
+
+
+def rename_fasta(input_fasta, mapfilename, prefix, keep_viral_identifier, start_accession, end_accession):
     """Rename a multi-fasta fasta entries with <name>.<counter> and store the
     mapping between new and old files in tsv
     """
@@ -69,7 +86,7 @@ def rename_fasta(input_fasta, mapfilename, prefix, keep_viral_identifier):
                 line = str(line)
                 if line.startswith(">"):
                     count += 1
-                    temporary_name = f"{prefix}{count}"
+                    temporary_name = define_prefix(prefix, start_accession + count)
                     name = line.strip().replace('>', '')
                     viral_identifier = None
                     if keep_viral_identifier:
@@ -84,6 +101,9 @@ def rename_fasta(input_fasta, mapfilename, prefix, keep_viral_identifier):
                 else:
                     fasta_out.write(line)
     print(f"Wrote {count} sequences to {output}")
+    print(f"Assigned accessions: {start_accession} - {start_accession+count}")
+    if end_accession:
+        print(f"Expected end_accession specified: {end_accession}")
     return map_dir, count
 
 
@@ -135,13 +155,14 @@ def rename_gff(input_gff, map_dir):
 
 def main():
     args = input_args()
-    map_dir, count_fasta = rename_fasta(args.input, args.map, args.prefix, args.keep_viral_identifier)
-    count_gff = rename_gff(args.gff, map_dir)
-    if count_gff == count_fasta:
-        print("Sanity check passed")
-    else:
-        print("Number of renamed records doesn't match. Exit")
-        exit(1)
+    map_dir, count_fasta = rename_fasta(args.input, args.map, args.prefix, args.keep_viral_identifier, args.start, args.end)
+    if args.gff:
+        count_gff = rename_gff(args.gff, map_dir)
+        if count_gff == count_fasta:
+            print("Sanity check passed")
+        else:
+            print("Number of renamed records doesn't match. Exit")
+            exit(1)
 
 
 if __name__ == "__main__":

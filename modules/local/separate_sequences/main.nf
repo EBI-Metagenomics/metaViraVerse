@@ -10,7 +10,7 @@ process SEPARATE_SEQUENCES {
     input:
     tuple val(meta), path(fasta)
     val pattern
-    path(map_file)
+    tuple val(meta_map), path(map_file)
 
     output:
     tuple val(meta), path("${meta.id}_${pattern}.fasta"), emit: chosen_sequences
