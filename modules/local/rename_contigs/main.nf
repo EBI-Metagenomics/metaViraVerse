@@ -10,17 +10,18 @@ process RENAME_CONTIGS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(fna), path(gff)
+    path(fna)
+    path(gff)
     val(start_accession)
     val(end_accession)
     val(types)
     val(biomes)
 
     output:
-    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("*renamed*.fasta"),    emit: fna_renamed
-    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("*renamed*.gff"),      emit: gff_renamed
-    tuple val(task.ext.args?.contains('--combine') ? [id: "combined"] : meta), path("${meta.id}.map.tsv"), emit: map_file
-    path "versions.yml",                         emit: versions
+    tuple val([id: "combined"]), path("*renamed*.fasta"),    emit: fna_renamed
+    tuple val([id: "combined"]), path("*renamed*.gff"),      emit: gff_renamed
+    tuple val([id: "combined"]), path("${meta.id}.map.tsv"), emit: map_file
+    path "versions.yml",                                     emit: versions
 
     script:
     def args   = task.ext.args ?: ''
