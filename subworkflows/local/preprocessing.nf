@@ -31,6 +31,7 @@ workflow PREPROCESSING {
     ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }
     ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }
 
+    // TODO review how to handle meta
     RENAME_CONTIGS(
         ch_fna,
         ch_gff,
