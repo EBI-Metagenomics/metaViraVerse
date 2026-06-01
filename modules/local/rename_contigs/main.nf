@@ -4,7 +4,7 @@
 process RENAME_CONTIGS {
 
     label 'process_low'
-    tag "${meta.id}"
+    tag "combined"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
@@ -18,14 +18,14 @@ process RENAME_CONTIGS {
     val(biomes)
 
     output:
-    tuple val([id: "combined"]), path("*renamed*.fasta"),    emit: fna_renamed
-    tuple val([id: "combined"]), path("*renamed*.gff"),      emit: gff_renamed
-    tuple val([id: "combined"]), path("${meta.id}.map.tsv"), emit: map_file
+    tuple val(["id": "combined"]), path("*renamed*.fasta"),    emit: fna_renamed
+    tuple val(["id": "combined"]), path("*renamed*.gff"),      emit: gff_renamed
+    tuple val(["id": "combined"]), path("map.tsv"),            emit: map_file
     path "versions.yml",                                     emit: versions
 
     script:
     def args   = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${params.rename_accession}"
     def fna_args   = fna.collect { it }.join(' ')
     def gff_args   = gff.collect { it }.join(' ')
     def start = start_accession ? "--start ${start_accession}" : ""
@@ -37,7 +37,7 @@ process RENAME_CONTIGS {
     rename_contigs.py \\
        --fasta ${fna_args} \\
        --gff ${gff_args} \\
-       --map ${meta.id}.map.tsv \\
+       --map map.tsv \\
        --prefix ${prefix} \\
        ${start} \\
        ${end} \\
