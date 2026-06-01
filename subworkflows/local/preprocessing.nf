@@ -28,8 +28,8 @@ workflow PREPROCESSING {
 
     ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
     ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
-    ch_types     = input.map { meta, fna -> tuple([meta.type]) }
-    ch_biomes    = input.map { meta, fna -> tuple([meta.biome]) }
+    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }
+    ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }
 
     RENAME_CONTIGS(
         ch_fna,
