@@ -205,7 +205,7 @@ def rename_gff(
                 file_out.write('\t'.join(parts) + '\n')
     print(f"Wrote {seqs_count} sequences to {output_gff}")
     print(f"Wrote {count} feature lines to {output_gff}")
-    return count, seqs_count
+    return seqs_count
 
 
 def write_fasta(outputname, fasta_records):
