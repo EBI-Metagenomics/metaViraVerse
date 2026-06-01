@@ -125,7 +125,7 @@ def rename_fasta(
     print("Renaming " + input_fasta)
     for record in SeqIO.parse(str(input_fasta), "fasta"):
         temporary_name = define_prefix(prefix, start_accession + count)
-        name = record.id
+        name = record.description
         viral_identifier = None
         if keep_viral_identifier:
             if '|' in name:
