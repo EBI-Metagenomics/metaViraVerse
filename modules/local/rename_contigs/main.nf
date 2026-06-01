@@ -37,7 +37,7 @@ process RENAME_CONTIGS {
     rename_contigs.py \\
        --fasta ${fna_args} \\
        --gff ${gff_args} \\
-       --map map.tsv \\
+       --map combined.tsv \\
        --prefix ${prefix} \\
        ${start} \\
        ${end} \\

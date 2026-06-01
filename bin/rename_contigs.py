@@ -172,6 +172,7 @@ def rename_gff(
     pattern = r"^(MGYG\d+_\d+)\|([\w.]+)-(\d+):(\d+)$"
     mode = 'a' if append else 'w'
     count = 0
+    seqs_count = 0
     print(f"Renaming {input_gff} -> {output_gff}")
     with fileinput.hook_compressed(input_gff, "r") as file_in, open(output_gff, mode) as file_out:
         for line in file_in:
@@ -199,10 +200,12 @@ def rename_gff(
                 else:
                     file_out.write(full_line + '\n')
                 count += 1
+                seqs_count += 1
             else:
                 file_out.write('\t'.join(parts) + '\n')
+    print(f"Wrote {seqs_count} sequences to {output_gff}")
     print(f"Wrote {count} feature lines to {output_gff}")
-    return count
+    return count, seqs_count
 
 
 def write_fasta(outputname, fasta_records):
