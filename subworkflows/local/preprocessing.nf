@@ -68,8 +68,6 @@ workflow PREPROCESSING {
     // Deduplicate sequences across samples, prioritising assembly over MAG
     // Remove non-determined quality viruses
     //
-    RENAME_CONTIGS.out.fna_renamed.view()
-    RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] }.view()
     CHOOSE_SEQUENCES (
         RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
         RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },

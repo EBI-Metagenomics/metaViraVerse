@@ -7,11 +7,11 @@ process CHOOSE_SEQUENCES {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    path(fna_files)
-    path(gff_files)
+    tuple val(meta_fna), path(fna_files)
+    tuple val(meta_gff), path(gff_files)
     tuple val(meta_quality), path(quality)
     tuple val(meta_gff), path(rna_gff)
-    path(map_file)
+    tuple val(meta_map), path(map_file)
 
 
     output:
