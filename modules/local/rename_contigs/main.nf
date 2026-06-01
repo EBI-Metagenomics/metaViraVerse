@@ -22,9 +22,10 @@ process RENAME_CONTIGS {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def gff_arg = gff ? "--gff ${gff}" ? ""
-    def start = start_accession ? "--start {start_accession}" ? ""
-    def end = end_accession ? "--end {end_accession}" ? ""
+    def gff_arg = gff ? "--gff ${gff}" : ""
+    def start = start_accession ? "--start ${start_accession}" : ""
+    def end = end_accession ? "--end ${end_accession}" : ""
+
     """
     rename_contigs.py \\
        --input ${fna} \\

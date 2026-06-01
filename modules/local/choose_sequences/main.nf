@@ -27,7 +27,7 @@ process CHOOSE_SEQUENCES {
     def type_args  = types.join(' ')
     def biome_args = biomes.join(' ')
     def rrna = rna_gff ? "--rrna ${rna_gff}" : ""
-    def quality = quality ? "--quality ${quality}" : ""
+    def quality_arg = quality ? "--quality ${quality}" : ""
     def mapping = map_file ? "--map ${map_file}" : ""
 
     """
@@ -36,7 +36,7 @@ process CHOOSE_SEQUENCES {
         --type ${type_args} \\
         --biome ${biome_args} \\
         ${rrna} \\
-        ${quality} \\
+        ${quality_arg} \\
         ${mapping} \\
         --output-fna ${meta_quality.id}.fna \\
         --output-tsv ${meta_quality.id}.tsv
