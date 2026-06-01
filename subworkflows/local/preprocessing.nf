@@ -27,8 +27,8 @@ workflow PREPROCESSING {
     // That step is running with --combine option and it will return one renamed FASTA and GFF
 
     rename_input = input.map { meta, gff, fna, faa -> tuple([meta, fna, gff]) }
-    ch_types     = ch_fna_files.map { meta, fna -> tuple([meta.type]) }
-    ch_biomes    = ch_fna_files.map { meta, fna -> tuple([meta.biome]) }
+    ch_types     = input.map { meta, fna -> tuple([meta.type]) }
+    ch_biomes    = input.map { meta, fna -> tuple([meta.biome]) }
 
     RENAME_CONTIGS(
         rename_input,
