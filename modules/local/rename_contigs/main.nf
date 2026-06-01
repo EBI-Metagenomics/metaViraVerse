@@ -18,10 +18,10 @@ process RENAME_CONTIGS {
     val(biomes)
 
     output:
-    tuple val(["id": "combined"]), path("*renamed*.fasta"),    emit: fna_renamed
-    tuple val(["id": "combined"]), path("*renamed*.gff"),      emit: gff_renamed
-    tuple val(["id": "combined"]), path("map.tsv"),            emit: map_file
-    path "versions.yml",                                     emit: versions
+    path("*renamed*.fasta"),    emit: fna_renamed
+    path("*renamed*.gff"),      emit: gff_renamed
+    path("map.tsv"),            emit: map_file
+    path "versions.yml",        emit: versions
 
     script:
     def args   = task.ext.args ?: ''

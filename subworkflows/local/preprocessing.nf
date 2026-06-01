@@ -44,7 +44,7 @@ workflow PREPROCESSING {
     // ----------- Evaluate a quality for all coming sequences
     //
     CHECKV_ENDTOEND (
-        RENAME_CONTIGS.out.fna_renamed,
+        RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
         params.checkv_db
     )
 
@@ -53,7 +53,7 @@ workflow PREPROCESSING {
     //
     if ( ! params.skip_rrna_detection ) {
         BARRNAP(
-          RENAME_CONTIGS.out.fna_renamed.map {id, fasta -> [id, fasta, "bac"]}
+          RENAME_CONTIGS.out.fna_renamed.map {fasta -> [[id: 'combined'], fasta, "bac"]}
         )
         ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
@@ -68,11 +68,11 @@ workflow PREPROCESSING {
     // Remove non-determined quality viruses
     //
     CHOOSE_SEQUENCES (
-        RENAME_CONTIGS.out.fna_renamed,
-        RENAME_CONTIGS.out.gff_renamed,
+        RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
+        RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },
         CHECKV_ENDTOEND.out.quality_summary,
         rna_gff,
-        RENAME_CONTIGS.out.map_file
+        RENAME_CONTIGS.out.map_file.map{ map -> [[id: 'combined'], map] }
     )
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
