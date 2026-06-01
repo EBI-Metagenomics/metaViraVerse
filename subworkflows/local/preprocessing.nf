@@ -17,6 +17,7 @@ workflow PREPROCESSING {
     ch_versions = channel.empty()
 
     ch_fna_files = input.map { meta, gff, fna, faa -> tuple([meta, fna])}
+    ch_gff_files = input.map { meta, gff, fna, faa -> tuple([meta, gff])}
     map_file = channel.empty()
 
     //
@@ -37,6 +38,7 @@ workflow PREPROCESSING {
             false
         )
         ch_fna_files = RENAME_CONTIGS_TMP.out.contigs_renamed
+        ch_gff_files = RENAME_CONTIGS_TMP.out.gff_renamed
         map_file = RENAME_CONTIGS_TMP.out.map_file
     }
 
@@ -69,12 +71,14 @@ workflow PREPROCESSING {
     //
     // ----------- Filter sequences, leave unique and save metadata
     // Deduplicate sequences across samples, prioritising assembly over MAG
+    // Remove non-determined quality viruses
     //
     ch_types     = ch_fna_files.map { meta, fna -> tuple([meta.type]) }
     ch_biomes    = ch_fna_files.map { meta, fna -> tuple([meta.biome]) }
 
     CHOOSE_SEQUENCES (
         ch_fna_files.map { meta, fna -> fna }.collect(),
+        ch_gff_files.map { meta, gff -> gff }.collect(),
         CHECKV_ENDTOEND.out.quality_summary,
         ch_types,
         ch_biomes,
@@ -89,11 +93,9 @@ workflow PREPROCESSING {
     // On that step we have all unique sequences passed quality control
     // They should now have unique identifiers coming from params.rename_accession
     //
-    combined_gff = input.map { meta, gff, fna, faa -> gff }
-        .collectFile(name: "input.gff")
-        .map { gff -> tuple([id: 'combined'], gff) }
+
     RENAME_CONTIGS_COMBINED (
-        CHOOSE_SEQUENCES.out.filtered_fna.join(combined_gff),
+        CHOOSE_SEQUENCES.out.filtered_fna.join(CHOOSE_SEQUENCES.out.filtered_gff),
         params.start_accession,
         params.end_accession
     )
