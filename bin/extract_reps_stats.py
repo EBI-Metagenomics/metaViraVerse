@@ -2,6 +2,8 @@
 import argparse
 import os
 import sys
+from collections import Counter
+from urllib.parse import unquote
 
 
 def parse_attributes(attr_str):
@@ -85,7 +87,6 @@ def read_cluster_structure(viral_list_file, mapping=None):
                 parts = line.split('\t')
                 original_rep_id = parts[0].strip()
                 rep_id = original_rep_id
-                members = parts[1].split(' ')
                 if mapping and rep_id in mapping:
                     rep_id = mapping[rep_id]
 
@@ -93,7 +94,9 @@ def read_cluster_structure(viral_list_file, mapping=None):
                     cluster_reps.append(rep_id)
                     cluster_members[rep_id] = []
                     rep_original_names[rep_id] = original_rep_id
-                    for member_id in members:
+
+                if len(parts) >= 2:
+                    for member_id in parts[1].split(' '):
                         if mapping and member_id in mapping:
                             member_id = mapping[member_id]
                         cluster_members[rep_id].append(member_id)
@@ -144,6 +147,63 @@ def calculate_mean_genes(cluster_members, all_results):
 
     return cluster_mean_genes
 
+
+
+def parse_taxonomy(taxonomy_str, levels=None):
+    """Parse a semicolon-separated taxonomy string into a list of level values.
+
+    URL-encoded separators (%3B) are decoded before splitting.  Empty/NA input
+    returns an empty list.  When ``levels`` is provided, empty positions are
+    filled with ``Unclassified_{level}_{parent.lower()}`` placeholders.
+    Without ``levels``, trailing empty tokens are stripped.
+
+    Args:
+        taxonomy_str: Semicolon-separated taxonomy string (may be URL-encoded).
+        levels: Optional list of level names (e.g. ['realm', 'kingdom', ...]).
+
+    Returns:
+        List of taxonomy level strings.
+    """
+    if not taxonomy_str or taxonomy_str == 'NA':
+        return []
+    parts = unquote(taxonomy_str).split(';')
+    if levels is None:
+        return [p for p in parts if p.strip()]
+    result = []
+    last_filled = ''
+    for i, part in enumerate(parts):
+        stripped = part.strip()
+        if stripped:
+            result.append(stripped)
+            last_filled = stripped
+        else:
+            level_name = levels[i] if i < len(levels) else f'level{i}'
+            result.append(f'Unclassified_{level_name}_{last_filled.lower()}')
+    return result
+
+
+def generate_krona_file(results, viral_names, output_file):
+    """Write a Krona-compatible TSV from taxonomy strings in results.
+
+    Each unique taxonomy path is written as one line:
+    ``count<TAB>level1<TAB>level2...``
+    Lines are sorted by count descending.  Sequences with empty/NA taxonomy
+    are omitted.
+
+    Args:
+        results: Dict mapping seq_id -> {'taxonomy': str, ...}.
+        viral_names: Sequence IDs to include.
+        output_file: Path for the output TSV file.
+    """
+    counts: Counter = Counter()
+    for name in viral_names:
+        tax_str = results.get(name, {}).get('taxonomy', 'NA')
+        tax_parts = parse_taxonomy(tax_str)
+        if tax_parts:
+            counts[tuple(tax_parts)] += 1
+    with open(output_file, 'w') as f:
+        for tax_tuple, count in sorted(counts.items(), key=lambda x: -x[1]):
+            f.write(f"{count}\t{chr(9).join(tax_tuple)}\n")
 
 
 def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, output_proteins, mapfile):
