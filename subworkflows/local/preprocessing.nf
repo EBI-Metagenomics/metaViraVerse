@@ -26,8 +26,8 @@ workflow PREPROCESSING {
     // It will also rename ID in attributes column in GFF
     // That step is running with --combine option and it will return one renamed FASTA and GFF
 
-    ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
-    ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
+    ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect().flatten()
+    ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect().flatten()
     ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }
     ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }
 

@@ -241,23 +241,26 @@ def parse_attrs(attrs_str: str) -> tuple[dict[str, str], list[str]]:
     return attrs, order
 
 
-def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str]]:
+def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str], dict[str, str]]:
     """Parse one or more GFF3 files and index records by sequence ID.
 
-    Builds two data structures:
+    Builds three data structures:
     - ``gff_data``: maps each sequence ID (GFF column 1) to the list of raw
       GFF lines that belong to it.
     - ``attr_id_to_seq_id``: maps the ``ID`` attribute of non-CDS features to
       their parent sequence ID, for downstream attribute renaming.
+    - ``source_map``: maps each sequence ID to the GFF source field (column 2)
+      of its first non-CDS feature (e.g. ``VIRify``, ``geNomad``).
 
     Args:
         gffs: Paths to input GFF3 files.
 
     Returns:
-        Tuple of (gff_data, attr_id_to_seq_id).
+        Tuple of (gff_data, attr_id_to_seq_id, source_map).
     """
     gff_data: dict[str, list[str]] = {}
     attr_id_to_seq_id: dict[str, str] = {}
+    source_map: dict[str, str] = {}
     for gff in gffs:
         with open(gff, 'r') as file_in:
             for line in file_in:
@@ -271,6 +274,8 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
                 gff_data.setdefault(seq_id, [])
                 gff_data[seq_id].append(line)
                 if parts[2] != 'CDS':
+                    if seq_id not in source_map:
+                        source_map[seq_id] = parts[1]
                     if attrs.get('ID'):
                         attr_id = attrs['ID']
                         if attr_id in attr_id_to_seq_id:
@@ -278,7 +283,7 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
                         attr_id_to_seq_id.setdefault(attr_id, seq_id)
                     else:
                         print(f'There is no ID found for {line}')
-    return gff_data, attr_id_to_seq_id
+    return gff_data, attr_id_to_seq_id, source_map
 
 
 def choose_seqs(
@@ -356,6 +361,7 @@ def write_final_files(
     seen: dict[str, dict],
     gff_data: dict[str, list[str]],
     attr_id_to_seq_id: dict[str, str],
+    source_map: dict[str, str],
 ) -> None:
     """Write all four output files from the deduplicated record set.
 
@@ -372,6 +378,7 @@ def write_final_files(
         seen: Dict returned by ``choose_seqs``.
         gff_data: Dict of seq_id -> list of raw GFF lines (from ``read_input_gff``).
         attr_id_to_seq_id: Dict of attribute ID -> seq_id (from ``read_input_gff``).
+        source_map: Dict of seq_id -> GFF source field (column 2) from ``read_input_gff``.
     """
     # Write outputs
     records_written = 0
@@ -385,7 +392,7 @@ def write_final_files(
             open(output_gff, 'w') as filt_gff:
         quality_header = '\t'.join(QUALITY_COLUMNS)
         header = (
-            f"sequence_id\toriginal_name\tdescription\ttype\tbiomes\t"
+            f"sequence_id\toriginal_name\tdescription\ttype\tsource_of_prediction\tbiomes\t"
             f"sequence_length\trrna\tsequence_sha256\t{quality_header}\n"
         )
         out_tsv.write(header)
@@ -406,6 +413,7 @@ def write_final_files(
                 f"{entry['original_name']}\t"
                 f"{entry['original_name'].replace('|', '-').replace(' ', '|')}\t"
                 f"{entry['type']}\t"
+                f"{source_map.get(entry['seq_id'], 'NA')}\t"
                 f"{biomes_str}\t"
                 f"{len(record.seq)}\t"
                 f"{entry['rrna']}\t"

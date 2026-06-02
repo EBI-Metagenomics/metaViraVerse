@@ -1,21 +1,21 @@
 ##gff-version 3
-barley1	VIRify	viral_sequence	1	3862	.	.	.	ID=barley1|viral_sequence-1:3862;checkv_quality=Low-quality
+barley1	VIRify	viral_sequence	1	3862	.	.	.	ID=barley1;checkv_quality=Low-quality
 barley1	Prodigal:002006	CDS	1448	1627	.	+	0	ID=barley1_00001;product=hypothetical protein
-barley2	VIRify	viral_sequence	1	5155	.	.	.	ID=barley2|viral_sequence-1:5155;checkv_quality=Low-quality
+barley2	VIRify	viral_sequence	1	5155	.	.	.	ID=barley2;checkv_quality=Low-quality
 barley2	Prodigal:002006	CDS	34	1071	.	+	0	ID=barley2_00001;product=hypothetical protein
-barley3	geNomad	plasmid	1	5663	.	.	.	ID=barley3|plasmid-1:5663;mobile_element_type=plasmid
+barley3	geNomad	plasmid	1	5663	.	.	.	ID=barley3;mobile_element_type=plasmid
 barley3	Prodigal:002006	CDS	846	1793	.	-	0	ID=barley3_00001;product=hypothetical protein
-barley4	geNomad	plasmid	1	5917	.	.	.	ID=barley4|plasmid-1:5917;mobile_element_type=plasmid
+barley4	geNomad	plasmid	1	5917	.	.	.	ID=barley4;mobile_element_type=plasmid
 barley4	Prodigal:002006	CDS	969	2246	.	-	0	ID=barley4_00001;product=hypothetical protein
-barley5	VIRify	viral_sequence	1	5520	.	.	.	ID=barley5|viral_sequence-1:5520;checkv_quality=Low-quality
+barley5	VIRify	viral_sequence	1	5520	.	.	.	ID=barley5;checkv_quality=Low-quality
 barley5	Prodigal:002006	CDS	70	702	.	+	0	ID=barley5_00001;product=hypothetical protein
-barley6	VIRify	viral_sequence	1	10903	.	.	.	ID=barley6|viral_sequence-1:10903;checkv_quality=Low-quality
+barley6	VIRify	viral_sequence	1	10903	.	.	.	ID=barley6;checkv_quality=Low-quality
 barley6	Prodigal:002006	CDS	107	637	.	-	0	ID=barley6_00001;product=hypothetical protein
-barley7	VIRify	viral_sequence	1	3654	.	.	.	ID=barley7|viral_sequence-1:3654;checkv_quality=Low-quality
+barley7	VIRify	viral_sequence	1	3654	.	.	.	ID=barley7;checkv_quality=Low-quality
 barley7	Prodigal:002006	CDS	200	900	.	+	0	ID=barley7_00001;product=hypothetical protein
-barley8	VIRify	viral_sequence	1	10560	.	.	.	ID=barley8|viral_sequence-1:10560;checkv_quality=Low-quality
+barley8	VIRify	viral_sequence	1	10560	.	.	.	ID=barley8;checkv_quality=Low-quality
 barley8	Prodigal:002006	CDS	500	1500	.	+	0	ID=barley8_00001;product=hypothetical protein
-barley9	VIRify	viral_sequence	1	6642	.	.	.	ID=barley9|viral_sequence-1:6642;checkv_quality=Not-determined
+barley9	VIRify	viral_sequence	1	6642	.	.	.	ID=barley9;checkv_quality=Not-determined
 barley9	Prodigal:002006	CDS	100	600	.	+	0	ID=barley9_00001;product=hypothetical protein
-barley10	VIRify	viral_sequence	1	3269	.	.	.	ID=barley10|viral_sequence-1:3269;checkv_quality=Low-quality
+barley10	VIRify	viral_sequence	1	3269	.	.	.	ID=barley10;checkv_quality=Low-quality
 barley10	Prodigal:002006	CDS	50	300	.	+	0	ID=barley10_00001;product=hypothetical protein
