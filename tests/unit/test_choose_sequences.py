@@ -185,11 +185,24 @@ class TestMainIntegration(unittest.TestCase):
         self._run()
         with open(self.out_tsv) as f:
             header = f.readline().rstrip("\n").split("\t")
-        expected_start = ["sequence_id", "original_name", "description", "type", "biomes",
-                          "sequence_length", "rrna", "sequence_sha256"]
-        self.assertEqual(header[:8], expected_start)
+        expected_start = ["sequence_id", "original_name", "description", "type",
+                          "source_of_prediction", "biomes", "sequence_length", "rrna", "sequence_sha256"]
+        self.assertEqual(header[:9], expected_start)
         for col in cs.QUALITY_COLUMNS:
             self.assertIn(col, header)
+
+    def test_source_of_prediction_populated(self):
+        self._run()
+        with open(self.out_tsv) as f:
+            rows = [l.rstrip("\n").split("\t") for l in f]
+        header = rows[0]
+        src_idx = header.index("source_of_prediction")
+        seq_id_idx = header.index("sequence_id")
+        by_id = {r[seq_id_idx]: r[src_idx] for r in rows[1:]}
+        # barley1 and barley2 are VIRify predictions; barley3 is geNomad
+        self.assertEqual(by_id["barley1"], "VIRify")
+        self.assertEqual(by_id["barley2"], "VIRify")
+        self.assertEqual(by_id["barley3"], "geNomad")
 
     def test_rrna_column_populated(self):
         self._run()

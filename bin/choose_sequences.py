@@ -208,7 +208,7 @@ def passes_filter(entry: dict) -> bool:
 
     A sequence is excluded when either condition holds:
     - It carries an rRNA/tRNA/tmRNA annotation (rrna == 'Yes') and is not a plasmid.
-    - CheckV determined the quality as 'Not-determined' (only when quality data exists).
+    - CheckV determined the quality as 'Not-determined' for non-plasmids (only when quality data exists).
 
     Args:
         entry: A ``seen`` dict entry as built in ``main()``.
@@ -478,7 +478,7 @@ def main() -> None:
     quality_data: dict[str, dict[str, str]] = read_quality(args.quality) if args.quality else {}
 
     # Read GFFs
-    input_gff, attr_id_to_seq_id = read_input_gff(args.gff)
+    input_gff, attr_id_to_seq_id, source_map = read_input_gff(args.gff)
 
     seen = choose_seqs(args.fna, mapping, rna_sequences, quality_data)
 
@@ -488,7 +488,7 @@ def main() -> None:
     filtered_fna = p_fna.parent / f"filtered_{p_fna.name}"
     filtered_tsv = p_tsv.parent / f"filtered_{p_tsv.name}"
 
-    write_final_files(args.output_fna, args.output_gff, args.output_tsv, filtered_fna, filtered_tsv, seen, input_gff, attr_id_to_seq_id)
+    write_final_files(args.output_fna, args.output_gff, args.output_tsv, filtered_fna, filtered_tsv, seen, input_gff, attr_id_to_seq_id, source_map)
     print(f"Sources of FNA processed: {len(args.fna)}")
 
 if __name__ == '__main__':
