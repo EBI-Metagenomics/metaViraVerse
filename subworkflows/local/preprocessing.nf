@@ -41,6 +41,7 @@ workflow PREPROCESSING {
         ch_biomes
     )
     ch_versions = ch_versions.mix(RENAME_CONTIGS.out.versions)
+    mapping = RENAME_CONTIGS.out.map_file.map{ map -> [[id: 'combined'], map] }
 
     //
     // ----------- Evaluate a quality for all coming sequences
@@ -74,12 +75,11 @@ workflow PREPROCESSING {
         RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },
         CHECKV_ENDTOEND.out.quality_summary,
         rna_gff,
-        RENAME_CONTIGS.out.map_file.map{ map -> [[id: 'combined'], map] }
+        mapping
     )
     ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
 
     ch_fna_sequences = CHOOSE_SEQUENCES.out.filtered_fna
-    mapping = RENAME_CONTIGS.out.map_file
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------

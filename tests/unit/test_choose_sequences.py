@@ -12,7 +12,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "choose_sequences"
 BIN_DIR = Path(__file__).parent.parent.parent / "bin"
 sys.path.insert(0, str(BIN_DIR))
 
-import bin.choose_sequences as cs
+import choose_sequences as cs
 
 
 class TestSeqHash(unittest.TestCase):
@@ -35,11 +35,17 @@ class TestReadMap(unittest.TestCase):
 
     def test_temporary_to_original(self):
         # barley1 -> MGYG000535629_9 viral_sequence|1:3862
-        self.assertEqual(self.mapping["barley1"], "MGYG000535629_9 viral_sequence|1:3862")
+        self.assertEqual(self.mapping["barley1"]["original"], "MGYG000535629_9 viral_sequence|1:3862")
 
     def test_plasmid_entry_present(self):
         # barley3 maps to a plasmid original name
-        self.assertIn("plasmid", self.mapping["barley3"])
+        self.assertIn("plasmid", self.mapping["barley3"]["original"])
+
+    def test_biome_column_read(self):
+        self.assertEqual(self.mapping["barley1"]["biome"], "rhizosphere")
+
+    def test_type_column_read(self):
+        self.assertEqual(self.mapping["barley1"]["type"], "genome")
 
     def test_missing_key_returns_default(self):
         self.assertEqual(self.mapping.get("notakey", "notakey"), "notakey")
@@ -117,6 +123,7 @@ class TestMainIntegration(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.out_fna = str(Path(self.tmp.name) / "chosen.fna")
+        self.out_gff = str(Path(self.tmp.name) / "chosen.gff")
         self.out_tsv = str(Path(self.tmp.name) / "metadata.tsv")
 
     def tearDown(self):
@@ -125,13 +132,13 @@ class TestMainIntegration(unittest.TestCase):
     def _run(self, extra_args=None):
         argv = [
             "choose_sequences.py",
-            "--fna",      str(FIXTURES / "barley10.fasta"),
-            "--map",      str(FIXTURES / "barley10.map.tsv"),
-            "--rrna",     str(FIXTURES / "barley10.gff"),
-            "--quality",  str(FIXTURES / "barley10_quality.tsv"),
-            "--type",     "genome",
-            "--biome",    "rhizosphere",
+            "--fna",        str(FIXTURES / "barley10.fasta"),
+            "--gff",        str(FIXTURES / "barley10_viral.gff"),
+            "--map",        str(FIXTURES / "barley10.map.tsv"),
+            "--rrna",       str(FIXTURES / "barley10.gff"),
+            "--quality",    str(FIXTURES / "barley10_quality.tsv"),
             "--output-fna", self.out_fna,
+            "--output-gff", self.out_gff,
             "--output-tsv", self.out_tsv,
         ]
         if extra_args:
@@ -168,6 +175,12 @@ class TestMainIntegration(unittest.TestCase):
             headers = [l for l in f if l.startswith(">")]
         self.assertEqual(len(headers), 8)
 
+    def test_filtered_gff_has_eight_sequences(self):
+        self._run()
+        with open(self.out_gff) as f:
+            seq_lines = [l for l in f if '\tviral_sequence\t' in l or '\tplasmid\t' in l]
+        self.assertEqual(len(seq_lines), 8)
+
     def test_tsv_has_correct_columns(self):
         self._run()
         with open(self.out_tsv) as f:
@@ -188,6 +201,22 @@ class TestMainIntegration(unittest.TestCase):
         by_id = {r[seq_id_idx]: r[rrna_idx] for r in rows[1:]}
         self.assertEqual(by_id["barley1"], "Yes")
         self.assertEqual(by_id["barley2"], "No")
+
+    def test_biome_from_map_file(self):
+        self._run()
+        with open(self.out_tsv) as f:
+            rows = [l.rstrip("\n").split("\t") for l in f]
+        header = rows[0]
+        biome_idx = header.index("biomes")
+        self.assertEqual(rows[1][biome_idx], "rhizosphere")
+
+    def test_type_from_map_file(self):
+        self._run()
+        with open(self.out_tsv) as f:
+            rows = [l.rstrip("\n").split("\t") for l in f]
+        header = rows[0]
+        type_idx = header.index("type")
+        self.assertEqual(rows[1][type_idx], "genome")
 
 
 if __name__ == "__main__":

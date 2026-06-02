@@ -422,17 +422,13 @@ def write_final_files(
                 out_tsv_f.write(tsv_row)
                 records_filtered += 1
 
-                gff_record_id = attr_id_to_seq_id[entry['seq_id']]
-                if gff_record_id:
-                    gff_records = gff_data.get(gff_record_id)
-                    if gff_records:
-                        filt_gff.write(''.join(gff_records))
-                        gff_records_written += len(gff_records)
-                        gff_seqs_written += 1
-                    else:
-                        print(f"{entry['seq_id']} has no GFF records")
+                gff_records = gff_data.get(entry['seq_id'])
+                if gff_records:
+                    filt_gff.write(''.join(gff_records))
+                    gff_records_written += len(gff_records)
+                    gff_seqs_written += 1
                 else:
-                    print(f"No {entry['seq_id']} in mapping")
+                    print(f"{entry['seq_id']} has no GFF records")
 
     print(f"Total unique sequences written: {records_written}")
     print(f"Filtered sequences written: {records_filtered}")
