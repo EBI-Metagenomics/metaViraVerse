@@ -26,10 +26,10 @@ workflow PREPROCESSING {
     // It will also rename ID in attributes column in GFF
     // That step is running with --combine option and it will return one renamed FASTA and GFF
 
-    ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect().flatten()
-    ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect().flatten()
-    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }
-    ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }
+    ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
+    ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
+    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }.collect()
+    ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }.collect()
 
     // TODO review how to handle meta
     RENAME_CONTIGS(
@@ -113,7 +113,8 @@ workflow PREPROCESSING {
     prophages        = SEPARATE_PROPHAGES.out.chosen_sequences
     plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
 
-    combined_gff     = input.map { _meta, gff, _fna, _faa -> gff }
+    combined_gff     = CHOOSE_SEQUENCES.out.filtered_gff
+                        .map { meta, gff -> gff }
                         .collectFile( name: 'combined.gff' )
                         //.mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
 
