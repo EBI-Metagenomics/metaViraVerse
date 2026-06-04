@@ -86,6 +86,43 @@ class TestReadQuality(unittest.TestCase):
             self.assertIn(col, self.quality["barley1"])
 
 
+class TestFilterReason(unittest.TestCase):
+    def _entry(self, rrna, viral_type, checkv_quality=None, viral_genes="0", kmer_freq="1.0"):
+        q = {"checkv_quality": checkv_quality, "viral_genes": viral_genes, "kmer_freq": kmer_freq} \
+            if checkv_quality is not None else None
+        return {"rrna": rrna, "viral_type": viral_type, "quality": q}
+
+    def test_clean_virus_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Low-quality")))
+
+    def test_rrna_virus_reason(self):
+        self.assertEqual(cs.filter_reason(self._entry("Yes", "virus", "Low-quality")), "rrna")
+
+    def test_rrna_plasmid_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("Yes", "plasmid", "Low-quality")))
+
+    def test_not_determined_virus_reason(self):
+        self.assertEqual(
+            cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")),
+            "not_determined"
+        )
+
+    def test_not_determined_virus_no_viral_genes_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="1.0")))
+
+    def test_not_determined_virus_high_kmer_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.5")))
+
+    def test_not_determined_plasmid_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "plasmid", "Not-determined", viral_genes="3", kmer_freq="1.0")))
+
+    def test_no_quality_data_passes(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", None)))
+
+    def test_rrna_not_provided_not_filtered(self):
+        self.assertIsNone(cs.filter_reason(self._entry("not-provided", "virus", "Low-quality")))
+
+
 class TestPassesFilter(unittest.TestCase):
     def _entry(self, rrna, viral_type, checkv_quality=None, viral_genes="0", kmer_freq="1.0"):
         q = {"checkv_quality": checkv_quality, "viral_genes": viral_genes, "kmer_freq": kmer_freq} \
@@ -98,33 +135,11 @@ class TestPassesFilter(unittest.TestCase):
     def test_rrna_virus_filtered(self):
         self.assertFalse(cs.passes_filter(self._entry("Yes", "virus", "Low-quality")))
 
-    def test_rrna_plasmid_passes(self):
-        # Plasmids are exempt from the rRNA filter
-        self.assertTrue(cs.passes_filter(self._entry("Yes", "plasmid", "Low-quality")))
-
     def test_not_determined_virus_filtered(self):
-        # Filtered when Not-determined AND viral_genes > 0 AND kmer_freq <= 1.0
         self.assertFalse(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")))
 
-    def test_not_determined_virus_no_viral_genes_passes(self):
-        # Not filtered when viral_genes == 0 (no viral signal to confirm)
-        self.assertTrue(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="1.0")))
-
-    def test_not_determined_virus_high_kmer_passes(self):
-        # Not filtered when kmer_freq > 1.0 (likely multi-copy contamination artefact)
-        self.assertTrue(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.5")))
-
-    def test_not_determined_plasmid_passes(self):
-        # Plasmids are exempt from the quality filter too
-        self.assertTrue(cs.passes_filter(self._entry("No", "plasmid", "Not-determined", viral_genes="3", kmer_freq="1.0")))
-
     def test_no_quality_data_passes(self):
-        # Entry with no CheckV data should not be filtered on quality
         self.assertTrue(cs.passes_filter(self._entry("No", "virus", None)))
-
-    def test_rrna_not_provided_not_filtered(self):
-        # 'not-provided' means rRNA tool wasn't run — do not filter
-        self.assertTrue(cs.passes_filter(self._entry("not-provided", "virus", "Low-quality")))
 
 
 class TestMainIntegration(unittest.TestCase):
@@ -213,6 +228,19 @@ class TestMainIntegration(unittest.TestCase):
         self.assertEqual(by_id["barley1"], "VIRify")
         self.assertEqual(by_id["barley2"], "VIRify")
         self.assertEqual(by_id["barley3"], "geNomad")
+
+    def test_excluded_tsv_has_correct_records(self):
+        self._run()
+        excluded_tsv = Path(self.tmp.name) / "excluded_metadata.tsv"
+        with open(excluded_tsv) as f:
+            rows = [l.rstrip("\n").split("\t") for l in f]
+        header = rows[0]
+        # barley1 (rrna) and barley9 (not_determined) are excluded
+        self.assertEqual(len(rows), 3)  # 1 header + 2 excluded
+        self.assertEqual(header[0], "filter_reason")
+        reasons = {r[1]: r[0] for r in rows[1:]}  # seq_id -> reason
+        self.assertEqual(reasons["barley1"], "rrna")
+        self.assertEqual(reasons["barley9"], "not_determined")
 
     def test_rrna_column_populated(self):
         self._run()

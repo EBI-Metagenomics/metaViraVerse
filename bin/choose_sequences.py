@@ -205,31 +205,31 @@ def read_quality(quality_files: list[str]) -> dict[str, dict[str, str]]:
     return quality
 
 
-def passes_filter(entry: dict) -> bool:
-    """Return True if the sequence passes quality filters for the filtered output set.
-
-    A sequence is excluded when either condition holds:
-    - It carries an rRNA/tRNA/tmRNA annotation (rrna == 'Yes') and is not a plasmid.
-    - CheckV determined the quality as 'Not-determined' etc (like in MAP) for non-plasmids (only when quality data exists).
+def filter_reason(entry: dict) -> str | None:
+    """Return the exclusion reason for an entry, or None if it passes.
 
     Args:
         entry: A ``seen`` dict entry as built in ``main()``.
 
     Returns:
-        True if the sequence should be kept in the filtered output.
+        A short reason string if excluded, None if the sequence should be kept.
     """
     if entry['rrna'] == 'Yes' and entry['viral_type'] != 'plasmid':
-        return False
+        return 'rrna'
     q = entry['quality']
     if q is not None and q.get('checkv_quality') == 'Not-determined' and entry['viral_type'] != 'plasmid':
         try:
             viral_genes = float(q.get('viral_genes') or 0)
             kmer_freq = float(q.get('kmer_freq') or 0)
         except (ValueError, TypeError):
-            return True
+            return None
         if viral_genes > 0 and kmer_freq <= 1.0:
-            return False
-    return True
+            return 'not_determined'
+    return None
+
+
+def passes_filter(entry: dict) -> bool:
+    return filter_reason(entry) is None
 
 
 def choose_seqs(
@@ -304,15 +304,17 @@ def write_final_files(
     output_tsv: str,
     filtered_fna: str,
     filtered_tsv: str,
+    excluded_tsv: str,
     seen: dict[str, dict],
     gff_data: dict[str, list[str]],
     attr_id_to_seq_id: dict[str, str],
     source_map: dict[str, str],
 ) -> None:
-    """Write all four output files from the deduplicated record set.
+    """Write all output files from the deduplicated record set.
 
-    Writes every unique sequence to ``output_fna`` / ``output_tsv``, and
-    sequences that pass ``passes_filter`` to ``filtered_fna`` / ``filtered_tsv``.
+    Writes every unique sequence to ``output_fna`` / ``output_tsv``, sequences
+    that pass ``passes_filter`` to ``filtered_fna`` / ``filtered_tsv``, and
+    excluded sequences with their reason to ``excluded_tsv``.
     GFF records for each filtered sequence are written to ``output_gff``.
 
     Args:
@@ -321,14 +323,15 @@ def write_final_files(
         output_tsv: Path for the full metadata TSV.
         filtered_fna: Path for the filtered FASTA.
         filtered_tsv: Path for the filtered metadata TSV.
+        excluded_tsv: Path for the excluded sequences TSV (with filter_reason column).
         seen: Dict returned by ``choose_seqs``.
         gff_data: Dict of seq_id -> list of raw GFF lines (from ``read_input_gff``).
         attr_id_to_seq_id: Dict of attribute ID -> seq_id (from ``read_input_gff``).
         source_map: Dict of seq_id -> GFF source field (column 2) from ``read_input_gff``.
     """
-    # Write outputs
     records_written = 0
     records_filtered = 0
+    records_excluded = 0
     gff_records_written = 0
     gff_seqs_written = 0
     gff_found = 0
@@ -337,6 +340,7 @@ def write_final_files(
             open(output_tsv, 'w') as out_tsv, \
             open(filtered_fna, 'w') as out_fna_f, \
             open(filtered_tsv, 'w') as out_tsv_f, \
+            open(excluded_tsv, 'w') as out_excl, \
             open(output_gff, 'w') as filt_gff:
         quality_header = '\t'.join(QUALITY_COLUMNS)
         header = (
@@ -345,6 +349,7 @@ def write_final_files(
         )
         out_tsv.write(header)
         out_tsv_f.write(header)
+        out_excl.write(f"filter_reason\t{header}")
 
         for h, entry in seen.items():
             record = entry['record']
@@ -379,7 +384,8 @@ def write_final_files(
             out_tsv.write(tsv_row)
             records_written += 1
 
-            if passes_filter(entry):
+            reason = filter_reason(entry)
+            if reason is None:
                 SeqIO.write([record], out_fna_f, "fasta")
                 out_tsv_f.write(tsv_row)
                 records_filtered += 1
@@ -395,9 +401,13 @@ def write_final_files(
                             gff_seqs_written += 1
                     else:
                         print(f"{entry['seq_id']} has no GFF records")
+            else:
+                out_excl.write(f"{reason}\t{tsv_row}")
+                records_excluded += 1
 
     print(f"Total unique sequences written: {records_written}")
     print(f"Filtered sequences written: {records_filtered}")
+    print(f"Excluded sequences written: {records_excluded}")
     print(f"Written contigs {gff_seqs_written} into GFF")
     print(f"Total written lines to filtered GFF {gff_records_written}")
     if records_filtered != gff_found:
@@ -438,13 +448,14 @@ def main() -> None:
 
     seen = choose_seqs(args.fna, mapping, rna_sequences, quality_data)
 
-    # Derive filtered output paths by prepending "filtered_" to the filename
+    # Derive filtered/excluded output paths from the TSV/FNA filenames
     p_fna = Path(args.output_fna)
     p_tsv = Path(args.output_tsv)
-    filtered_fna = p_fna.parent / f"filtered_{p_fna.name}"
-    filtered_tsv = p_tsv.parent / f"filtered_{p_tsv.name}"
+    filtered_fna  = p_fna.parent / f"filtered_{p_fna.name}"
+    filtered_tsv  = p_tsv.parent / f"filtered_{p_tsv.name}"
+    excluded_tsv  = p_tsv.parent / f"excluded_{p_tsv.name}"
 
-    write_final_files(args.output_fna, args.output_gff, args.output_tsv, filtered_fna, filtered_tsv, seen, input_gff, attr_id_to_seq_id, source_map)
+    write_final_files(args.output_fna, args.output_gff, args.output_tsv, filtered_fna, filtered_tsv, excluded_tsv, seen, input_gff, attr_id_to_seq_id, source_map)
     print(f"Sources of FNA processed: {len(args.fna)}")
 
 if __name__ == '__main__':
