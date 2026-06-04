@@ -331,7 +331,7 @@ def write_final_files(
     records_filtered = 0
     gff_records_written = 0
     gff_seqs_written = 0
-    gff_noncds_written = 0
+    gff_found = 0
     written_gff_ids = set()
     with open(output_fna, 'w') as out_fna, \
             open(output_tsv, 'w') as out_tsv, \
@@ -385,26 +385,23 @@ def write_final_files(
                 records_filtered += 1
 
                 if gff_record_id:
-                    if gff_record_id not in written_gff_ids:
-                        gff_records = gff_data.get(gff_record_id)
-                        if gff_records:
+                    gff_records = gff_data.get(gff_record_id)
+                    if gff_records:
+                        gff_found += 1
+                        if gff_record_id not in written_gff_ids:
                             filt_gff.write(''.join(gff_records))
                             written_gff_ids.add(gff_record_id)
                             gff_records_written += len(gff_records)
                             gff_seqs_written += 1
-                            for line in gff_records:
-                                parts = line.strip().split('\t')
-                                if len(parts) >= 3 and parts[2] != 'CDS':
-                                    gff_noncds_written += 1
-                        else:
-                            print(f"{entry['seq_id']} has no GFF records")
+                    else:
+                        print(f"{entry['seq_id']} has no GFF records")
 
     print(f"Total unique sequences written: {records_written}")
     print(f"Filtered sequences written: {records_filtered}")
-    print(f"Written contigs {gff_seqs_written} into GFF (non-CDS features: {gff_noncds_written})")
+    print(f"Written contigs {gff_seqs_written} into GFF")
     print(f"Total written lines to filtered GFF {gff_records_written}")
-    if records_filtered != gff_noncds_written:
-        print(f"Number of non-CDS GFF features ({gff_noncds_written}) does not match number of sequences in fasta file ({records_filtered}). Exit")
+    if records_filtered != gff_found:
+        print(f"GFF entries found for {gff_found} sequences but {records_filtered} written to FASTA. Exit")
         exit(1)
 
 def main() -> None:
