@@ -15,11 +15,11 @@ process CHOOSE_SEQUENCES {
 
 
     output:
-    tuple val(meta_quality), path("${meta_quality.id}_chosen.fna"),      emit: combined_fna
     tuple val(meta_quality), path("${meta_quality.id}_metadata.tsv"),    emit: metadata
-    tuple val(meta_quality), path("filtered*.fna"),                      emit: filtered_fna
-    tuple val(meta_quality), path("filtered*.tsv"),                      emit: filtered_metadata
-    tuple val(meta_quality), path("${meta_quality.id}_chosen.gff"),      emit: filtered_gff
+    tuple val(meta_quality), path("*filtered.fna"),                      emit: filtered_fna
+    tuple val(meta_quality), path("*filtered.tsv"),                      emit: filtered_metadata
+    tuple val(meta_quality), path("*filtered.gff"),                      emit: filtered_gff
+    tuple val(meta_quality), path("*excluded.tsv"),                      emit: excluded_metadata
     path "versions.yml",                                                 emit: versions
 
     script:
@@ -36,9 +36,7 @@ process CHOOSE_SEQUENCES {
         ${rrna} \\
         ${quality_arg} \\
         ${mapping} \\
-        --output-fna ${meta_quality.id}_chosen.fna \\
-        --output-tsv ${meta_quality.id}_metadata.tsv \\
-        --output-gff ${meta_quality.id}_chosen.gff
+        --output-prefix ${meta_quality.id}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

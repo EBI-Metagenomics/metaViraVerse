@@ -333,6 +333,7 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
 
 
 def write_final_files(
+    metadata: str,
     filtered_gff: str,
     filtered_fna: str,
     filtered_tsv: str,
@@ -370,13 +371,15 @@ def write_final_files(
     with open(filtered_fna, 'w') as out_fna_f, \
          open(filtered_tsv, 'w') as out_tsv_f, \
          open(excluded_tsv, 'w') as out_excl, \
-         open(filtered_gff, 'w') as filt_gff:
+         open(filtered_gff, 'w') as filt_gff, \
+         open(metadata, 'w') as metadata_file:
         quality_header = '\t'.join(QUALITY_COLUMNS)
         header = (
             f"sequence_id\toriginal_name\tdescription\ttype\tsource_of_prediction\tbiomes\t"
             f"sequence_length\trrna\tsequence_sha256\t{quality_header}\n"
         )
         out_tsv_f.write(header)
+        metadata_file.write(header)
         out_excl.write(f"filter_reason\t{header}")
 
         for h, entry in seen.items():
@@ -405,6 +408,7 @@ def write_final_files(
                 f"{quality_values}\n"
             )
             records_total += 1
+            metadata_file.write(tsv_row)
 
             reason = filter_reason(entry)
             if reason is None:
@@ -477,12 +481,13 @@ def main() -> None:
     seen = choose_seqs(args.fna, mapping, rna_sequences, quality_data)
 
     # Derive filtered/excluded output paths from the TSV/FNA filenames
+    metadata      = f"{args.output_prefix}_metadata.tsv"
     filtered_fna  = f"{args.output_prefix}_filtered.fna"
     filtered_gff  = f"{args.output_prefix}_filtered.gff"
     filtered_tsv  = f"{args.output_prefix}_filtered.tsv"
     excluded_tsv  = f"{args.output_prefix}_excluded.tsv"
 
-    write_final_files(filtered_gff, filtered_fna, filtered_tsv, excluded_tsv, seen, input_gff, source_map)
+    write_final_files(metadata, filtered_gff, filtered_fna, filtered_tsv, excluded_tsv, seen, input_gff, source_map)
     print(f"Sources of FNA processed: {len(args.fna)}")
 
 if __name__ == '__main__':

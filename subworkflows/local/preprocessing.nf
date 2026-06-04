@@ -106,7 +106,7 @@ workflow PREPROCESSING {
 
 
     emit:
-    metadata         = CHOOSE_SEQUENCES.out.metadata  // [id:combined, metadata.tsv]
+    metadata         = CHOOSE_SEQUENCES.out.filtered_metadata  // [id:combined, metadata.tsv]
     mapfile          = mapping                        // [id:combined, metadata.tsv]
 
     viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [id:combined, viruses.fasta]
