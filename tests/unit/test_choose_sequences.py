@@ -87,8 +87,9 @@ class TestReadQuality(unittest.TestCase):
 
 
 class TestPassesFilter(unittest.TestCase):
-    def _entry(self, rrna, viral_type, checkv_quality=None):
-        q = {"checkv_quality": checkv_quality} if checkv_quality is not None else None
+    def _entry(self, rrna, viral_type, checkv_quality=None, viral_genes="0", kmer_freq="1.0"):
+        q = {"checkv_quality": checkv_quality, "viral_genes": viral_genes, "kmer_freq": kmer_freq} \
+            if checkv_quality is not None else None
         return {"rrna": rrna, "viral_type": viral_type, "quality": q}
 
     def test_clean_virus_passes(self):
@@ -102,11 +103,20 @@ class TestPassesFilter(unittest.TestCase):
         self.assertTrue(cs.passes_filter(self._entry("Yes", "plasmid", "Low-quality")))
 
     def test_not_determined_virus_filtered(self):
-        self.assertFalse(cs.passes_filter(self._entry("No", "virus", "Not-determined")))
+        # Filtered when Not-determined AND viral_genes > 0 AND kmer_freq <= 1.0
+        self.assertFalse(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")))
+
+    def test_not_determined_virus_no_viral_genes_passes(self):
+        # Not filtered when viral_genes == 0 (no viral signal to confirm)
+        self.assertTrue(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="1.0")))
+
+    def test_not_determined_virus_high_kmer_passes(self):
+        # Not filtered when kmer_freq > 1.0 (likely multi-copy contamination artefact)
+        self.assertTrue(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.5")))
 
     def test_not_determined_plasmid_passes(self):
         # Plasmids are exempt from the quality filter too
-        self.assertTrue(cs.passes_filter(self._entry("No", "plasmid", "Not-determined")))
+        self.assertTrue(cs.passes_filter(self._entry("No", "plasmid", "Not-determined", viral_genes="3", kmer_freq="1.0")))
 
     def test_no_quality_data_passes(self):
         # Entry with no CheckV data should not be filtered on quality

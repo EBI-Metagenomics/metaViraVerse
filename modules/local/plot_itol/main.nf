@@ -11,10 +11,10 @@ process PLOT_ITOL {
 
     output:
       tuple val(meta), path("*_tree.nwk"),          emit: tree_nwk
-      tuple val(meta), path("*_labels.txt"),        emit: tree_labels
+      tuple val(meta), path("*_labels.txt"),        emit: tree_labels, optional:true
       tuple val(meta), path("*_counts.txt"),        emit: tree_counts
       tuple val(meta), path("*.type.binary.txt"),   emit: tree_types  // genome/assembly
-      tuple val(meta), path("*.biomes.binary.txt"), emit: tree_biomes
+      tuple val(meta), path("*.biomes.binary.txt"), emit: tree_biomes, optional:true
       path "versions.yml",                          emit: versions
 
     script:

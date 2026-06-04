@@ -210,7 +210,7 @@ def passes_filter(entry: dict) -> bool:
 
     A sequence is excluded when either condition holds:
     - It carries an rRNA/tRNA/tmRNA annotation (rrna == 'Yes') and is not a plasmid.
-    - Maybe?: CheckV determined the quality as 'Not-determined' for non-plasmids (only when quality data exists).
+    - CheckV determined the quality as 'Not-determined' etc (like in MAP) for non-plasmids (only when quality data exists).
 
     Args:
         entry: A ``seen`` dict entry as built in ``main()``.
@@ -220,9 +220,15 @@ def passes_filter(entry: dict) -> bool:
     """
     if entry['rrna'] == 'Yes' and entry['viral_type'] != 'plasmid':
         return False
-    #q = entry['quality']
-    #if q is not None and q.get('checkv_quality') == 'Not-determined' and entry['viral_type'] != 'plasmid':
-    #    return False
+    q = entry['quality']
+    if q is not None and q.get('checkv_quality') == 'Not-determined' and entry['viral_type'] != 'plasmid':
+        try:
+            viral_genes = float(q.get('viral_genes') or 0)
+            kmer_freq = float(q.get('kmer_freq') or 0)
+        except (ValueError, TypeError):
+            return True
+        if viral_genes > 0 and kmer_freq <= 1.0:
+            return False
     return True
 
 
@@ -325,6 +331,8 @@ def write_final_files(
     records_filtered = 0
     gff_records_written = 0
     gff_seqs_written = 0
+    gff_noncds_written = 0
+    written_gff_ids = set()
     with open(output_fna, 'w') as out_fna, \
             open(output_tsv, 'w') as out_tsv, \
             open(filtered_fna, 'w') as out_fna_f, \
@@ -377,20 +385,26 @@ def write_final_files(
                 records_filtered += 1
 
                 if gff_record_id:
-                    gff_records = gff_data.get(gff_record_id)
-                    if gff_records:
-                        filt_gff.write(''.join(gff_records))
-                        gff_records_written += len(gff_records)
-                        gff_seqs_written += 1
-                    else:
-                        print(f"{entry['seq_id']} has no GFF records")
+                    if gff_record_id not in written_gff_ids:
+                        gff_records = gff_data.get(gff_record_id)
+                        if gff_records:
+                            filt_gff.write(''.join(gff_records))
+                            written_gff_ids.add(gff_record_id)
+                            gff_records_written += len(gff_records)
+                            gff_seqs_written += 1
+                            for line in gff_records:
+                                parts = line.strip().split('\t')
+                                if len(parts) >= 3 and parts[2] != 'CDS':
+                                    gff_noncds_written += 1
+                        else:
+                            print(f"{entry['seq_id']} has no GFF records")
 
     print(f"Total unique sequences written: {records_written}")
     print(f"Filtered sequences written: {records_filtered}")
-    print(f"Written sequences {gff_seqs_written} into GFF")
+    print(f"Written contigs {gff_seqs_written} into GFF (non-CDS features: {gff_noncds_written})")
     print(f"Total written lines to filtered GFF {gff_records_written}")
-    if records_filtered != gff_seqs_written:
-        print("Number of GFF records does not match number of sequences in fasta file. Exit")
+    if records_filtered != gff_noncds_written:
+        print(f"Number of non-CDS GFF features ({gff_noncds_written}) does not match number of sequences in fasta file ({records_filtered}). Exit")
         exit(1)
 
 def main() -> None:
