@@ -91,7 +91,7 @@ workflow METAVIRAVERSE {
        PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
        PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
        PREPROCESSING.out.metadata,
-       PREPROCESSING.out.mapfile
+       PREPROCESSING.out.mapfile.map { _meta, f -> f }
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
