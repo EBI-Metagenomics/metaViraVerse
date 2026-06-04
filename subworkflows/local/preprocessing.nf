@@ -106,16 +106,15 @@ workflow PREPROCESSING {
 
 
     emit:
-    metadata         = CHOOSE_SEQUENCES.out.metadata
-                         .map{ metadata -> [[id: 'combined'], metadata] }      // channel: [ [id: 'combined'], combined_meta.tsv ]
+    metadata         = CHOOSE_SEQUENCES.out.metadata  // [id:combined, metadata.tsv]
+    mapfile          = mapping                        // [id:combined, metadata.tsv]
 
-    viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences
-    prophages        = SEPARATE_PROPHAGES.out.chosen_sequences
-    plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
+    viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [id:combined, viruses.fasta]
+    prophages        = SEPARATE_PROPHAGES.out.chosen_sequences        // [id:combined, prophages.fasta]
+    plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences         // [id:combined, plasmids.fasta]
 
     combined_gff     = CHOOSE_SEQUENCES.out.filtered_gff
                         .map { meta, gff -> gff }
-                        .collectFile( name: 'combined.gff' )
                         //.mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
 
     combined_faa     = input.map { _meta, _gff, _fna, faa -> faa }

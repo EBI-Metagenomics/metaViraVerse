@@ -2,18 +2,7 @@
 import argparse
 import os
 import sys
-from collections import Counter
-from urllib.parse import unquote
-
-
-def parse_attributes(attr_str):
-    """Parse the attributes column from a GFF line into a dictionary."""
-    attrs = {}
-    for part in attr_str.split(";"):
-        if "=" in part:
-            key, val = part.split("=", 1)
-            attrs[key.strip().lower()] = val.strip()
-    return attrs
+from utils import parse_attributes, read_input_gff
 
 
 def read_mapfile(mapfile):
@@ -148,62 +137,32 @@ def calculate_mean_genes(cluster_members, all_results):
     return cluster_mean_genes
 
 
-
-def parse_taxonomy(taxonomy_str, levels=None):
-    """Parse a semicolon-separated taxonomy string into a list of level values.
-
-    URL-encoded separators (%3B) are decoded before splitting.  Empty/NA input
-    returns an empty list.  When ``levels`` is provided, empty positions are
-    filled with ``Unclassified_{level}_{parent.lower()}`` placeholders.
-    Without ``levels``, trailing empty tokens are stripped.
-
-    Args:
-        taxonomy_str: Semicolon-separated taxonomy string (may be URL-encoded).
-        levels: Optional list of level names (e.g. ['realm', 'kingdom', ...]).
-
-    Returns:
-        List of taxonomy level strings.
-    """
-    if not taxonomy_str or taxonomy_str == 'NA':
-        return []
-    parts = unquote(taxonomy_str).split(';')
-    if levels is None:
-        return [p for p in parts if p.strip()]
-    result = []
-    last_filled = ''
-    for i, part in enumerate(parts):
-        stripped = part.strip()
-        if stripped:
-            result.append(stripped)
-            last_filled = stripped
-        else:
-            level_name = levels[i] if i < len(levels) else f'level{i}'
-            result.append(f'Unclassified_{level_name}_{last_filled.lower()}')
-    return result
+def extract_proteins_data(data):
+    protein_ids = set()
+    for line in data:
+        line = line.strip().split('\t')
+        if line[2] == 'CDS':
+            attrs, _ = parse_attributes(line[8])
+            protein_id = attrs.get('ID')
+            if protein_id:
+                protein_ids.add(protein_id)
+    return protein_ids
 
 
-def generate_krona_file(results, viral_names, output_file):
-    """Write a Krona-compatible TSV from taxonomy strings in results.
-
-    Each unique taxonomy path is written as one line:
-    ``count<TAB>level1<TAB>level2...``
-    Lines are sorted by count descending.  Sequences with empty/NA taxonomy
-    are omitted.
-
-    Args:
-        results: Dict mapping seq_id -> {'taxonomy': str, ...}.
-        viral_names: Sequence IDs to include.
-        output_file: Path for the output TSV file.
-    """
-    counts: Counter = Counter()
-    for name in viral_names:
-        tax_str = results.get(name, {}).get('taxonomy', 'NA')
-        tax_parts = parse_taxonomy(tax_str)
-        if tax_parts:
-            counts[tuple(tax_parts)] += 1
-    with open(output_file, 'w') as f:
-        for tax_tuple, count in sorted(counts.items(), key=lambda x: -x[1]):
-            f.write(f"{count}\t{chr(9).join(tax_tuple)}\n")
+def extract_sequence_data(data):
+    taxonomy = "NA"
+    checkv_viral_genes = "NA"
+    checkv_quality = "NA"
+    virify_quality = "NA"
+    for line in data:
+        line = line.strip().split('\t')
+        if line[2] != 'CDS':
+            attrs, _ = parse_attributes(line[8])
+            taxonomy = attrs.get("taxonomy", "NA")
+            checkv_viral_genes = attrs.get("checkv_viral_genes", "NA")
+            checkv_quality = attrs.get("checkv_quality", "NA")
+            virify_quality = attrs.get("virify_quality", "NA")
+    return taxonomy, checkv_viral_genes, checkv_quality, virify_quality
 
 
 def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, output_proteins, mapfile):
@@ -226,9 +185,6 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
     # Read cluster structure
     cluster_reps, cluster_members, rep_original_names = read_cluster_structure(viral_list_file, mapping)
 
-    # example, MGYG000517142_2|prophage-311953:328572 into MGYG000517142_2 to match with initial GFF
-    reps_names_without_viral_region = set([i.split('|')[0] for i in cluster_reps])
-
     # Get all unique sequence IDs (reps + all members)
     all_seq_ids = set(cluster_reps)
     for members in cluster_members.values():
@@ -237,46 +193,39 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
     print(f"📋 Found {len(cluster_reps)} cluster representatives")
     print(f"📋 Total sequences (reps + members): {len(all_seq_ids)}")
 
+    # read gff input
+    # input_gff is a dictionary [seq_id (first column)] = [all corresponding records]
+    # attr_id_to_seq_id is mapping between seq_is and ID from attributes
+    input_gff, attr_id_to_seq_id, _ = read_input_gff([gff_file])
+
     # Extract data from GFF for all sequences
     all_results = {}
-    found = set()
+    found = 0
     proteins = set()
+    written_gff = set()
 
-    with open(gff_file, "r") as gff, open(output_gff, 'w') as reps_gff:
+    with open(output_gff, 'w') as reps_gff:
         reps_gff.write('##gff-version 3\n')
-
-        for line in gff:
-            if line.startswith("#") or not line.strip():
-                continue
-            cols = line.strip().split("\t")
-            if len(cols) < 9:
-                continue
-
-            if cols[0] in reps_names_without_viral_region:
-                reps_gff.write(line)
-
-            attr_str = cols[8]
-            attrs = parse_attributes(attr_str)
-
-            if cols[2] == 'CDS':
-                if cols[0] in reps_names_without_viral_region:
-                    prot_id = attrs.get("id")
-                    if prot_id:
-                        proteins.add(prot_id)
-                continue
-
-            seq_id = attrs.get("id", "NA")
-
-            if seq_id in all_seq_ids:
-                all_results[seq_id] = {
-                    "taxonomy": attrs.get("taxonomy", "NA"),
-                    "checkv_viral_genes": attrs.get("checkv_viral_genes", "NA"),
-                    "checkv_quality": attrs.get("checkv_quality", "NA"),
-                    "virify_quality": attrs.get("virify_quality", "NA"),
+        for rep_id in cluster_reps:
+            original_rep = rep_original_names.get(rep_id, rep_id)
+            mgyg_id = attr_id_to_seq_id.get(original_rep)
+            if mgyg_id and mgyg_id in input_gff:
+                lines = input_gff[mgyg_id]
+                if mgyg_id not in written_gff:
+                    reps_gff.writelines(lines)
+                    written_gff.add(mgyg_id)
+                found += 1
+                proteins.update(extract_proteins_data(lines))
+                taxonomy, checkv_viral_genes, checkv_quality, virify_quality = extract_sequence_data(lines)
+                all_results[rep_id] = {
+                    "taxonomy": taxonomy,
+                    "checkv_viral_genes": checkv_viral_genes,
+                    "checkv_quality": checkv_quality,
+                    "virify_quality": virify_quality,
                 }
-                found.add(seq_id)
-
-    print(f"✅ Extracted stats for {len(found)} sequences from GFF")
+            else:
+                print(f"No GFF data for rep {rep_id} (original: {original_rep})")
+    print(f"✅ Extracted stats for {found} sequences from GFF")
 
     # Calculate mean genes per cluster
     cluster_mean_genes = calculate_mean_genes(cluster_members, all_results)
@@ -285,7 +234,7 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
     if output_reps:
         with open(output_reps, "w") as out:
             for rep_id in cluster_reps:
-                out.write(f'{rep_id}\n')
+                out.write(f'{rep_original_names.get(rep_id, rep_id)}\n')
 
     # Write a list of proteins for representatives
     if output_proteins:
