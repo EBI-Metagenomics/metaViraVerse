@@ -208,7 +208,7 @@ def passes_filter(entry: dict) -> bool:
 
     A sequence is excluded when either condition holds:
     - It carries an rRNA/tRNA/tmRNA annotation (rrna == 'Yes') and is not a plasmid.
-    - CheckV determined the quality as 'Not-determined' for non-plasmids (only when quality data exists).
+    - Maybe?: CheckV determined the quality as 'Not-determined' for non-plasmids (only when quality data exists).
 
     Args:
         entry: A ``seen`` dict entry as built in ``main()``.
@@ -218,9 +218,9 @@ def passes_filter(entry: dict) -> bool:
     """
     if entry['rrna'] == 'Yes' and entry['viral_type'] != 'plasmid':
         return False
-    q = entry['quality']
-    if q is not None and q.get('checkv_quality') == 'Not-determined' and entry['viral_type'] != 'plasmid':
-        return False
+    #q = entry['quality']
+    #if q is not None and q.get('checkv_quality') == 'Not-determined' and entry['viral_type'] != 'plasmid':
+    #    return False
     return True
 
 
@@ -408,12 +408,18 @@ def write_final_files(
             q = entry['quality']
             quality_values = '\t'.join(q[col] for col in QUALITY_COLUMNS) if q else '\t'.join(
                 'NA' for _ in QUALITY_COLUMNS)
+
+            gff_record_id = attr_id_to_seq_id[entry['seq_id']]
+            prediction_source = "NA"
+            if gff_record_id:
+                prediction_source = source_map.get(gff_record_id, "NA")
+
             tsv_row = (
                 f"{entry['seq_id']}\t"
                 f"{entry['original_name']}\t"
                 f"{entry['original_name'].replace('|', '-').replace(' ', '|')}\t"
                 f"{entry['type']}\t"
-                f"{source_map.get(entry['seq_id'], 'NA')}\t"
+                f"{prediction_source}\t"
                 f"{biomes_str}\t"
                 f"{len(record.seq)}\t"
                 f"{entry['rrna']}\t"
@@ -430,7 +436,6 @@ def write_final_files(
                 out_tsv_f.write(tsv_row)
                 records_filtered += 1
 
-                gff_record_id = attr_id_to_seq_id[entry['seq_id']]
                 if gff_record_id:
                     gff_records = gff_data.get(gff_record_id)
                     if gff_records:
