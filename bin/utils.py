@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
-import os
-import sys
 
 def parse_attributes(attrs_str: str) -> tuple[dict[str, str], list[str]]:
     """Parse a GFF3 column-9 attributes string into a dict and an ordered key list.
@@ -55,12 +52,12 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
                 gff_data.setdefault(seq_id, [])
                 gff_data[seq_id].append(line)
                 if parts[2] != 'CDS':
-                    if seq_id not in source_map:
-                        source_map[seq_id] = parts[1]
                     if attrs.get('ID'):
                         attr_id = attrs['ID']
                         if attr_id in attr_id_to_seq_id:
                             print(f"{attr_id} already exists in mapping {attr_id_to_seq_id[attr_id]}")
+                        if attr_id not in source_map:
+                            source_map[attr_id] = parts[1]
                         attr_id_to_seq_id.setdefault(attr_id, seq_id)
                     else:
                         print(f'There is no ID found for {line}')

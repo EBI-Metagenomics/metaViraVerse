@@ -21,9 +21,8 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-from pathlib import Path
 
-from utils import read_input_gff
+from utils import parse_attributes
 
 from Bio import SeqIO
 
@@ -69,19 +68,9 @@ def parse_arguments() -> argparse.Namespace:
         help="CheckV results quality_summary.tsv"
     )
     parser.add_argument(
-        "--output-fna",
+        "--output-prefix",
         required=True,
-        help="Path for output deduplicated FNA file"
-    )
-    parser.add_argument(
-        "--output-gff",
-        required=True,
-        help="Path for output deduplicated filtered GFF file"
-    )
-    parser.add_argument(
-        "--output-tsv",
-        required=True,
-        help="Path for output metadata TSV file"
+        help="Prefix in output files"
     )
     args = parser.parse_args()
 
@@ -223,7 +212,7 @@ def filter_reason(entry: dict) -> str | None:
             kmer_freq = float(q.get('kmer_freq') or 0)
         except (ValueError, TypeError):
             return None
-        if viral_genes > 0 and kmer_freq <= 1.0:
+        if viral_genes == 0 and kmer_freq >= 1.0:
             return 'not_determined'
     return None
 
@@ -298,16 +287,58 @@ def choose_seqs(
     return seen
 
 
+def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str], dict[str, str]]:
+    """Parse one or more GFF3 files and index records by sequence ID.
+
+    Builds three data structures:
+    - ``gff_data``: maps each sequence ID (GFF column 1) to the list of raw
+      GFF lines that belong to it.
+    - ``attr_id_to_seq_id``: maps the ``ID`` attribute of non-CDS features to
+      their parent sequence ID, for downstream attribute renaming.
+    - ``source_map``: maps each sequence ID to the GFF source field (column 2)
+      of its first non-CDS feature (e.g. ``VIRify``, ``geNomad``).
+
+    Args:
+        gffs: Paths to input GFF3 files.
+
+    Returns:
+        Tuple of (gff_data, attr_id_to_seq_id, source_map).
+    """
+    gff_data: dict[str, list[str]] = {}
+    source_map: dict[str, str] = {}
+    total_lines = 0
+    for gff in gffs:
+        with open(gff, 'r') as file_in:
+            for line in file_in:
+                if line.startswith('#'):
+                    continue
+                parts = line.strip().split('\t')
+                if len(parts) < 9:
+                    continue
+                attrs, _ = parse_attributes(parts[8])
+                if parts[2] != 'CDS':
+                    # define attr_id
+                    if attrs.get('ID'):
+                        attr_id = attrs['ID']
+                    else:
+                        print(f'There is no ID found for {line}')
+                    gff_data.setdefault(attr_id, [])
+
+                    if attr_id not in source_map:
+                        source_map[attr_id] = parts[1]
+                gff_data[attr_id].append(line)
+                total_lines += 1
+    print(f'Total lines in input GFF: {total_lines}')
+    return gff_data, source_map
+
+
 def write_final_files(
-    output_fna: str,
-    output_gff: str,
-    output_tsv: str,
+    filtered_gff: str,
     filtered_fna: str,
     filtered_tsv: str,
     excluded_tsv: str,
     seen: dict[str, dict],
     gff_data: dict[str, list[str]],
-    attr_id_to_seq_id: dict[str, str],
     source_map: dict[str, str],
 ) -> None:
     """Write all output files from the deduplicated record set.
@@ -329,25 +360,22 @@ def write_final_files(
         attr_id_to_seq_id: Dict of attribute ID -> seq_id (from ``read_input_gff``).
         source_map: Dict of seq_id -> GFF source field (column 2) from ``read_input_gff``.
     """
-    records_written = 0
+    records_total = 0
     records_filtered = 0
     records_excluded = 0
     gff_records_written = 0
     gff_seqs_written = 0
     gff_found = 0
     written_gff_ids = set()
-    with open(output_fna, 'w') as out_fna, \
-            open(output_tsv, 'w') as out_tsv, \
-            open(filtered_fna, 'w') as out_fna_f, \
-            open(filtered_tsv, 'w') as out_tsv_f, \
-            open(excluded_tsv, 'w') as out_excl, \
-            open(output_gff, 'w') as filt_gff:
+    with open(filtered_fna, 'w') as out_fna_f, \
+         open(filtered_tsv, 'w') as out_tsv_f, \
+         open(excluded_tsv, 'w') as out_excl, \
+         open(filtered_gff, 'w') as filt_gff:
         quality_header = '\t'.join(QUALITY_COLUMNS)
         header = (
             f"sequence_id\toriginal_name\tdescription\ttype\tsource_of_prediction\tbiomes\t"
             f"sequence_length\trrna\tsequence_sha256\t{quality_header}\n"
         )
-        out_tsv.write(header)
         out_tsv_f.write(header)
         out_excl.write(f"filter_reason\t{header}")
 
@@ -361,11 +389,8 @@ def write_final_files(
             q = entry['quality']
             quality_values = '\t'.join(q[col] for col in QUALITY_COLUMNS) if q else '\t'.join(
                 'NA' for _ in QUALITY_COLUMNS)
-
-            gff_record_id = attr_id_to_seq_id[entry['seq_id']]
-            prediction_source = "NA"
-            if gff_record_id:
-                prediction_source = source_map.get(gff_record_id, "NA")
+            #gff_record_id = attr_id_to_seq_id[entry['seq_id']]
+            prediction_source = source_map.get(entry['seq_id'], "NA")
 
             tsv_row = (
                 f"{entry['seq_id']}\t"
@@ -379,40 +404,43 @@ def write_final_files(
                 f"{h}\t"
                 f"{quality_values}\n"
             )
-
-            SeqIO.write([record], out_fna, "fasta")
-            out_tsv.write(tsv_row)
-            records_written += 1
+            records_total += 1
 
             reason = filter_reason(entry)
             if reason is None:
+                # write fasta
                 SeqIO.write([record], out_fna_f, "fasta")
+                # write metadata tsv
                 out_tsv_f.write(tsv_row)
                 records_filtered += 1
 
-                if gff_record_id:
-                    gff_records = gff_data.get(gff_record_id)
-                    if gff_records:
-                        gff_found += 1
-                        if gff_record_id not in written_gff_ids:
-                            filt_gff.write(''.join(gff_records))
-                            written_gff_ids.add(gff_record_id)
-                            gff_records_written += len(gff_records)
-                            gff_seqs_written += 1
+                # write gff
+                gff_records = gff_data.get(entry['seq_id'])
+                if gff_records:
+                    gff_found += 1
+                    if entry['seq_id'] not in written_gff_ids:
+                        filt_gff.write(''.join(gff_records))
+                        written_gff_ids.add(entry['seq_id'])
+                        gff_records_written += len(gff_records)
+                        gff_seqs_written += 1
                     else:
-                        print(f"{entry['seq_id']} has no GFF records")
+                        print(f"Already written {entry['seq_id']}")
+                else:
+                    print(f"{entry['seq_id']} has no GFF records")
             else:
                 out_excl.write(f"{reason}\t{tsv_row}")
                 records_excluded += 1
 
-    print(f"Total unique sequences written: {records_written}")
-    print(f"Filtered sequences written: {records_filtered}")
-    print(f"Excluded sequences written: {records_excluded}")
+    print(f"Total unique sequences processed: {records_total}")
+    print(f"Filtered sequences written to {filtered_fna}: {records_filtered}")
+    print(f"Excluded sequences written to {excluded_tsv}: {records_excluded}")
     print(f"Written contigs {gff_seqs_written} into GFF")
     print(f"Total written lines to filtered GFF {gff_records_written}")
     if records_filtered != gff_found:
         print(f"GFF entries found for {gff_found} sequences but {records_filtered} written to FASTA. Exit")
         exit(1)
+    else:
+        print('Sanity check passed')
 
 def main() -> None:
     """Deduplicate sequences across all input FNA files and write merged outputs.
@@ -444,18 +472,17 @@ def main() -> None:
     quality_data: dict[str, dict[str, str]] = read_quality(args.quality) if args.quality else {}
 
     # Read GFFs
-    input_gff, attr_id_to_seq_id, source_map = read_input_gff(args.gff)
+    input_gff, source_map = read_input_gff(args.gff)
 
     seen = choose_seqs(args.fna, mapping, rna_sequences, quality_data)
 
     # Derive filtered/excluded output paths from the TSV/FNA filenames
-    p_fna = Path(args.output_fna)
-    p_tsv = Path(args.output_tsv)
-    filtered_fna  = p_fna.parent / f"filtered_{p_fna.name}"
-    filtered_tsv  = p_tsv.parent / f"filtered_{p_tsv.name}"
-    excluded_tsv  = p_tsv.parent / f"excluded_{p_tsv.name}"
+    filtered_fna  = f"{args.output_prefix}_filtered.fna"
+    filtered_gff  = f"{args.output_prefix}_filtered.gff"
+    filtered_tsv  = f"{args.output_prefix}_filtered.tsv"
+    excluded_tsv  = f"{args.output_prefix}_excluded.tsv"
 
-    write_final_files(args.output_fna, args.output_gff, args.output_tsv, filtered_fna, filtered_tsv, excluded_tsv, seen, input_gff, attr_id_to_seq_id, source_map)
+    write_final_files(filtered_gff, filtered_fna, filtered_tsv, excluded_tsv, seen, input_gff, source_map)
     print(f"Sources of FNA processed: {len(args.fna)}")
 
 if __name__ == '__main__':
