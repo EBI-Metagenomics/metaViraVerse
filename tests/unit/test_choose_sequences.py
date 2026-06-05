@@ -101,14 +101,14 @@ class TestFilterReason(unittest.TestCase):
     def test_rrna_plasmid_passes(self):
         self.assertIsNone(cs.filter_reason(self._entry("Yes", "plasmid", "Low-quality")))
 
-    def test_not_determined_virus_reason(self):
-        self.assertEqual(
-            cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")),
-            "not_determined"
-        )
+    def test_none_virus_reason(self):
+        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")))
 
     def test_not_determined_virus_no_viral_genes_passes(self):
-        self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="1.0")))
+        self.assertEqual(
+            cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="1.0")),
+            "not_determined"
+        )
 
     def test_not_determined_virus_high_kmer_passes(self):
         self.assertIsNone(cs.filter_reason(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.5")))
@@ -136,7 +136,7 @@ class TestPassesFilter(unittest.TestCase):
         self.assertFalse(cs.passes_filter(self._entry("Yes", "virus", "Low-quality")))
 
     def test_not_determined_virus_filtered(self):
-        self.assertFalse(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="3", kmer_freq="1.0")))
+        self.assertFalse(cs.passes_filter(self._entry("No", "virus", "Not-determined", viral_genes="0", kmer_freq="3.0")))
 
     def test_no_quality_data_passes(self):
         self.assertTrue(cs.passes_filter(self._entry("No", "virus", None)))
@@ -147,9 +147,10 @@ class TestMainIntegration(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.out_fna = str(Path(self.tmp.name) / "chosen.fna")
-        self.out_gff = str(Path(self.tmp.name) / "chosen.gff")
-        self.out_tsv = str(Path(self.tmp.name) / "metadata.tsv")
+        self.prefix = str(Path(self.tmp.name) / "test")
+        self.out_fna = self.prefix + "_filtered.fna"
+        self.out_gff = self.prefix + "_filtered.gff"
+        self.out_tsv = self.prefix + "_metadata.tsv"
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -157,54 +158,45 @@ class TestMainIntegration(unittest.TestCase):
     def _run(self, extra_args=None):
         argv = [
             "choose_sequences.py",
-            "--fna",        str(FIXTURES / "barley10.fasta"),
-            "--gff",        str(FIXTURES / "barley10_viral.gff"),
-            "--map",        str(FIXTURES / "barley10.map.tsv"),
-            "--rrna",       str(FIXTURES / "barley10.gff"),
-            "--quality",    str(FIXTURES / "barley10_quality.tsv"),
-            "--output-fna", self.out_fna,
-            "--output-gff", self.out_gff,
-            "--output-tsv", self.out_tsv,
+            "--fna",           str(FIXTURES / "barley10.fasta"),
+            "--gff",           str(FIXTURES / "barley10_viral.gff"),
+            "--map",           str(FIXTURES / "barley10.map.tsv"),
+            "--rrna",          str(FIXTURES / "barley10.gff"),
+            "--quality",       str(FIXTURES / "barley10_quality.tsv"),
+            "--output-prefix", self.prefix,
         ]
         if extra_args:
             argv += extra_args
         sys.argv = argv
         cs.main()
 
-    def test_all_sequences_written(self):
+    def test_metadata_has_all_sequences(self):
         self._run()
         with open(self.out_tsv) as f:
             lines = f.readlines()
         # 1 header + 10 data rows
         self.assertEqual(len(lines), 11)
 
-    def test_fna_has_ten_records(self):
+    def test_filtered_fna_has_nine_records(self):
+        # barley1 (rrna) is excluded; barley9 passes the updated not_determined filter
         self._run()
         with open(self.out_fna) as f:
             headers = [l for l in f if l.startswith(">")]
-        self.assertEqual(len(headers), 10)
+        self.assertEqual(len(headers), 9)
 
-    def test_filtered_tsv_excludes_rrna_and_not_determined(self):
+    def test_filtered_tsv_excludes_rrna(self):
         self._run()
-        filtered_tsv = Path(self.tmp.name) / "filtered_metadata.tsv"
+        filtered_tsv = self.prefix + "_filtered.tsv"
         with open(filtered_tsv) as f:
             lines = f.readlines()
-        # barley1 (rRNA) and barley9 (Not-determined, virus) are removed
-        # barley3 and barley4 (Not-determined, plasmid) are kept → 8 pass
-        self.assertEqual(len(lines), 9)  # 1 header + 8 data rows
+        # barley1 (rRNA) excluded; 9 sequences pass
+        self.assertEqual(len(lines), 10)  # 1 header + 9 data rows
 
-    def test_filtered_fna_has_eight_records(self):
-        self._run()
-        filtered_fna = Path(self.tmp.name) / "filtered_chosen.fna"
-        with open(filtered_fna) as f:
-            headers = [l for l in f if l.startswith(">")]
-        self.assertEqual(len(headers), 8)
-
-    def test_filtered_gff_has_eight_sequences(self):
+    def test_filtered_gff_has_nine_sequences(self):
         self._run()
         with open(self.out_gff) as f:
             seq_lines = [l for l in f if '\tviral_sequence\t' in l or '\tplasmid\t' in l]
-        self.assertEqual(len(seq_lines), 8)
+        self.assertEqual(len(seq_lines), 9)
 
     def test_tsv_has_correct_columns(self):
         self._run()
@@ -231,16 +223,15 @@ class TestMainIntegration(unittest.TestCase):
 
     def test_excluded_tsv_has_correct_records(self):
         self._run()
-        excluded_tsv = Path(self.tmp.name) / "excluded_metadata.tsv"
+        excluded_tsv = self.prefix + "_excluded.tsv"
         with open(excluded_tsv) as f:
             rows = [l.rstrip("\n").split("\t") for l in f]
         header = rows[0]
-        # barley1 (rrna) and barley9 (not_determined) are excluded
-        self.assertEqual(len(rows), 3)  # 1 header + 2 excluded
+        # only barley1 (rrna) is excluded; barley9 passes the not_determined filter
+        self.assertEqual(len(rows), 2)  # 1 header + 1 excluded
         self.assertEqual(header[0], "filter_reason")
-        reasons = {r[1]: r[0] for r in rows[1:]}  # seq_id -> reason
-        self.assertEqual(reasons["barley1"], "rrna")
-        self.assertEqual(reasons["barley9"], "not_determined")
+        self.assertEqual(rows[1][0], "rrna")
+        self.assertEqual(rows[1][1], "barley1")
 
     def test_rrna_column_populated(self):
         self._run()
