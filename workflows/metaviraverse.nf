@@ -16,6 +16,8 @@ include { THIRD_PARTY_DATA                      } from '../subworkflows/local/th
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 
+include { PIGZ_COMPRESS as COMPRESS_PLASMIDS    } from '../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -70,18 +72,10 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish viruses
-    viruses.subscribe { meta, seqs ->
-        def outDir = file("${params.outdir}/${meta.id}")
-        outDir.mkdirs()  // Create directory if it doesn't exist
-
-        def outPath = file("${outDir}/viruses.fasta.gz")
-        outPath.withOutputStream { out ->
-            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
-                writer << seqs.text
-            }
-        }
-    }
+    // publish and compress viruses
+    COMPRESS_VIRUSES (
+        viruses
+    )
 
     //
     // Process viruses
@@ -102,18 +96,10 @@ workflow METAVIRAVERSE {
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
 
-    // publish plasmids
-    plasmids.subscribe { meta, seqs ->
-        def outDir = file("${params.outdir}/${meta.id}")
-        outDir.mkdirs()  // Create directory if it doesn't exist
-
-        def outPath = file("${outDir}/plasmids.fasta.gz")
-        outPath.withOutputStream { out ->
-            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
-                writer << seqs.text
-            }
-        }
-    }
+    // publish and compress plasmids
+    COMPRESS_PLASMIDS (
+        plasmids
+    )
 
     //
     // Process plasmids
