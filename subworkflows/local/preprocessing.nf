@@ -5,7 +5,10 @@ include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/l
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
+include { FIND_CONCATENATE as CONCATENATE_CHECKV         } from '../../modules/nf-core/find/concatenate'
 include { CHECKV_ENDTOEND                                } from '../../modules/nf-core/checkv/endtoend'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                     } from '../../modules/nf-core/seqkit/split2'
+
 
 workflow PREPROCESSING {
 
@@ -46,9 +49,23 @@ workflow PREPROCESSING {
     //
     // ----------- Evaluate a quality for all coming sequences
     //
-    CHECKV_ENDTOEND (
+
+    CHUNK_FNA (
         RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
-        params.checkv_db
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+    )
+    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
+    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+
+    CHECKV_ENDTOEND (
+        ch_fna_chunks,
+        params.checkv_db.first()
+    )
+
+    CONCATENATE_CHECKV (
+        CHECKV_ENDTOEND.out.quality_summary.groupTuple(),
+        1
     )
 
     //
@@ -73,7 +90,7 @@ workflow PREPROCESSING {
     CHOOSE_SEQUENCES (
         RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
         RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },
-        CHECKV_ENDTOEND.out.quality_summary,
+        CONCATENATE_CHECKV.out.file_out,
         rna_gff,
         mapping
     )
@@ -107,6 +124,7 @@ workflow PREPROCESSING {
 
     emit:
     metadata         = CHOOSE_SEQUENCES.out.filtered_metadata  // [id:combined, metadata.tsv]
+    excluded_qc      = CHOOSE_SEQUENCES.out.excluded_metadata  // [id:combined, excluded_metadata.tsv]
     mapfile          = mapping                        // [id:combined, metadata.tsv]
 
     viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [id:combined, viruses.fasta]

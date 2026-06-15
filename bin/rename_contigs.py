@@ -170,6 +170,8 @@ def rename_gff(
         Number of feature lines written.
     """
     pattern = r"^(MGYG\d+_\d+)\|([\w.]+)-(\d+):(\d+)$"
+    pattern_old_map_viral = r"^MGYG\d+_\d+\|viral_sequence$"
+    pattern_old_map_plasmid = r"^plasmid_\d+$"
     mode = 'a' if append else 'w'
     count = 0
     seqs_count = 0
@@ -195,6 +197,17 @@ def rename_gff(
                     # but gff has MGYG000535629_9|viral_sequence-1:3862
                     m = re.fullmatch(pattern, feat_id)
                     id_fna = f"{m.group(1)} {m.group(2)}|{m.group(3)}:{m.group(4)}"
+                """
+                NOTE: old version of MAP had field 'from_mge=' that was not changed during rename
+                """
+                if re.fullmatch(pattern_old_map_viral, feat_id):
+                    # handle cases with results from MAP v1
+                    # viral records: MGYG000321096_52	VIRify	viral_sequence	1	16087	.	.	.	ID=MGYG000321096_52|viral_sequence;gbkey= ...
+                    id_fna = feat_id.split('|')[0]
+                if re.fullmatch(pattern_old_map_plasmid, feat_id):
+                    # handle cases with results from MAP v1 where plasmids were predicted with PPR-meta
+                    # plasmid records are: MGYG000321096_22	PPR-meta	plasmid	1	22608	.	.	.	ID=plasmid_1;gbkey=mobile_element;mobile_element_type=plasmid
+                    id_fna = parts[0]
                 if id_fna in map_dir:
                     file_out.write(full_line.replace(feat_id, map_dir[id_fna]) + '\n')
                 else:
