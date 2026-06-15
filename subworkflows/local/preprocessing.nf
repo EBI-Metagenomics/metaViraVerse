@@ -91,7 +91,7 @@ workflow PREPROCESSING {
     CHOOSE_SEQUENCES (
         RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
         RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },
-        CONCATENATE_CHECKV.out.file_out,
+        CONCATENATE_CHECKV.out.csv,
         rna_gff,
         mapping
     )
