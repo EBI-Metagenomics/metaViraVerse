@@ -60,7 +60,7 @@ workflow PREPROCESSING {
 
     CHECKV_ENDTOEND (
         ch_fna_chunks,
-        params.checkv_db.first()
+        params.checkv_db
     )
 
     CONCATENATE_CHECKV (
