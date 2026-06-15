@@ -9,9 +9,9 @@ process CHOOSE_SEQUENCES {
     input:
     tuple val(meta_fna), path(fna_files)
     tuple val(meta_gff), path(gff_files)
-    tuple val(meta_quality), path(quality)
+    tuple val(meta_quality), path(quality, name: "quality_summary.tsv")
     tuple val(meta_gff), path(rna_gff)
-    tuple val(meta_map), path(map_file)
+    tuple val(meta_map), path(map_file, name: "mapping.tsv")
 
 
     output:
@@ -26,8 +26,8 @@ process CHOOSE_SEQUENCES {
     def fna_args   = fna_files.collect { it }.join(' ')
     def gff_args   = gff_files.collect { it }.join(' ')
     def rrna = rna_gff ? "--rrna ${rna_gff}" : ""
-    def quality_arg = quality ? "--quality ${quality}" : ""
-    def mapping = map_file ? "--map ${map_file}" : ""
+    def quality_arg = quality ? "--quality quality_summary.tsv" : ""
+    def mapping = map_file ? "--map mapping.tsv" : ""
 
     """
     choose_sequences.py \\
