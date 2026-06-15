@@ -5,7 +5,7 @@ include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/l
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
-include { FIND_CONCATENATE as CONCATENATE_CHECKV         } from '../../modules/nf-core/find/concatenate'
+include { CSVTK_CONCAT as CONCATENATE_CHECKV             } from '../../modules/nf-core/csvtk/concat'
 include { CHECKV_ENDTOEND                                } from '../../modules/nf-core/checkv/endtoend'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                     } from '../../modules/nf-core/seqkit/split2'
 
@@ -65,7 +65,8 @@ workflow PREPROCESSING {
 
     CONCATENATE_CHECKV (
         CHECKV_ENDTOEND.out.quality_summary.groupTuple(),
-        1
+        'tsv',
+        'tsv'
     )
 
     //
