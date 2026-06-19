@@ -7,11 +7,13 @@ Inputs
 --viral-sequences   FASTA  → number of sequences (> headers)
 --plasmids          FASTA  → number of sequences
 --prophages         FASTA  → number of sequences
---metadata          TSV    → metadata table including "biomes" column
 --clusters-viruses  TSV    → number of viral clusters (unique values in column 1)
 --clusters-plasmids TSV    → number of plasmid clusters (unique values in column 1)
 --proteins-viruses  FASTA  → number of protein records (non-comment lines)
 --proteins-plasmids FASTA  → number of protein records
+--initial-metadata TSV     → metadata table for initial set of sequences, pre-filtered
+--metadata          TSV    → metadata table including "biomes" column, filtered
+--excluded-metadata TSV    → metadata of excluded poor quality records
 
 All input files may be plain text or gzip-compressed.
 
@@ -59,7 +61,7 @@ def count_unique_biomes(path, col="biomes"):
         for row in reader:
             val = row.get(col, "").strip()
             if val:
-                biomes.add(val)
+                biomes.update(val.split(','))  # biomes can be combined, ex. marine,marine_sediment
     return len(biomes)
 
 
@@ -73,6 +75,16 @@ def count_clusters(path):
                 continue
             clusters.add(line.split("\t")[0])
     return len(clusters)
+
+
+def count_tsv_lines(path):
+    count = 0
+    with open_file(path) as f:
+        for line in f:
+            if 'sequence_id' in line:
+                continue
+            count += 1
+    return count
 
 
 def parse_args():
@@ -89,6 +101,10 @@ def parse_args():
                         help="FASTA file of prophages (plain or .gz).")
     parser.add_argument("--metadata", required=True,
                         help="TSV file with a 'biomes' column (plain or .gz).")
+    parser.add_argument("--initial-metadata", required=True,
+                        help="TSV file for all input sequences")
+    parser.add_argument("--excluded-metadata", required=True,
+                        help="TSV file for filtered out sequences")
     parser.add_argument("--clusters-viruses", required=True,
                         help="TSV with cluster IDs in column 1 (plain or .gz).")
     parser.add_argument("--clusters-plasmids", required=True,
@@ -109,7 +125,9 @@ def main():
     plasmids_count = count_fasta_sequences(args.plasmids)
     prophages_count = count_fasta_sequences(args.prophages)
     stats = {
-        "total_sequences": viral_seqs_count + plasmids_count + prophages_count,
+        "total_sequences": count_tsv_lines(args.initial_metadata),
+        "unique_sequences": count_tsv_lines(args.metadata),
+        "qc_excluded_sequences": count_tsv_lines(args.excluded_metadata),
         "viral_sequences": viral_seqs_count,
         "plasmids":        plasmids_count,
         "prophages":       prophages_count,

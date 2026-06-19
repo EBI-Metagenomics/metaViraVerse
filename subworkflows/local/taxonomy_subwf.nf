@@ -5,13 +5,17 @@
 */
 include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
 include { GENOMAD_ENDTOEND                             } from '../../modules/nf-core/genomad/endtoend'
+include { CSVTK_CONCAT as CONCATENATE_GENOMAD          } from '../../modules/nf-core/csvtk/concat'
+
 include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
 include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
+include { GENERATE_TAXONOMY_TABLE as TAX_GENOMAD       } from '../../modules/local/generate_taxonomy_table'
 include { VITAP                                        } from '../../modules/local/vitap'
 
 include { VIPHOGS_ANNOTATION                           } from './viphogs_annotate'
 include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from './taxonomy_visualisation'
 include { TAXONOMY_VISUALISATION as VIS_VITAP          } from './taxonomy_visualisation'
+include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from './taxonomy_visualisation'
 
 
 
@@ -50,6 +54,27 @@ workflow TAXONOMY_ASSIGNMENT {
             ch_fna_chunks,
             params.genomad_db
         )
+
+        CONCATENATE_GENOMAD (
+            GENOMAD_ENDTOEND.out.virus_summary.groupTuple(),
+            'tsv',
+            'tsv'
+        )
+
+        TAX_GENOMAD (
+            CONCATENATE_GENOMAD.out.csv.map { meta, table ->
+                def new_meta = meta.clone()
+                new_meta.tool = 'genomad'
+                tuple(new_meta, table)
+            },
+            combined_metadata
+        )
+        ch_versions = ch_versions.mix(TAX_GENOMAD.out.versions)
+
+        VIS_GENOMAD (
+            TAX_GENOMAD.out.taxonomy_and_metadata
+        )
+        ch_versions = ch_versions.mix(VIS_GENOMAD.out.versions)
     }
 
     //

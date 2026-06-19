@@ -49,12 +49,12 @@ workflow HOST_DETECTION {
         ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
 
         CONCATENATE_IPHOP_GENOME (
-            IPHOP_PREDICT.out.iphop_genome,
+            IPHOP_PREDICT.out.iphop_genome.groupTuple(),
             1
         )
 
         CONCATENATE_IPHOP_GENUS (
-            IPHOP_PREDICT.out.iphop_genus,
+            IPHOP_PREDICT.out.iphop_genus.groupTuple(),
             1
         )
 

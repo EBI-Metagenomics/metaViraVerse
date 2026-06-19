@@ -32,7 +32,7 @@ workflow VIPHOGS_ANNOTATION {
     )
 
     FIND_CONCATENATE(
-        HMMER_VIPHOGS.out.target_summary.groupTuple(by: [0,1]),
+        HMMER_VIPHOGS.out.target_summary.groupTuple(),
         3
     )
 
@@ -48,7 +48,7 @@ workflow VIPHOGS_ANNOTATION {
 
     // annotate contigs based on ViPhOGs
     ANNOTATION(
-       RATIO_EVALUE.out.join(proteins_gff, by:[0,1])
+       RATIO_EVALUE.out.informative_hits_tsv.join(proteins_gff)
     )
 
     // assign lineages

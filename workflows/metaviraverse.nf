@@ -124,7 +124,9 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
         PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
-        PROCESS_PLASMIDS.out.reps_proteins
+        PROCESS_PLASMIDS.out.reps_proteins,
+        PREPROCESSING.out.excluded_qc,
+        PREPROCESSING.out.input_metadata
     )
     ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 
