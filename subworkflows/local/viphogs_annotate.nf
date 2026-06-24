@@ -32,7 +32,7 @@ workflow VIPHOGS_ANNOTATION {
     )
 
     FIND_CONCATENATE(
-        HMMER_VIPHOGS.out.target_summary.groupTuple(),
+        HMMER_VIPHOGS.out.domain_summary.groupTuple(),
         3
     )
 
