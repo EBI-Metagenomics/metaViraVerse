@@ -26,7 +26,7 @@ workflow VIPHOGS_ANNOTATION {
     )
     def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
 
-    hmmer_input = ch_protein_chunks.map{ meta, proteins -> tuple(meta, viphog_db, proteins, false, true, false) }
+    hmmer_input = ch_protein_chunks.map{ meta, proteins -> tuple(meta, viphog_db, proteins, false, false, true) }
     HMMER_VIPHOGS(
         hmmer_input
     )
