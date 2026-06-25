@@ -24,7 +24,7 @@ process ASSIGN {
     contig_taxonomic_assign.py \
        -i ${tab} \
        -d ${db} \
-       factor_file \
+       ${factor_file} \
        ${args}
     """
 }
