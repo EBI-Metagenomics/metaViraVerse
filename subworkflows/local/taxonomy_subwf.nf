@@ -140,7 +140,7 @@ workflow TAXONOMY_ASSIGNMENT {
 
     emit:
     vitap_best       = CONCATENATE_VITAP.out.file_out
-    genomad_taxonomy = CONCATENATE_GENOMAD.out.file_out
+    genomad_taxonomy = CONCATENATE_GENOMAD.out.csv
     viphogs_taxonomy = VIPHOGS_ANNOTATION.out.assignment
     versions         = ch_versions
 }
