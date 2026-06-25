@@ -72,6 +72,10 @@ def main(args):
 
     file_header = [
         "contig_ID",
+        "taxonomy"
+    ]  # superkingdom;kingdom;phylum;subphylum;class;order;suborder;family;subfamily;genus
+
+    taxa_order = [
         "superkingdom",
         "kingdom",
         "phylum",
@@ -81,7 +85,7 @@ def main(args):
         "suborder",
         "family",
         "subfamily",
-        "genus",
+        "genus"
     ]
 
     exclude_deprecated_taxa = False
@@ -93,7 +97,7 @@ def main(args):
         args.ncbi_db,
         args.tax_thres,
         factor_dict,
-        file_header,
+        taxa_order,
         exclude_deprecated_taxa,
     )
 
@@ -144,7 +148,7 @@ def contig_tax(
         if annot_prot == 0:
             logging.debug(f"Contig {contig}: no ViPhOG hits ({total_prot} proteins) - skipping")
             unassigned_no_hits += 1
-            contig_lineage.extend([""] * len(output_taxa_order[1:]))
+            contig_lineage.extend([""] * len(output_taxa_order))
         else:
             logging.debug(f"Contig {contig}: {annot_prot}/{total_prot} proteins with ViPhOG hits")
             contig_hits = contig_df[pd.notnull(contig_df["Label"])]["Label"].values
@@ -180,7 +184,7 @@ def contig_tax(
                 logging.debug(f"Contig {contig}: no valid lineages resolved from {len(taxid_list)} hits")
 
             contig_assigned = False
-            for rank in output_taxa_order[::-1][:-1]:
+            for rank in output_taxa_order[::-1]:
                 taxon_list = [item.get(rank) for item in hit_lineages]
                 total_hits = sum(pd.notnull(taxon_list))
                 if total_hits == 0:
@@ -255,9 +259,7 @@ def contig_tax(
                                 }
                                 taxon_lineage_list = [
                                     taxon_lineage_dict.get(item, "")
-                                    for item in output_taxa_order[
-                                        1 : output_taxa_order.index(rank) + 1
-                                    ]
+                                    for item in output_taxa_order
                                 ]
                                 logging.info(f"Contig {contig} assigned at rank '{rank}' via taxon '{taxon}'")
                                 contig_assigned = True
@@ -268,8 +270,7 @@ def contig_tax(
                             )
                             contig_lineage.append("")
                             continue
-                        contig_lineage.reverse()
-                        contig_lineage = taxon_lineage_list + contig_lineage
+                        contig_lineage = taxon_lineage_list
                         break
 
             if annot_prot > 0:
@@ -279,7 +280,7 @@ def contig_tax(
                     logging.debug(f"Contig {contig}: had hits but could not be assigned (below threshold or no valid lineage)")
                     unassigned_below_thres += 1
 
-        contig_lineage = [contig] + contig_lineage
+        contig_lineage = [contig] + [';'.join(contig_lineage)]
         yield contig_lineage
 
     total = len(contig_set)

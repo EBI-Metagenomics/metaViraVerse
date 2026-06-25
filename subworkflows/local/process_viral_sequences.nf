@@ -111,7 +111,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
 
     TAXONOMY_ASSIGNMENT (
-       EXTRACT_CLUSTER_FILES.out.reps_stats_tsv,
        combined_metadata,
        ch_fna_chunks,
        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,

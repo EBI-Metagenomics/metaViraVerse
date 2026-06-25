@@ -28,7 +28,6 @@ include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from './taxonomy_visual
 workflow TAXONOMY_ASSIGNMENT {
 
     take:
-    reps_stats_tsv
     combined_metadata
     ch_fna_chunks
     reps_faa
@@ -89,23 +88,23 @@ workflow TAXONOMY_ASSIGNMENT {
             ncbi_db,
             factor_file
         )
+
+        TAX_VIPHOGS (
+            VIPHOGS_ANNOTATION.out.assignment
+            .map { meta, table ->
+                def new_meta = meta.clone()
+                new_meta.tool = 'viphogs'
+                tuple(new_meta, table)
+            },
+            combined_metadata
+        )
+        ch_versions = ch_versions.mix(TAX_VIPHOGS.out.versions)
+
+        VIS_VIPHOGS (
+            TAX_VIPHOGS.out.taxonomy_and_metadata
+        )
+        ch_versions = ch_versions.mix(VIS_VIPHOGS.out.versions)
     }
-
-    TAX_VIPHOGS (
-        reps_stats_tsv
-        .map { meta, table ->
-            def new_meta = meta.clone()
-            new_meta.tool = 'viphogs'
-            tuple(new_meta, table)
-        },
-        combined_metadata
-    )
-    ch_versions = ch_versions.mix(TAX_VIPHOGS.out.versions)
-
-    VIS_VIPHOGS(
-       TAX_VIPHOGS.out.taxonomy_and_metadata
-    )
-    ch_versions = ch_versions.mix(VIS_VIPHOGS.out.versions)
 
     if ( !skip_vitap ) {
         //
@@ -140,6 +139,8 @@ workflow TAXONOMY_ASSIGNMENT {
 
 
     emit:
-    vitap_best     = CONCATENATE_VITAP.out.file_out
-    versions       = ch_versions
+    vitap_best       = CONCATENATE_VITAP.out.file_out
+    genomad_taxonomy = CONCATENATE_GENOMAD.out.file_out
+    viphogs_taxonomy = VIPHOGS_ANNOTATION.out.assignment
+    versions         = ch_versions
 }
