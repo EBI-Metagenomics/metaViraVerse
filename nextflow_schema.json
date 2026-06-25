@@ -224,11 +224,6 @@
                     "type": "string",
                     "description": "the NCBI tax DB to map names"
                 },
-                "factor_file": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Path to file with viral assemblies metadata, including taxon-specific factors"
-                },
                 "viphogs_hmmer_tool": {
                     "type": "string",
                     "description": "hmmer tool used to run viphogs",

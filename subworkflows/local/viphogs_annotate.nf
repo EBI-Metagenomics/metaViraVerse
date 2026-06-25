@@ -52,13 +52,8 @@ workflow VIPHOGS_ANNOTATION {
     )
 
     // assign lineages
-    factor_file = Channel.empty()
-    if (params.factor_file) {
-        factor_file = file(params.factor_file, checkIfExists: true)
-    }
     ASSIGN(
        ANNOTATION.out.annotations,
-       ncbi_db,
-       factor_file
+       ncbi_db
     )
 }
