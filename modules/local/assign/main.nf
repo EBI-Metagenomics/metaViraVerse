@@ -15,7 +15,7 @@ process ASSIGN {
     path factor
 
     output:
-    tuple val(meta), path("*_taxonomy.tsv")
+    tuple val(meta), path("*_taxonomy.tsv"),        emit: taxonomy_tsv
 
     script:
     def args   = task.ext.args ?: ''

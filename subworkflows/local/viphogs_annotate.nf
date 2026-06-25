@@ -57,4 +57,7 @@ workflow VIPHOGS_ANNOTATION {
        ncbi_db,
        factor_file
     )
+
+    emit:
+    assignment     = ASSIGN.out.taxonomy_tsv
 }

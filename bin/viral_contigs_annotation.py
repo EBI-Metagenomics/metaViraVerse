@@ -15,38 +15,49 @@ def parse_gff(gff_file: str) -> dict:
     :return: Dict mapping protein ID to {contig, start, end, strand}
     """
     cds_info = {}
+    contig_names = {}
     with open(gff_file) as fh:
         for line in fh:
             if line.startswith('#'):
                 continue
             cols = line.strip().split('\t')
-            if len(cols) != 9 or cols[2] != 'CDS':
+            if len(cols) != 9:
                 continue
-            attrs = {}
-            for part in cols[8].rstrip(';').split(';'):
-                if '=' in part:
-                    k, v = part.split('=', 1)
-                    attrs[k.strip()] = v.strip()
-            protein_id = attrs.get('ID', '').strip()
-            if protein_id:
+            if cols[2] == 'CDS':
+                attrs = {}
+                for part in cols[8].rstrip(';').split(';'):
+                    if '=' in part:
+                        k, v = part.split('=', 1)
+                        attrs[k.strip()] = v.strip()
+                protein_id = attrs.get('ID', '').strip()
+                if protein_id:
+                    seqid = cols[0]
+                    if '|prophage-' in seqid:
+                        # Prodigal can use <contigNumber_proteinNumber> like 1_1
+                        # and do not apply _proteinNumber to real contig name
+                        if re.fullmatch(r"\d+_\d+", protein_id):
+                            # if GFF ID has pattern <contigNumber_proteinNumber>
+                            protein_suffix = protein_id.rsplit('_', 1)[-1]
+                            protein_id = f"{seqid}_{protein_suffix}"
+                    cds_info[protein_id] = {
+                        'contig': seqid,
+                        'start': cols[3],
+                        'end': cols[4],
+                        'strand': cols[6],
+                    }
+            else:
+                attrs = {}
+                for part in cols[8].rstrip(';').split(';'):
+                    if '=' in part:
+                        k, v = part.split('=', 1)
+                        attrs[k.strip()] = v.strip()
                 seqid = cols[0]
-                if '|prophage-' in seqid:
-                    # Prodigal can use <contigNumber_proteinNumber> like 1_1 
-                    # and do not apply _proteinNumber to real contig name
-                    if re.fullmatch(r"\d+_\d+", protein_id):
-                        # if GFF ID has pattern <contigNumber_proteinNumber>
-                        protein_suffix = protein_id.rsplit('_', 1)[-1]
-                        protein_id = f"{seqid}_{protein_suffix}"
-                cds_info[protein_id] = {
-                    'contig': seqid,
-                    'start': cols[3],
-                    'end': cols[4],
-                    'strand': cols[6],
-                }
-    return cds_info
+                renamed = attrs.get('ID', '')
+                contig_names[seqid] = renamed
+    return cds_info, contig_names
 
 
-def extract_annotations(ratio_evalue_file: str, gff_data: dict) -> list:
+def extract_annotations(ratio_evalue_file: str, gff_data: dict, contig_names: dict) -> list:
     """
     Generate annotation list for viral proteins using ViPhOG database results.
 
@@ -64,6 +75,8 @@ def extract_annotations(ratio_evalue_file: str, gff_data: dict) -> list:
 
     for protein_id, info in gff_data.items():
         contig_id = info['contig']
+        if contig_id in contig_names:
+            contig_id = contig_names[contig_id]
         protein_prop = [protein_id, info['start'], info['end'], info['strand']]
 
         ratio_lookup_key = protein_id
@@ -138,8 +151,8 @@ def main():
     output_name = gff_path.stem
     csv_output = output_dir / f"{output_name}_annotation.tsv"
 
-    gff_data = parse_gff(str(gff_path))
-    annotations = extract_annotations(str(ratio_path), gff_data)
+    gff_data, contig_names = parse_gff(str(gff_path))
+    annotations = extract_annotations(str(ratio_path), gff_data, contig_names)
 
     dataframe = pd.DataFrame(
         annotations,
