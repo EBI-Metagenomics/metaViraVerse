@@ -54,6 +54,7 @@ workflow VIPHOGS_ANNOTATION {
     // assign lineages
     ASSIGN(
        ANNOTATION.out.annotations,
-       ncbi_db
+       ncbi_db,
+       factor_file
     )
 }

@@ -12,13 +12,19 @@ process ASSIGN {
     input:
     tuple val(meta), path(tab)
     path db
+    path factor
 
     output:
     tuple val(meta), path("*_taxonomy.tsv")
 
     script:
     def args   = task.ext.args ?: ''
+    def factor_file = factor ? "--factor ${factor}": ""
     """
-    contig_taxonomic_assign.py -i ${tab} -d ${db} ${args}
+    contig_taxonomic_assign.py \
+       -i ${tab} \
+       -d ${db} \
+       factor_file \
+       ${args}
     """
 }
