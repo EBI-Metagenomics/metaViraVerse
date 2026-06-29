@@ -169,7 +169,7 @@ def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey
 
     fig.update_layout(
         title_text=title,
-        font_size=20,
+        font_size=10,
         height=800
     )
 
