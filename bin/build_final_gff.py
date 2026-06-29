@@ -26,6 +26,18 @@ import os
 import sys
 from collections import defaultdict
 
+# Attributes removed from sequence-level (non-CDS) records.
+# These fields are now carried by the metadata TSV produced by collect_metadata.py.
+_SEQ_ATTRS_TO_REMOVE = {
+    "taxonomy",
+    "checkv_quality",
+    "checkv_viral_genes",
+    "checkv_kmer_freq",
+    "checkv_miuvig_quality",
+    "checkv_provirus",
+    "virify_quality",
+}
+
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -211,6 +223,13 @@ def main():
                 modified = False
 
                 if feat_type != "CDS":
+                    # sequence-level record: drop taxonomy/checkV attrs
+                    for k in _SEQ_ATTRS_TO_REMOVE:
+                        if k in attrs:
+                            del attrs[k]
+                            order = [o for o in order if o != k]
+                            modified = True
+
                     # sequence-level record: add BacPhlip scores
                     bp = bacphlip.get(record_id, {})
                     for k, v in bp.items():

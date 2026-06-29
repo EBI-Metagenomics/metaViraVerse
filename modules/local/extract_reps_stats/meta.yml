@@ -36,18 +36,6 @@ input:
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
 output:
-  reps_stats_tsv:
-    - - meta:
-          type: map
-          description: |
-            Groovy Map containing sample information
-            e.g. [ id:'test' ]
-      - "${meta.id}_reps_stats.tsv":
-          type: file
-          description: Statistics table for cluster representatives
-          pattern: "*_reps_stats.tsv"
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   reps_krona_tsv:
     - - meta:
           type: map

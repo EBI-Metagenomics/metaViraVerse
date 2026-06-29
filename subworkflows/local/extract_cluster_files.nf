@@ -75,6 +75,5 @@ workflow EXTRACT_CLUSTER_FILES {
     reps_faa_compressed        = GREP_FAA.out.sequences
     reps_gff                   = EXTRACT_REPS_STATS.out.reps_gff
     reps_list                  = EXTRACT_REPS_STATS.out.reps_list
-    reps_stats_tsv             = EXTRACT_REPS_STATS.out.reps_stats_tsv
     versions                   = ch_versions
 }

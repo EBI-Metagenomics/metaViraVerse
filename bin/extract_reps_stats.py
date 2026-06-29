@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Extract GFF records, protein IDs, and a plain rep-ID list for cluster representatives.
+
+Stats (taxonomy, checkV, cluster-level aggregates) are now produced by
+collect_metadata.py which has access to all structured metadata without
+needing to parse GFF attributes.
+"""
 import argparse
 import os
 import sys
@@ -7,205 +13,80 @@ from utils import parse_attributes, read_input_gff
 
 def read_mapfile(mapfile):
     mapping = {}
-    with open(mapfile, 'r') as file_in:
-        for line in file_in:
-            line = line.strip().split('\t')
-            tmp_name = line[1]
-            original_name = line[0]
-            mapping[tmp_name] = original_name
+    with open(mapfile, "r") as fh:
+        for line in fh:
+            parts = line.strip().split("\t")
+            if len(parts) >= 2:
+                mapping[parts[1]] = parts[0]   # temporary -> original
     return mapping
 
 
-def read_cluster_structure(viral_list_file, mapping=None):
-    """
-    Read cluster structure from viral list file.
+def read_cluster_reps(viral_list_file, mapping=None):
+    """Return (cluster_reps, rep_original_names).
 
-    Format:
-    for blast result: rep_id\tmembers
-    for vclust: member_id\trep_id
-
-    Args:
-        viral_list_file: File with cluster representatives and members
-        mapping: Optional contig name mapping
-
-    Returns:
-        Tuple of (cluster_reps, cluster_members, rep_original_names) where:
-        - cluster_reps: list of cluster representative IDs (unique, after mapping)
-        - cluster_members: dict mapping rep_id -> list of member IDs (including rep itself)
-        - rep_original_names: dict mapping mapped rep_id -> original rep_id
+    cluster_reps      : list of mapped rep IDs (in order of first appearance)
+    rep_original_names: dict mapped_rep_id -> original_rep_id
     """
     cluster_reps = []
-    cluster_members = {}
     rep_original_names = {}
+    seen = set()
     input_format = None
-    with open(viral_list_file, "r") as f:
-        for line in f:
+
+    with open(viral_list_file) as fh:
+        for line in fh:
             line = line.strip()
             if not line:
                 continue
-
-            # Detect format from the first line only
             if input_format is None:
-                if 'object' in line and 'cluster' in line:
-                    input_format = 'vclust'
-                    continue  # skip the header line
+                if "object" in line and "cluster" in line:
+                    input_format = "vclust"
+                    continue
                 else:
-                    input_format = 'blastn'
+                    input_format = "blastn"
 
-            if input_format == 'vclust':
-                parts = line.split('\t')
-                original_rep_id = parts[1].strip()
-                rep_id = original_rep_id
-                original_member_id = parts[0].strip()
-                member_id = original_member_id
-
-                # Apply mapping if provided
-                if mapping and rep_id in mapping:
-                    rep_id = mapping[rep_id]
-                if mapping and member_id in mapping:
-                    member_id = mapping[member_id]
-
-                # Track unique reps
-                if rep_id not in cluster_members:
-                    cluster_reps.append(rep_id)
-                    cluster_members[rep_id] = [member_id]
-                    rep_original_names[rep_id] = original_rep_id
-                else:
-                    cluster_members[rep_id].append(member_id)
+            parts = line.split("\t")
+            if input_format == "vclust":
+                original_rep = parts[1].strip()
             else:
-                parts = line.split('\t')
-                original_rep_id = parts[0].strip()
-                rep_id = original_rep_id
-                if mapping and rep_id in mapping:
-                    rep_id = mapping[rep_id]
+                original_rep = parts[0].strip()
 
-                if rep_id not in cluster_members:
-                    cluster_reps.append(rep_id)
-                    cluster_members[rep_id] = []
-                    rep_original_names[rep_id] = original_rep_id
+            rep_id = mapping[original_rep] if (mapping and original_rep in mapping) else original_rep
 
-                if len(parts) >= 2:
-                    for member_id in parts[1].split(' '):
-                        if mapping and member_id in mapping:
-                            member_id = mapping[member_id]
-                        cluster_members[rep_id].append(member_id)
+            if rep_id not in seen:
+                seen.add(rep_id)
+                cluster_reps.append(rep_id)
+                rep_original_names[rep_id] = original_rep
 
-    return cluster_reps, cluster_members, rep_original_names
+    return cluster_reps, rep_original_names
 
 
-def calculate_mean_genes(cluster_members, all_results):
-    """
-    Calculate mean number of viral genes per cluster.
-
-    Args:
-        cluster_members: dict mapping rep_id -> list of member IDs
-        all_results: dict mapping seq_id -> data with checkv_viral_genes
-
-    Returns:
-        dict mapping rep_id -> mean_genes
-    """
-    cluster_mean_genes = {}
-
-    for rep_id, members in cluster_members.items():
-        gene_counts = []
-
-        # Include the representative itself if it has data
-        if rep_id in all_results:
-            genes = all_results[rep_id].get("checkv_viral_genes", "NA")
-            if genes != "NA" and genes.strip():
-                try:
-                    gene_counts.append(float(genes))
-                except ValueError:
-                    pass
-
-        # Include all cluster members
-        for member_id in members:
-            if member_id in all_results:
-                genes = all_results[member_id].get("checkv_viral_genes", "NA")
-                if genes != "NA" and genes.strip():
-                    try:
-                        gene_counts.append(float(genes))
-                    except ValueError:
-                        pass
-
-        # Calculate mean
-        if gene_counts:
-            cluster_mean_genes[rep_id] = sum(gene_counts) / len(gene_counts)
-        else:
-            cluster_mean_genes[rep_id] = None
-
-    return cluster_mean_genes
-
-
-def extract_proteins_data(data):
+def extract_proteins(lines):
     protein_ids = set()
-    for line in data:
-        line = line.strip().split('\t')
-        if line[2] == 'CDS':
-            attrs, _ = parse_attributes(line[8])
-            protein_id = attrs.get('ID')
-            if protein_id:
-                protein_ids.add(protein_id)
+    for line in lines:
+        cols = line.strip().split("\t")
+        if len(cols) >= 9 and cols[2] == "CDS":
+            attrs, _ = parse_attributes(cols[8])
+            pid = attrs.get("ID")
+            if pid:
+                protein_ids.add(pid)
     return protein_ids
 
 
-def extract_sequence_data(data):
-    taxonomy = "NA"
-    checkv_viral_genes = "NA"
-    checkv_quality = "NA"
-    virify_quality = "NA"
-    for line in data:
-        line = line.strip().split('\t')
-        if line[2] != 'CDS':
-            attrs, _ = parse_attributes(line[8])
-            taxonomy = attrs.get("taxonomy", "NA")
-            checkv_viral_genes = attrs.get("checkv_viral_genes", "NA")
-            checkv_quality = attrs.get("checkv_quality", "NA")
-            virify_quality = attrs.get("virify_quality", "NA")
-    return taxonomy, checkv_viral_genes, checkv_quality, virify_quality
+def extract_gff_and_proteins(viral_list_file, gff_file, output_reps_list,
+                              output_reps_gff, output_proteins, mapfile):
+    mapping = read_mapfile(mapfile) if mapfile else None
+    cluster_reps, rep_original_names = read_cluster_reps(viral_list_file, mapping)
 
+    print(f"Found {len(cluster_reps)} cluster representatives")
 
-def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, output_gff, output_proteins, mapfile):
-    """
-    Extract taxonomy, checkv_viral_genes, and checkv_quality for viral sequences found in GFF.
-
-    Args:
-        viral_list_file: File with viral sequence names (column 1) and cluster members (column 2)
-        gff_file: GFF file with annotations
-        output_file: Output TSV file
-        mapfile: Optional mapping file for renamed contigs
-
-    Returns:
-        Tuple of (results dict, cluster_reps list) for further processing
-    """
-    mapping = None
-    if mapfile:
-        mapping = read_mapfile(mapfile)
-
-    # Read cluster structure
-    cluster_reps, cluster_members, rep_original_names = read_cluster_structure(viral_list_file, mapping)
-
-    # Get all unique sequence IDs (reps + all members)
-    all_seq_ids = set(cluster_reps)
-    for members in cluster_members.values():
-        all_seq_ids.update(members)
-
-    print(f"📋 Found {len(cluster_reps)} cluster representatives")
-    print(f"📋 Total sequences (reps + members): {len(all_seq_ids)}")
-
-    # read gff input
-    # input_gff is a dictionary [seq_id (first column)] = [all corresponding records]
-    # attr_id_to_seq_id is mapping between seq_is and ID from attributes
     input_gff, attr_id_to_seq_id, _ = read_input_gff([gff_file])
 
-    # Extract data from GFF for all sequences
-    all_results = {}
-    found = 0
     proteins = set()
     written_gff = set()
+    found = 0
 
-    with open(output_gff, 'w') as reps_gff:
-        reps_gff.write('##gff-version 3\n')
+    with open(output_reps_gff, "w") as reps_gff:
+        reps_gff.write("##gff-version 3\n")
         for rep_id in cluster_reps:
             original_rep = rep_original_names.get(rep_id, rep_id)
             mgyg_id = attr_id_to_seq_id.get(original_rep)
@@ -214,140 +95,69 @@ def extract_viral_data(viral_list_file, gff_file, output_file, output_reps, outp
                 if mgyg_id not in written_gff:
                     reps_gff.writelines(lines)
                     written_gff.add(mgyg_id)
+                proteins.update(extract_proteins(lines))
                 found += 1
-                proteins.update(extract_proteins_data(lines))
-                taxonomy, checkv_viral_genes, checkv_quality, virify_quality = extract_sequence_data(lines)
-                all_results[rep_id] = {
-                    "taxonomy": taxonomy,
-                    "checkv_viral_genes": checkv_viral_genes,
-                    "checkv_quality": checkv_quality,
-                    "virify_quality": virify_quality,
-                }
             else:
                 print(f"No GFF data for rep {rep_id} (original: {original_rep})")
-    print(f"✅ Extracted stats for {found} sequences from GFF")
 
-    # Calculate mean genes per cluster
-    cluster_mean_genes = calculate_mean_genes(cluster_members, all_results)
+    print(f"Extracted GFF records for {found} representatives")
 
-    # Write a list of representatives
-    if output_reps:
-        with open(output_reps, "w") as out:
+    if output_reps_list:
+        with open(output_reps_list, "w") as out:
             for rep_id in cluster_reps:
-                out.write(f'{rep_original_names.get(rep_id, rep_id)}\n')
+                out.write(f"{rep_original_names.get(rep_id, rep_id)}\n")
 
-    # Write a list of proteins for representatives
     if output_proteins:
         with open(output_proteins, "w") as out:
             for prot_id in proteins:
-                out.write(f'{prot_id}\n')
+                out.write(f"{prot_id}\n")
 
-    # Write output for cluster representatives only
-    with open(output_file, "w") as out:
-        out.write("viral_sequence_name\toriginal_name\ttaxonomy\tcheckv_viral_genes\tcheckv_quality\tvirify_quality\tmean_cluster_genes\n")
-        for rep_id in cluster_reps:
-            data = all_results.get(rep_id, {
-                "taxonomy": "NA",
-                "checkv_viral_genes": "NA",
-                "checkv_quality": "NA",
-                "virify_quality": "NA"
-            })
-
-            # Get original name
-            original_name = rep_original_names.get(rep_id, rep_id)
-
-            # Format mean genes
-            mean_genes = cluster_mean_genes.get(rep_id)
-            mean_genes_str = f"{mean_genes:.2f}" if mean_genes is not None else "NA"
-
-            out.write(
-                f"{rep_id}\t{original_name}\t{data['taxonomy']}\t{data['checkv_viral_genes']}\t"
-                f"{data['checkv_quality']}\t{data['virify_quality']}\t{mean_genes_str}\n"
-            )
-
-    print(f"📄 Output written to: {output_file}")
-    print(f"   Cluster representatives: {len(cluster_reps)}")
-
-    return all_results, cluster_reps
+    print(f"GFF written to: {output_reps_gff}  ({found} sequences)")
+    if output_reps_list:
+        print(f"Reps list written to: {output_reps_list}  ({len(cluster_reps)} reps)")
+    if output_proteins:
+        print(f"Proteins list written to: {output_proteins}  ({len(proteins)} proteins)")
 
 
 def parse_arguments():
-    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Extract cluster reps stats from GFF file and optionally generate Krona plot format.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Example:
-  %(prog)s --viral-list cluster_reps.txt --gff virify.gff --output stats.tsv --krona krona.txt
-
-Input format for --viral-list:
-  Column 1: Cluster representative ID
-  Column 2: Cluster member ID (optional, one member per line)
-
-  Example:
-  rep1\tmember1
-  rep1\tmember2
-  rep2\tmember3
-        """
+        description=(
+            "Extract GFF records and protein IDs for cluster representatives. "
+            "Cluster stats (taxonomy, checkV, aggregates) are produced by collect_metadata.py."
+        )
     )
-    parser.add_argument(
-        "--viral-list",
-        required=True,
-        help="Path to file with cluster representatives (column 1) and members (column 2)."
-    )
-    parser.add_argument(
-        "--gff",
-        required=True,
-        help="Path to GFF file annotated by VIRify or similar tool."
-    )
-    parser.add_argument(
-        "--mapfile",
-        required=False,
-        help="Map-file as product of renaming contigs step"
-    )
-    parser.add_argument(
-        "--output",
-        required=True,
-        help="Output TSV file with stats including mean cluster genes."
-    )
-    parser.add_argument(
-        "--output-reps-list",
-        required=False,
-        help="Output file with representatives line separated"
-    )
-    parser.add_argument(
-        "--output-reps-gff",
-        required=True,
-        help="Output file with GFF records for cluster representatives"
-    )
-    parser.add_argument(
-        "--output-reps-proteins",
-        required=True,
-        help="Output FASTA file with proteins for cluster representatives"
-    )
+    parser.add_argument("--viral-list", required=True,
+                        help="Cluster TSV (vclust: object/cluster columns; blastn: rep\\tmembers)")
+    parser.add_argument("--gff", required=True,
+                        help="Full GFF file annotated by VIRify or similar tool")
+    parser.add_argument("--mapfile", required=False,
+                        help="Map file from rename_contigs step (temporary -> original)")
+    parser.add_argument("--output-reps-list", required=False,
+                        help="Output file with one representative ID per line")
+    parser.add_argument("--output-reps-gff", required=True,
+                        help="Output GFF containing only records for cluster representatives")
+    parser.add_argument("--output-reps-proteins", required=True,
+                        help="Output file with protein IDs for cluster representatives")
     return parser.parse_args()
 
 
 def main():
-    """Main entry point."""
     args = parse_arguments()
 
-    # Check file existence
     for f in [args.viral_list, args.gff]:
         if not os.path.exists(f):
             print(f"Error: File not found: {f}", file=sys.stderr)
             sys.exit(1)
 
-    # Extract viral data
-    all_results, cluster_reps = extract_viral_data(
+    extract_gff_and_proteins(
         args.viral_list,
         args.gff,
-        args.output,
         args.output_reps_list,
         args.output_reps_gff,
         args.output_reps_proteins,
-        args.mapfile
+        args.mapfile,
     )
+
 
 if __name__ == "__main__":
     main()

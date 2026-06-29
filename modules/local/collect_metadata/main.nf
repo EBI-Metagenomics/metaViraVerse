@@ -14,12 +14,15 @@ process COLLECT_METADATA {
     tuple val(meta3), path(plasmid_clusters)
     path(additional_metadata)
     tuple val(meta5), path(vitap_best)
-    path(combined_gff)
+    tuple val(meta_viphogs), path(viphogs_taxonomy)
+    tuple val(meta_genomad), path(genomad)
+    path(map_file)
 
     output:
-    path("viruses-all-metadata.tsv.gz"),    emit: viruses_final_metadata
-    path("plasmids-all-metadata.tsv.gz"),   emit: plasmids_final_metadata
-    path "versions.yml",                    emit: versions
+    path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
+    path("plasmids-all-metadata.tsv.gz"),      emit: plasmids_final_metadata
+    path("viruses-reps-stats.tsv.gz"),         emit: viruses_reps_stats
+    path "versions.yml",                       emit: versions
 
     script:
     """
@@ -29,9 +32,12 @@ process COLLECT_METADATA {
        --plasmids_cluster ${plasmid_clusters} \\
        --additional_metadata ${additional_metadata} \\
        --viruses_vitap ${vitap_best} \\
-       --gff ${combined_gff} \\
+       --viphogs_taxonomy ${viphogs_taxonomy} \\
+       --genomad ${genomad} \\
+       --map ${map_file} \\
        --output_viruses viruses-all-metadata.tsv \\
        --output_plasmids plasmids-all-metadata.tsv \\
+       --output_reps viruses-reps-stats.tsv \\
        --compress
 
     cat <<-END_VERSIONS > versions.yml
