@@ -37,7 +37,7 @@ nextflow_workflow {
             assert workflow.success
 
             // Assert output number
-            assert workflow.out.fna.size()    == 2 
+            assert workflow.out.fna.size()    == 2
             assert workflow.out.faa.size()    == 2
             assert workflow.out.types.size()  == 2
             assert workflow.out.biomes.size() == 2
@@ -50,7 +50,7 @@ nextflow_workflow {
             assert workflow.out.types.toSorted()  == ['plasmid', 'virus']
             assert workflow.out.biomes.toSorted() == ['human gut', 'marine sediment']
 
-            // Assert 
+            // Assert
             assert workflow.out.fna.every { path(it).exists() }
             assert workflow.out.fna.every { path(it).size() > 0 }
         }

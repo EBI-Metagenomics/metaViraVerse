@@ -6,27 +6,27 @@ Changes in 'amrintegrator/main.nf':
 +++ modules/ebi-metagenomics/amrintegrator/main.nf
 @@ -8,10 +8,10 @@
          'biocontainers/mgnify-pipelines-toolkit:1.4.6--pyhdfd78af_0' }"
- 
+
      input:
--    tuple val(meta), 
--     path(deeparg, stageAs: 'deeparg_hamr.tsv'), 
--     path(rgi, stageAs: 'rgi_hamr.tsv'), 
--     path(amrfp, stageAs: 'amrfinder.tsv'), 
+-    tuple val(meta),
+-     path(deeparg, stageAs: 'deeparg_hamr.tsv'),
+-     path(rgi, stageAs: 'rgi_hamr.tsv'),
+-     path(amrfp, stageAs: 'amrfinder.tsv'),
 +    tuple val(meta),
 +     path(deeparg, stageAs: 'deeparg_hamr.tsv'),
 +     path(rgi, stageAs: 'rgi_hamr.tsv'),
 +     path(amrfp, stageAs: 'amrfinder.tsv'),
       path(gff)
- 
+
      output:
 @@ -47,7 +47,7 @@
      def prefix = task.ext.prefix ?: "${meta.id}"
      """
      echo $args
--    
+-
 +
      touch ${prefix}.gff
- 
+
      cat <<-END_VERSIONS > versions.yml
 
 ************************************************************
