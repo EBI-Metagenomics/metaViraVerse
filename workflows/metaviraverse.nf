@@ -11,10 +11,13 @@ include { methodsDescriptionText                } from '../subworkflows/local/ut
 include { PREPROCESSING                         } from '../subworkflows/local/preprocessing'
 include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
+include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 
+include { PIGZ_COMPRESS as COMPRESS_PLASMIDS    } from '../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,7 +34,10 @@ workflow METAVIRAVERSE {
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
 
-    // Third party data input channel
+    //
+    // ----------- Preprocess third party data (coming not from MGnify)
+    //
+
     ch_third_party = params.third_party_input ? channel.fromPath(params.third_party_input, checkIfExists: true)
         .splitCsv(header: true)
         .map { row ->
@@ -43,12 +49,16 @@ workflow METAVIRAVERSE {
               }
         : channel.empty()
 
+    THIRD_PARTY_DATA (
+         ch_third_party
+    )
+
+    // TODO: include THIRD_PARTY_DATA output into PREPROCESSING
     //
     // Separate viral sequences and plasmids
     //
     PREPROCESSING (
-       ch_samplesheet,
-       ch_third_party
+       ch_samplesheet
     )
     ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
@@ -62,18 +72,10 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish viruses
-    viruses.subscribe { meta, seqs ->
-        def outDir = file("${params.outdir}/${meta.id}")
-        outDir.mkdirs()  // Create directory if it doesn't exist
-
-        def outPath = file("${outDir}/viruses.fasta.gz")
-        outPath.withOutputStream { out ->
-            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
-                writer << seqs.text
-            }
-        }
-    }
+    // publish and compress viruses
+    COMPRESS_VIRUSES (
+        viruses
+    )
 
     //
     // Process viruses
@@ -83,7 +85,7 @@ workflow METAVIRAVERSE {
        PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
        PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
        PREPROCESSING.out.metadata,
-       []
+       PREPROCESSING.out.mapfile.map { _meta, f -> f }
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
@@ -94,18 +96,10 @@ workflow METAVIRAVERSE {
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
 
-    // publish plasmids
-    plasmids.subscribe { meta, seqs ->
-        def outDir = file("${params.outdir}/${meta.id}")
-        outDir.mkdirs()  // Create directory if it doesn't exist
-
-        def outPath = file("${outDir}/plasmids.fasta.gz")
-        outPath.withOutputStream { out ->
-            new java.util.zip.GZIPOutputStream(out).withWriter { writer ->
-                writer << seqs.text
-            }
-        }
-    }
+    // publish and compress plasmids
+    COMPRESS_PLASMIDS (
+        plasmids
+    )
 
     //
     // Process plasmids
@@ -130,7 +124,9 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
         PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
-        PROCESS_PLASMIDS.out.reps_proteins
+        PROCESS_PLASMIDS.out.reps_proteins,
+        PREPROCESSING.out.excluded_qc,
+        PREPROCESSING.out.input_metadata
     )
     ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 

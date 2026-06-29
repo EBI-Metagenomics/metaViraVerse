@@ -53,7 +53,6 @@ workflow EXTRACT_CLUSTER_FILES {
     UNCOMPRESSED_REPS_FNA(
         GREP_FNA.out.sequences
     )
-    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FNA.out.versions)
 
     //
     // ----------- Extract protein sequences for cluster reps -----------
@@ -68,7 +67,6 @@ workflow EXTRACT_CLUSTER_FILES {
     UNCOMPRESSED_REPS_FAA(
         GREP_FAA.out.sequences
     )
-    ch_versions = ch_versions.mix(UNCOMPRESSED_REPS_FAA.out.versions)
 
     emit:
     reps_fna_uncompressed      = UNCOMPRESSED_REPS_FNA.out.gunzip

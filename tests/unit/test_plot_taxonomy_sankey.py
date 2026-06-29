@@ -13,7 +13,7 @@ from pathlib import Path
 bin_dir = Path(__file__).parent.parent.parent / "bin"
 sys.path.insert(0, str(bin_dir))
 
-import bin.plot_taxonomy_sankey as plot_taxonomy_sankey
+import plot_taxonomy_sankey as plot_taxonomy_sankey
 
 
 class TestParseTaxonomy(unittest.TestCase):

@@ -30,30 +30,37 @@ workflow HOST_DETECTION {
     main:
 
     ch_versions = channel.empty()
+    iphop_host_genome = channel.empty()
+    iphop_host_genus = channel.empty()
 
-    CHUNK_FNA_IPHOP (
-        fna,
-        [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
-    )
-    ch_versions = ch_versions.mix(CHUNK_FNA_IPHOP.out.versions)
-    def ch_fna_chunks = CHUNK_FNA_IPHOP.out.chunked_output.transpose()
+    if ( !params.skip_iphop) {
+        CHUNK_FNA_IPHOP (
+            fna,
+            [],                                        // length: (disabled) max number of nucleotides per chunk
+            params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
+        )
+        ch_versions = ch_versions.mix(CHUNK_FNA_IPHOP.out.versions)
+        def ch_fna_chunks = CHUNK_FNA_IPHOP.out.chunked_output.transpose()
 
-    IPHOP_PREDICT (
-        ch_fna_chunks,
-        params.iphop_db
-    )
-    ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
+        IPHOP_PREDICT (
+            ch_fna_chunks,
+            params.iphop_db
+        )
+        ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
 
-    CONCATENATE_IPHOP_GENOME (
-        IPHOP_PREDICT.out.iphop_genome,
-        1
-    )
+        CONCATENATE_IPHOP_GENOME (
+            IPHOP_PREDICT.out.iphop_genome.groupTuple(),
+            1
+        )
 
-    CONCATENATE_IPHOP_GENUS (
-        IPHOP_PREDICT.out.iphop_genus,
-        1
-    )
+        CONCATENATE_IPHOP_GENUS (
+            IPHOP_PREDICT.out.iphop_genus.groupTuple(),
+            1
+        )
+
+        iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out
+        iphop_host_genus    = CONCATENATE_IPHOP_GENUS.out.file_out
+    }
 
     if (params.predict_host_from_custom_spacers) {
         CHANGE_SPACE_TO_UNDERSCORE(fna)
@@ -88,7 +95,7 @@ workflow HOST_DETECTION {
     }
 
     emit:
-    iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out
-    iphop_host_genus    = CONCATENATE_IPHOP_GENUS.out.file_out
+    iphop_host_genome   = iphop_host_genome
+    iphop_host_genus    = iphop_host_genus
     versions            = ch_versions                 // channel: [ path(versions.yml) ]
 }

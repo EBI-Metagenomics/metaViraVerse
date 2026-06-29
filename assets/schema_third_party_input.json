@@ -20,11 +20,13 @@
             "type": {
                 "type": "string",
                 "enum": ["virus", "plasmid"],
-                "description": "Sequence type: virus or plasmid"
+                "description": "Sequence type: virus or plasmid",
+                "meta": ["type"]
             },
             "biome": {
                 "type": "string",
-                "description": "(Optional) Environmental biome, max 2 words (e.g. marine sediment or human gut)"
+                "description": "(Optional) Environmental biome, max 2 words (e.g. marine sediment or human gut)",
+                "meta": ["biome"]
             }
         },
         "required": ["id", "fasta", "type"]

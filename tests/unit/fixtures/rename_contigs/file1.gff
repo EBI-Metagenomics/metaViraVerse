@@ -1,0 +1,7 @@
+##gff-version 3
+MGYG000535629_9	VIRify	viral_sequence	1	3862	.	.	.	ID=MGYG000535629_9|viral_sequence-1:3862;virify_quality=LC;checkv_quality=Low-quality
+MGYG000535629_9	Prodigal:002006	CDS	1448	1627	.	+	0	ID=MGYG000535629_00028;locus_tag=MGYG000535629_00028;product=hypothetical protein
+MGYG000535629_9	Prodigal:002006	CDS	2696	2923	.	+	0	ID=MGYG000535629_00029;locus_tag=MGYG000535629_00029;product=hypothetical protein
+MGYG000535629_15	VIRify	viral_sequence	1	5155	.	.	.	ID=MGYG000535629_15|viral_sequence-1:5155;virify_quality=LC;checkv_quality=Low-quality
+MGYG000535629_15	Prodigal:002006	CDS	34	1071	.	+	0	ID=MGYG000535629_00070;locus_tag=MGYG000535629_00070;product=hypothetical protein
+MGYG000535629_15	Prodigal:002006	CDS	1068	2057	.	-	0	ID=MGYG000535629_00071;locus_tag=MGYG000535629_00071;product=hypothetical protein

@@ -17,6 +17,8 @@ process COLLECT_CATALOGUE_STATS {
     tuple val(meta6), path(clusters_plasmids)
     tuple val(meta7), path(viral_proteins)
     tuple val(meta8), path(plasmid_proteins)
+    tuple val(meta9), path(excluded_metadata)
+    tuple val(meta10), path(initial_metadata)
 
     output:
     path("*.json"),                      emit: catalogue_json
@@ -33,6 +35,8 @@ process COLLECT_CATALOGUE_STATS {
       --clusters-plasmids ${clusters_plasmids} \\
       --proteins-viruses ${viral_proteins} \\
       --proteins-plasmids ${plasmid_proteins} \\
+      --excluded-metadata ${excluded_metadata} \\
+      --initial-metadata ${initial_metadata} \\
       -o catalogue.json
 
     cat <<-END_VERSIONS > versions.yml
