@@ -108,6 +108,8 @@ def load_viphogs_taxonomy(path):
             taxonomy[contig_id] = lineage if any(
                 row.get(r, "").strip() for r in ranks
             ) else MISSING
+            if ';;;;;;;;;' in taxonomy[contig_id]:
+                taxonomy[contig_id] = MISSING
     return taxonomy
 
 
@@ -188,7 +190,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                   viphogs_tax, genomad, desc_to_mgyv,
                   out_path, compress):
     fieldnames = [
-        "Sequence_ID", "Cluster_rep",
+        "ID", "Original_ID", "Source_of_prediction", "rrna", "Cluster_rep",
         "vitap_lineage", "viphogs_lineage", "genomad_lineage",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
         "Sequence_length", "Sequence_sha256",
@@ -204,31 +206,34 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
             mgyv = desc_to_mgyv.get(desc, "")
             checkv = {f: row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
             writer.writerow({
-                "Sequence_ID":      desc,
-                "Cluster_rep":      member_to_rep.get(desc, MISSING),
-                "vitap_lineage":    vitap.get(desc, MISSING),
-                "viphogs_lineage":  viphogs_tax.get(mgyv, MISSING) if mgyv else MISSING,
-                "genomad_lineage":  genomad.get(mgyv, MISSING) if mgyv else MISSING,
-                "Source":           row.get("type", MISSING),
-                "Biome":            row.get("biomes", MISSING),
-                "Source_accession": meta.get("Genome_accession", MISSING),
-                "Source_lineage":   meta.get("Source_lineage", MISSING),
-                "Source_sample":    meta.get("Sample_accession", MISSING),
-                "Source_project":   meta.get("Study_accession", MISSING),
-                "Sequence_length":  row.get("sequence_length", MISSING),
-                "Sequence_sha256":  row.get("sequence_sha256", MISSING),
+                "ID":                   mgyv,
+                "Original_ID":          desc,
+                "Source_of_prediction": meta.get("source_of_prediction", MISSING),
+                "rrna":                 meta.get("rrna", MISSING),
+                "Cluster_rep":          member_to_rep.get(mgyv, MISSING),
+                "vitap_lineage":        vitap.get(mgyv, MISSING),
+                "viphogs_lineage":      viphogs_tax.get(mgyv, MISSING) if mgyv else MISSING,
+                "genomad_lineage":      genomad.get(mgyv, MISSING) if mgyv else MISSING,
+                "Source":               row.get("type", MISSING),
+                "Biome":                row.get("biomes", MISSING),
+                "Source_accession":     meta.get("Genome_accession", MISSING),
+                "Source_lineage":       meta.get("Source_lineage", MISSING),
+                "Source_sample":        meta.get("Sample_accession", MISSING),
+                "Source_project":       meta.get("Study_accession", MISSING),
+                "Sequence_length":      row.get("sequence_length", MISSING),
+                "Sequence_sha256":      row.get("sequence_sha256", MISSING),
                 **checkv,
             })
     return out_path
 
 
 def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
-                   out_path, compress):
+                   out_path, compress, desc_to_mgyv):
     fieldnames = [
-        "Sequence_ID", "Cluster_rep",
+        "ID", "Original_ID", "Cluster_rep",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
         "Sequence_length", "Sequence_sha256",
-    ] + CHECKV_FIELDS
+    ]
 
     out_path, fh = open_output(out_path, compress)
     with fh:
@@ -237,10 +242,11 @@ def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
         for desc, row in combined_meta_rows.items():
             gid = genome_key(desc)
             meta = all_meta.get(gid, {})
-            checkv = {f: row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
+            mgyv = desc_to_mgyv.get(desc, "")
             writer.writerow({
-                "Sequence_ID":      desc,
-                "Cluster_rep":      member_to_rep.get(desc, MISSING),
+                "ID":               mgyv,
+                "Original_ID":      desc,
+                "Cluster_rep":      member_to_rep.get(mgyv, MISSING),
                 "Source":           row.get("type", MISSING),
                 "Biome":            row.get("biomes", MISSING),
                 "Source_accession": meta.get("Genome_accession", MISSING),
@@ -248,8 +254,7 @@ def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
                 "Source_sample":    meta.get("Sample_accession", MISSING),
                 "Source_project":   meta.get("Study_accession", MISSING),
                 "Sequence_length":  row.get("sequence_length", MISSING),
-                "Sequence_sha256":  row.get("sequence_sha256", MISSING),
-                **checkv,
+                "Sequence_sha256":  row.get("sequence_sha256", MISSING)
             })
     return out_path
 
@@ -269,23 +274,22 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
       - cluster_completeness_range : min-max completeness across members (numeric values only)
     """
     fieldnames = [
-        "Sequence_ID", "Sequence_ID_catalogue",
-        "vitap_lineage", "viphogs_lineage", "genomad_lineage",
-        "Source", "Biome",
-        "Sequence_length",
-        "cluster_size", "mean_viral_genes", "members_with_checkv",
+        "Rep_ID",
+        "Rep_vitap_lineage", "Rep_viphogs_lineage", "Rep_genomad_lineage",
+        "Rep_source", "Rep_biome",
+        "cluster_size", "cluster_mean_viral_genes",
         "cluster_biomes", "cluster_types",
         "cluster_completeness_range",
-    ] + CHECKV_FIELDS
+    ]
 
     out_path, fh = open_output(out_path, compress)
     with fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
 
-        for rep_desc, members in sorted(rep_to_members.items()):
-            rep_mgyv = desc_to_mgyv.get(rep_desc, "")
-            rep_row = virus_rows.get(rep_desc, {})
+        for rep_id, members in sorted(rep_to_members.items()):
+            rep_mgyv = rep_id
+            rep_row = virus_rows.get(rep_id, {})
 
             # ── per-rep fields ────────────────────────────────────────────────
             checkv = {f: rep_row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
@@ -335,21 +339,17 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
             )
 
             writer.writerow({
-                "Sequence_ID":               rep_desc,
-                "Sequence_ID_catalogue":     rep_mgyv or MISSING,
-                "vitap_lineage":             vitap.get(rep_desc, MISSING),
-                "viphogs_lineage":           viphogs_tax.get(rep_mgyv, MISSING) if rep_mgyv else MISSING,
-                "genomad_lineage":           genomad.get(rep_mgyv, MISSING) if rep_mgyv else MISSING,
-                "Source":                    rep_row.get("type", MISSING),
-                "Biome":                     rep_row.get("biomes", MISSING),
-                "Sequence_length":           rep_row.get("sequence_length", MISSING),
+                "Rep_ID":                    rep_mgyv,
+                "Rep_vitap_lineage":         vitap.get(rep_mgyv, MISSING),
+                "Rep_viphogs_lineage":       viphogs_tax.get(rep_mgyv, MISSING) if rep_mgyv else MISSING,
+                "Rep_genomad_lineage":       genomad.get(rep_mgyv, MISSING) if rep_mgyv else MISSING,
+                "Rep_source":                rep_row.get("type", MISSING),
+                "Rep_biome":                 rep_row.get("biomes", MISSING),
                 "cluster_size":              cluster_size,
-                "mean_viral_genes":          mean_viral_genes,
-                "members_with_checkv":       members_with_checkv,
+                "cluster_mean_viral_genes":          mean_viral_genes,
                 "cluster_biomes":            ";".join(sorted(biomes)) or MISSING,
                 "cluster_types":             ";".join(sorted(types)) or MISSING,
-                "cluster_completeness_range": completeness_range,
-                **checkv,
+                "cluster_completeness_range": completeness_range
             })
     return out_path
 
@@ -404,7 +404,7 @@ def main():
     print(f"Writing {args.output_plasmids}...")
     written = write_plasmids(
         plasmid_rows, plasmid_member_to_rep, all_meta,
-        args.output_plasmids, args.compress,
+        args.output_plasmids, args.compress, desc_to_mgyv
     )
     print(f"  -> {written}")
 
