@@ -21,7 +21,7 @@ process COLLECT_METADATA {
     output:
     path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
     path("plasmids-all-metadata.tsv.gz"),      emit: plasmids_final_metadata
-    path("viruses-reps-stats.tsv.gz"),         emit: viruses_reps_stats
+    path("viruses-cluster-stats.tsv.gz"),      emit: viruses_reps_stats
     path "versions.yml",                       emit: versions
 
     script:
@@ -37,7 +37,7 @@ process COLLECT_METADATA {
        --map ${map_file} \\
        --output_viruses viruses-all-metadata.tsv \\
        --output_plasmids plasmids-all-metadata.tsv \\
-       --output_reps viruses-reps-stats.tsv \\
+       --output_reps viruses-cluster-stats.tsv \\
        --compress
 
     cat <<-END_VERSIONS > versions.yml

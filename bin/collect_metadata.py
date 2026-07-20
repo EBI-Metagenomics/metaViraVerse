@@ -16,6 +16,7 @@ CHECKV_FIELDS = [
     "contamination",
     "provirus",
     "proviral_length",
+    "kmer_freq"
 ]
 
 
@@ -190,7 +191,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                   viphogs_tax, genomad, desc_to_mgyv,
                   out_path, compress):
     fieldnames = [
-        "ID", "Original_ID", "Source_of_prediction", "rrna", "Cluster_rep",
+        "ID", "Original_ID", "Source_of_prediction", "rRNA", "Cluster_rep",
         "vitap_lineage", "viphogs_lineage", "genomad_lineage",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
         "Sequence_length", "Sequence_sha256",
@@ -208,8 +209,8 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
             writer.writerow({
                 "ID":                   mgyv,
                 "Original_ID":          desc,
-                "Source_of_prediction": meta.get("source_of_prediction", MISSING),
-                "rrna":                 meta.get("rrna", MISSING),
+                "Source_of_prediction": row.get("source_of_prediction", MISSING),
+                "rRNA":                 row.get("rrna", MISSING),
                 "Cluster_rep":          member_to_rep.get(mgyv, MISSING),
                 "vitap_lineage":        vitap.get(mgyv, MISSING),
                 "viphogs_lineage":      viphogs_tax.get(mgyv, MISSING) if mgyv else MISSING,
@@ -277,9 +278,9 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
         "Rep_ID",
         "Rep_vitap_lineage", "Rep_viphogs_lineage", "Rep_genomad_lineage",
         "Rep_source", "Rep_biome",
-        "cluster_size", "cluster_mean_viral_genes",
+        "cluster_size", "cluster_mean_viral_genes", "cluster_mean_gene_count",
         "cluster_biomes", "cluster_types",
-        "cluster_completeness_range",
+        "cluster_completeness_range", "cluster_contamination_range"
     ]
 
     out_path, fh = open_output(out_path, compress)
@@ -287,8 +288,8 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
 
-        for rep_id, members in sorted(rep_to_members.items()):
-            rep_mgyv = rep_id
+        for rep_mgyv, members in sorted(rep_to_members.items()):
+            rep_id = mgyv_to_desc[rep_mgyv]
             rep_row = virus_rows.get(rep_id, {})
 
             # ── per-rep fields ────────────────────────────────────────────────
@@ -296,11 +297,11 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
 
             # ── cluster aggregates ────────────────────────────────────────────
             cluster_size = len(members)
-            viral_genes_vals = []
+            viral_genes_vals, gene_count_vals = [], []
             biomes = set()
             types = set()
             members_with_checkv = 0
-            completeness_vals = []
+            completeness_vals, contamination_vals = [], []
 
             for member_desc in members:
                 mrow = virus_rows.get(member_desc, {})
@@ -312,6 +313,10 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
                 vg = _safe_float(mrow.get("viral_genes"))
                 if vg is not None:
                     viral_genes_vals.append(vg)
+
+                gc = _safe_float(mrow.get("gene_count"))
+                if gc is not None:
+                    gene_count_vals.append(gc)
 
                 biome = mrow.get("biomes", "")
                 if biome:
@@ -329,14 +334,31 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
                 if comp is not None:
                     completeness_vals.append(comp)
 
+                cont = _safe_float(mrow.get("contamination"))
+                if cont is not None:
+                    contamination_vals.append(cont)
+
             mean_viral_genes = (
                 f"{sum(viral_genes_vals) / len(viral_genes_vals):.2f}"
                 if viral_genes_vals else MISSING
             )
-            completeness_range = (
-                f"{min(completeness_vals):.1f}-{max(completeness_vals):.1f}"
-                if completeness_vals else MISSING
+            mean_gene_count = (
+                f"{sum(gene_count_vals) / len(gene_count_vals):.2f}"
+                if gene_count_vals else MISSING
             )
+            if len(completeness_vals) == 1:
+                completeness_range = str(completeness_vals[0])
+            elif len(completeness_vals) == 0:
+                completeness_range = MISSING
+            else:
+                completeness_range = f"{min(completeness_vals):.1f}-{max(completeness_vals):.1f}"
+
+            if len(contamination_vals) == 1:
+                contamination_range = str(contamination_vals[0])
+            elif len(contamination_vals) == 0:
+                contamination_range = MISSING
+            else:
+                contamination_range = f"{min(contamination_vals):.1f}-{max(contamination_vals):.1f}"
 
             writer.writerow({
                 "Rep_ID":                    rep_mgyv,
@@ -346,10 +368,12 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
                 "Rep_source":                rep_row.get("type", MISSING),
                 "Rep_biome":                 rep_row.get("biomes", MISSING),
                 "cluster_size":              cluster_size,
-                "cluster_mean_viral_genes":          mean_viral_genes,
+                "cluster_mean_gene_count":   mean_gene_count,
+                "cluster_mean_viral_genes":  mean_viral_genes,
                 "cluster_biomes":            ";".join(sorted(biomes)) or MISSING,
                 "cluster_types":             ";".join(sorted(types)) or MISSING,
-                "cluster_completeness_range": completeness_range
+                "cluster_completeness_range": completeness_range,
+                "cluster_contamination_range": contamination_range
             })
     return out_path
 
