@@ -11,14 +11,19 @@ Usage:
     python collect_data_from_catalogues.py -p /path/to/catalogue1 /path/to/catalogue2 -o /output/dir
 """
 import argparse
+import csv
 import os
 import sys
+import urllib.error
+import urllib.request
 from typing import Optional, Union
 
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 VIRAL_TYPES = ['viral_sequence', 'plasmid', 'prophage']
+MGNIFY_GENOMES_BASE_URL = "https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes"
+SAMPLESHEET_COLUMNS = ['id', 'gff', 'fna', 'faa', 'type', 'biome']
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -292,16 +297,135 @@ def process_catalogue(catalogue_path: str, output_path: str, catalogue_name: str
             SeqIO.write(chosen_records, out_faa, "fasta")
 
 
+def get_catalogue_name_and_version(catalogue_path: str) -> tuple[str, str]:
+    """Extract a catalogue's name and version from its path.
+
+    Assumes the catalogue path ends in "<catalogue_name>/<version>", which
+    matches both the NFS layout and the corresponding path on the MGnify
+    genomes FTP.
+
+    Args:
+        catalogue_path: Path to the catalogue directory, e.g. "/nfs/public/.../human-gut/v2.0".
+
+    Returns:
+        A tuple of (catalogue_name, version), e.g. ("human-gut", "v2.0").
+    """
+    path_parts = catalogue_path.rstrip('/').split('/')
+    catalogue_name, version = path_parts[-2:]
+    return catalogue_name, version
+
+
+def fetch_metadata(catalogue_path: str, output_path: str) -> str:
+    """Download a catalogue's genomes-all_metadata.tsv from the MGnify genomes FTP.
+
+    Builds the download URL from the catalogue's name and version (the last
+    two components of catalogue_path), e.g.:
+        https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes/<name>/<version>/genomes-all_metadata.tsv
+
+    Args:
+        catalogue_path: Path to the catalogue directory (used only to derive name/version).
+        output_path: Directory to save the downloaded metadata file to.
+
+    Returns:
+        Path to the downloaded metadata TSV file.
+    """
+    catalogue_name, version = get_catalogue_name_and_version(catalogue_path)
+    url = f"{MGNIFY_GENOMES_BASE_URL}/{catalogue_name}/{version}/genomes-all_metadata.tsv"
+    dest_path = os.path.join(output_path, f'{catalogue_name}_{version}_metadata.tsv')
+
+    print(f'Fetching metadata for {catalogue_name}/{version} from {url}')
+    try:
+        urllib.request.urlretrieve(url, dest_path)
+    except urllib.error.URLError as error:
+        print(f"Error: Could not fetch metadata from {url} ({error})")
+        sys.exit(1)
+
+    return dest_path
+
+
+def concatenate_metadata(metadata_files: list[str], output_file: str) -> None:
+    """Concatenate multiple catalogue metadata TSVs into one file with a single header.
+
+    Args:
+        metadata_files: Paths to per-catalogue metadata TSV files, in order.
+        output_file: Path to write the combined TSV to.
+    """
+    with open(output_file, 'w') as out_handle:
+        for i, metadata_file in enumerate(metadata_files):
+            with open(metadata_file, 'r') as in_handle:
+                header = in_handle.readline()
+                if i == 0:
+                    out_handle.write(header)
+                out_handle.writelines(in_handle.readlines())
+
+
+def fetch_catalogues_metadata(catalogue_paths: list[str], output_path: str) -> str:
+    """Fetch genomes-all_metadata.tsv for each catalogue and concatenate them.
+
+    Args:
+        catalogue_paths: Paths to catalogue directories.
+        output_path: Directory to save per-catalogue and combined metadata files to.
+
+    Returns:
+        Path to the combined metadata TSV file.
+    """
+    metadata_files = [fetch_metadata(catalogue_path, output_path) for catalogue_path in catalogue_paths]
+
+    combined_metadata = os.path.join(output_path, 'genomes-all_metadata.tsv')
+    concatenate_metadata(metadata_files, combined_metadata)
+    print(f'Combined metadata for {len(metadata_files)} catalogue(s) written to {combined_metadata}')
+    return combined_metadata
+
+
+def generate_samplesheet(catalogue_paths: list[str], output_path: str) -> str:
+    """Generate a pipeline input samplesheet for the processed catalogues.
+
+    Follows the schema in assets/schema_input.json: one row per catalogue,
+    pointing at the filtered GFF/FNA/FAA files written by process_catalogue().
+    `id` is "<catalogue_name>_<version>", `type` is always "genome" (MAG
+    catalogue data), and `biome` is the catalogue name without its version.
+
+    Args:
+        catalogue_paths: Paths to catalogue directories.
+        output_path: Directory containing the per-catalogue output files;
+            the samplesheet is written here too.
+
+    Returns:
+        Path to the generated samplesheet.csv.
+    """
+    samplesheet_path = os.path.join(output_path, 'samplesheet.csv')
+    with open(samplesheet_path, 'w', newline='') as out_handle:
+        writer = csv.DictWriter(out_handle, fieldnames=SAMPLESHEET_COLUMNS)
+        writer.writeheader()
+        for catalogue_path in catalogue_paths:
+            catalogue_name, version = get_catalogue_name_and_version(catalogue_path)
+            sample_id = f'{catalogue_name}_{version}'
+            writer.writerow({
+                'id': sample_id,
+                'gff': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.gff')),
+                'fna': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.fna')),
+                'faa': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.faa')),
+                'type': 'genome',
+                'biome': catalogue_name,
+            })
+
+    print(f'Samplesheet written to {samplesheet_path}')
+    return samplesheet_path
+
+
 def main() -> None:
     """Main entry point. Parses arguments and processes each catalogue path."""
     args = parse_arguments()
 
+    os.makedirs(args.output_path, exist_ok=True)
+
     for catalogue_path in args.catalogue_path:
-        # Derive catalogue name from last two path components (e.g. "genomes-all_v2.0")
-        path_parts = catalogue_path.rstrip('/').split('/')
-        catalogue_name = '_'.join(path_parts[-2:])
+        catalogue_name = '_'.join(get_catalogue_name_and_version(catalogue_path))
         print(f'Running search for {catalogue_name}')
         process_catalogue(catalogue_path=catalogue_path, output_path=args.output_path, catalogue_name=catalogue_name, old=args.old)
+
+    fetch_catalogues_metadata(catalogue_paths=args.catalogue_path, output_path=args.output_path)
+    generate_samplesheet(catalogue_paths=args.catalogue_path, output_path=args.output_path)
 
 
 if __name__ == '__main__':

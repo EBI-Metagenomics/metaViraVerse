@@ -2,20 +2,40 @@
 
 <img align="right" width="120" height="120" src="assets/logo.png">
 
-[MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline to generate **viral catalogue**.
+A [MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline for generating a **viral catalogue**.
+
+## Overview
+
+The pipeline takes previously predicted **viral sequences**, **prophages**, and **plasmids** as input and performs downstream analysis and annotation. Viral sequences and prophages are combined into a single **viruses** group, while plasmids are processed as a separate **plasmids** group.
+
+**Viruses:**
+- Quality assessment
+- rRNA detection
+- Clustering at 95% ANI identity
+- Taxonomy assignment
+- Host detection
+- Lifestyle categorisation
+- Protein prediction
+- Protein annotation
+- Protein clustering
+
+**Plasmids:**
+- Clustering at 85% ANI identity
+- Host detection [in development]
+- Prediction of replicon family, relaxase type, and mate-pair formation type [in development]
 
 <p align="center">
     <img src="assets/schema.png" alt="Pipeline overview" width="90%">
 </p>
 
-## Usage
+## Input
 
 > [!NOTE]
-> This pipeline was written to generate viral catalogue from [MGnify](https://www.ebi.ac.uk/metagenomics/) annotations based on results provided by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP).
-> 
-> If you do not have MGnify results you can still run pipeline using `--third_party_input`.
+> This pipeline was originally written to build viral catalogues from [MGnify](https://www.ebi.ac.uk/metagenomics/) annotations, using results produced by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP).
+>
+> If you don't have MGnify results, you can still run the pipeline using `--third_party_input`.
 
-First, prepare a samplesheet with your input data that looks as follows:
+First, prepare a samplesheet describing your input data:
 
 `samplesheet.csv`:
 
@@ -24,12 +44,19 @@ id,gff,fna,faa,type,biome
 unique_identifier,viral.gff,viral.fna,viral.faa,metagenome/genome,biome
 ```
 
-`id` (mandatory) - unique identifier (It is recommended to use ERZ accession if your MAG or assembly was taken ENA) \
-`gff` (mandatory) - GFF file containing records in types: _viral_sequence_, _plasmid_, _prophage_. It might also contain CDS records for chosen regions \
-`fna` (mandatory) - FASTA file with nucleotide sequences corresponding to chosen regions from GFF \
-`faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
-`type` (mandatory) - string value _genome_ or _metagenome_ describing initial sequence \
-`biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
+| Column  | Required | Description |
+|---------|----------|-------------|
+| `id`    | Yes | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA. |
+| `gff`   | Yes | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions. |
+| `fna`   | Yes | FASTA file with nucleotide sequences for the selected regions in the GFF. |
+| `faa`   | No | FASTA file with protein sequences for the CDS regions in the GFF. |
+| `type`  | Yes | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
+| `biome` | No | Metadata describing the sequence's environmental origin (for example: marine, soil). |
+
+## Usage
+
+- For MGnify input, see the [MGnify usage guide](docs/mgnify_usage.md).
+- For third-party data, see the [third-party usage guide](docs/third_party_usage.md).
 
 ## Run
 
@@ -40,10 +67,10 @@ nextflow run EBI-Metagenomics/metaviraverse \
    --outdir <OUTDIR>
 ```
 
-
 ## Citations
 
-If you use this pipeline please make sure to cite all used software.
+If you use this pipeline, please cite all software it uses.
+
 This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
 
 > **MGnify: the microbiome sequence data analysis resource in 2023**

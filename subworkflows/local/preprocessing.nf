@@ -104,20 +104,20 @@ workflow PREPROCESSING {
     //
     SEPARATE_VIRAL_SEQUENCES(
        ch_fna_sequences,
-       "viral_sequence",
+       params.viral_sequence_identifier,
        mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
        ch_fna_sequences,
-       "prophage",
+       params.prophage_identifier,
        mapping
     )
 
     SEPARATE_PLASMIDS(
        ch_fna_sequences,
-       "plasmid",
+       params.plasmid_identifier,
        mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
