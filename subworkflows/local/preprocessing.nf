@@ -1,49 +1,80 @@
-include { CHOOSE_SEQUENCES                                } from '../../modules/local/choose_sequences'
+include { CHOOSE_SEQUENCES                               } from '../../modules/local/choose_sequences'
 include { RENAME_CONTIGS                                 } from '../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PLASMIDS        } from '../../modules/local/separate_sequences'
 include { SEPARATE_SEQUENCES as SEPARATE_PROPHAGES       } from '../../modules/local/separate_sequences'
 
 include { BARRNAP                                        } from '../../modules/nf-core/barrnap'
+include { CSVTK_CONCAT as CONCATENATE_CHECKV             } from '../../modules/nf-core/csvtk/concat'
+include { CHECKV_ENDTOEND                                } from '../../modules/nf-core/checkv/endtoend'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                     } from '../../modules/nf-core/seqkit/split2'
+
 
 workflow PREPROCESSING {
 
-    // TODO: process separately ASA, MAGs and third party and then combine
-
     take:
-    input
+    input   // [meta, gff, fna, faa]
 
     main:
     ch_versions = channel.empty()
 
     //
-    // --- Aggregate catalogue MAGs and ASA results
-    // Deduplicate sequences across samples, prioritising assembly over MAG
+    // TODO Review renaming for third party
+    // TODO review rename for ASA inputs
     //
-    ch_fna_files = input.map { meta, gff, fna, faa, type, biome -> fna }.collect()
-    ch_types     = input.map { meta, gff, fna, faa, type, biome -> type }.collect()
-    ch_biomes    = input.map { meta, gff, fna, faa, type, biome -> biome }.collect()
+    // ----------- Assign unique identifiers to all coming sequences by each record in samplesheet
+    // We will combine all sequences together and keep track of names, biomes and types in map file
+    // The new names would be {prefix}{number}, ex. >seq1
+    // For MGnify processing rename_accession should be MGYV
+    // It will also rename ID in attributes column in GFF
+    // That step is running with --combine option and it will return one renamed FASTA and GFF
 
-    CHOOSE_SEQUENCES(
-        ch_fna_files,
+    ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
+    ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
+    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }.collect()
+    ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }.collect()
+
+    // TODO review how to handle meta
+    RENAME_CONTIGS(
+        ch_fna,
+        ch_gff,
+        params.start_accession,
+        params.end_accession,
         ch_types,
         ch_biomes
     )
-    ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
+    ch_versions = ch_versions.mix(RENAME_CONTIGS.out.versions)
+    mapping = RENAME_CONTIGS.out.map_file.map{ map -> [[id: 'combined'], map] }
 
-    ch_fna_sequences = CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) }
+    //
+    // ----------- Evaluate a quality for all coming sequences
+    //
 
-    // TODO: implement that step for third party rename and probably ASA results
-    //RENAME_CONTIGS(
-    //   input
-    //)
+    CHUNK_FNA (
+        RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+    )
+    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
+    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+
+    CHECKV_ENDTOEND (
+        ch_fna_chunks,
+        params.checkv_db
+    )
+
+    CONCATENATE_CHECKV (
+        CHECKV_ENDTOEND.out.quality_summary.groupTuple(),
+        'tsv',
+        'tsv'
+    )
 
     //
     // ----- Detect rRNA sequences ------
-    // TODO: implement that step for third party rename and probably ASA results
-    if ( params.filter_rrna ) {
+    //
+    if ( ! params.skip_rrna_detection ) {
         BARRNAP(
-          ch_fna_sequences.map {id, fasta -> [id, fasta, "bac"]}
+          RENAME_CONTIGS.out.fna_renamed.map {fasta -> [[id: 'combined'], fasta, "bac"]}
         )
         ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
@@ -53,39 +84,62 @@ workflow PREPROCESSING {
     }
 
     //
+    // ----------- Filter sequences, leave unique and save metadata
+    // Deduplicate sequences across samples, prioritising assembly over MAG
+    // Remove non-determined quality viruses
+    //
+    CHOOSE_SEQUENCES (
+        RENAME_CONTIGS.out.fna_renamed.map{ fna -> [[id: 'combined'], fna] },
+        RENAME_CONTIGS.out.gff_renamed.map{ gff -> [[id: 'combined'], gff] },
+        CONCATENATE_CHECKV.out.csv,
+        rna_gff,
+        mapping
+    )
+    ch_versions = ch_versions.mix(CHOOSE_SEQUENCES.out.versions)
+
+    ch_fna_sequences = CHOOSE_SEQUENCES.out.filtered_fna
+
+    //
     // ----- SEPARATE SEQUENCES INTO VIRAL AND PLASMIDS ------
     //
     SEPARATE_VIRAL_SEQUENCES(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
+       ch_fna_sequences,
        "viral_sequence",
-       rna_gff
+       mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_VIRAL_SEQUENCES.out.versions)
 
     SEPARATE_PROPHAGES(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
+       ch_fna_sequences,
        "prophage",
-       rna_gff
+       mapping
     )
 
     SEPARATE_PLASMIDS(
-       CHOOSE_SEQUENCES.out.combined_fna.map { fna -> tuple([id:'combined'], fna) },
+       ch_fna_sequences,
        "plasmid",
-       rna_gff
+       mapping
     )
     ch_versions = ch_versions.mix(SEPARATE_PLASMIDS.out.versions)
 
 
     emit:
-    metadata         = CHOOSE_SEQUENCES.out.metadata
-                         .map{ metadata -> [[id: 'combined'], metadata] }      // channel: [ [id: 'combined'], combined_meta.tsv ]
+    input_metadata   = CHOOSE_SEQUENCES.out.metadata           // [id:combined, combined_metadata.tsv]
+    metadata         = CHOOSE_SEQUENCES.out.filtered_metadata  // [id:combined, combined_filtered.tsv]
+    excluded_qc      = CHOOSE_SEQUENCES.out.excluded_metadata  // [id:combined, excluded_metadata.tsv]
+    mapfile          = mapping                                 // [id:combined, metadata.tsv]
 
-    viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences
-    prophages        = SEPARATE_PROPHAGES.out.chosen_sequences
-    plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences
+    viral_sequences  = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [id:combined, viruses.fasta]
+    prophages        = SEPARATE_PROPHAGES.out.chosen_sequences        // [id:combined, prophages.fasta]
+    plasmids         = SEPARATE_PLASMIDS.out.chosen_sequences         // [id:combined, plasmids.fasta]
 
-    combined_gff     = input.map { _meta, gff, _fna, _faa, _type, _biome -> gff }.collectFile( name: 'combined.gff' )
-    combined_faa     = input.map { _meta, _gff, _fna, faa, _type, _biome -> faa }.collectFile( name: 'combined.faa' )
+    combined_gff     = CHOOSE_SEQUENCES.out.filtered_gff
+                        .map { meta, gff -> gff }
+                        //.mix( THIRD_PARTY_DATA.out.gff.map { meta, gff -> gff } )
+
+    combined_faa     = input.map { _meta, _gff, _fna, faa -> faa }
+                        .collectFile( name: 'combined.faa' )
+                        //.mix( THIRD_PARTY_DATA.out.faa.map { meta, faa -> faa } )
 
     versions         = ch_versions                        // channel: [ path(versions.yml) ]
 }

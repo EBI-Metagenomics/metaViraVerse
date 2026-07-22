@@ -13,7 +13,7 @@ from pathlib import Path
 bin_dir = Path(__file__).parent.parent.parent / "bin"
 sys.path.insert(0, str(bin_dir))
 
-import bin.extract_reps_stats as extract_reps_stats
+import extract_reps_stats as extract_reps_stats
 
 
 class TestParseAttributes(unittest.TestCase):

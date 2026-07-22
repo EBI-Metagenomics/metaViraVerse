@@ -1,0 +1,3 @@
+id,fasta,type,biome
+test_virus,assets/test_data/third_party/viruses.fasta.gz,virus,human gut
+test_plasmid,assets/test_data/third_party/plasmids.fasta.gz,plasmid,marine sediment

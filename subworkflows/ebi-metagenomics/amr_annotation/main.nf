@@ -20,7 +20,7 @@ workflow AMR_ANNOTATION {
     ch_deeparg_model          // channel: val( deeparg_model )
     ch_deeparg_tool_version   // channel: val( deeparg_tool_version )
     ch_rgi_db                 // channel: path( rgi_db )
-    skip_amrfinderplus        // boolean 
+    skip_amrfinderplus        // boolean
     skip_deeparg              // boolean
     skip_rgi                  // boolean
 
@@ -122,16 +122,16 @@ workflow AMR_ANNOTATION {
     ch_gff_keyed = ch_gff.map { meta, gff -> [meta.id, meta, gff] }
 
     // Create flag channels for tools that ran (keyed by meta.id)
-    ch_deeparg_flags = skip_deeparg ? 
-        channel.empty() : 
+    ch_deeparg_flags = skip_deeparg ?
+        channel.empty() :
         ch_deeparg_results.map { meta, _file -> [meta.id, 'deeparg'] }
-    
-    ch_rgi_flags = skip_rgi ? 
-        channel.empty() : 
+
+    ch_rgi_flags = skip_rgi ?
+        channel.empty() :
         ch_rgi_results.map { meta, _file -> [meta.id, 'rgi'] }
-    
-    ch_amrfinder_flags = skip_amrfinderplus ? 
-        channel.empty() : 
+
+    ch_amrfinder_flags = skip_amrfinderplus ?
+        channel.empty() :
         ch_amrfinderplus_results.map { meta, _file -> [meta.id, 'amrfinder'] }
 
     // Combine all flags to identify samples that have at least one tool result
@@ -153,13 +153,13 @@ workflow AMR_ANNOTATION {
 
     // Build the input channel for AMRINTEGRATOR
     // Join tool results (keyed by meta.id) with the filtered GFF
-    
+
     // Add deeparg results (or empty list if skipped)
     if (!skip_deeparg) {
         ch_deeparg_keyed = ch_deeparg_results.map { meta, file -> [meta.id, file] }
         ch_for_amrintegrator = ch_gff_filtered
             .join(ch_deeparg_keyed, remainder: true)
-            .map { id, meta, gff, deeparg -> 
+            .map { id, meta, gff, deeparg ->
                 [id, meta, gff, deeparg ?: []]  // Replace null with empty list
             }
     } else {
@@ -172,12 +172,12 @@ workflow AMR_ANNOTATION {
         ch_rgi_keyed = ch_rgi_results.map { meta, file -> [meta.id, file] }
         ch_for_amrintegrator = ch_for_amrintegrator
             .join(ch_rgi_keyed, remainder: true)
-            .map { id, meta, gff, deeparg, rgi -> 
+            .map { id, meta, gff, deeparg, rgi ->
                 [id, meta, gff, deeparg, rgi ?: []]  // Replace null with empty list
             }
     } else {
         ch_for_amrintegrator = ch_for_amrintegrator
-            .map { id, meta, gff, deeparg -> 
+            .map { id, meta, gff, deeparg ->
                 [id, meta, gff, deeparg, []]  // Empty list for skipped tool
             }
     }
@@ -187,12 +187,12 @@ workflow AMR_ANNOTATION {
         ch_amrfinder_keyed = ch_amrfinderplus_results.map { meta, file -> [meta.id, file] }
         ch_for_amrintegrator = ch_for_amrintegrator
             .join(ch_amrfinder_keyed, remainder: true)
-            .map { id, meta, gff, deeparg, rgi, amrfinder -> 
+            .map { id, meta, gff, deeparg, rgi, amrfinder ->
                 [id, meta, gff, deeparg, rgi, amrfinder ?: []]  // Replace null with empty list
             }
     } else {
         ch_for_amrintegrator = ch_for_amrintegrator
-            .map { id, meta, gff, deeparg, rgi -> 
+            .map { id, meta, gff, deeparg, rgi ->
                 [id, meta, gff, deeparg, rgi, []]  // Empty list for skipped tool
             }
     }

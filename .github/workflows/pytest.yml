@@ -1,12 +1,11 @@
 name: Run pytest
 
 on:
+  #  push:
+  #    branches: [main]
+  #  pull_request:
+  #    branches: [main, dev]
   workflow_dispatch:
-#on:
-#  push:
-#    branches: [main]
-#  pull_request:
-#    branches: [main, dev]
 
 jobs:
   pytest:

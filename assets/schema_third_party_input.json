@@ -1,0 +1,34 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/assets/schema_third_party_input.json",
+    "title": "EBI-Metagenomics/metaviraverse - third-party input schema",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "ID must be provided and cannot contain spaces",
+                "meta": ["id"]
+            },
+            "fasta": {
+                "type": "string",
+                "format": "file-path",
+                "errorMessage": "Path to FASTA file with nucleotide sequences"
+            },
+            "type": {
+                "type": "string",
+                "enum": ["virus", "plasmid"],
+                "description": "Sequence type: virus or plasmid",
+                "meta": ["type"]
+            },
+            "biome": {
+                "type": "string",
+                "description": "(Optional) Environmental biome, max 2 words (e.g. marine sediment or human gut)",
+                "meta": ["biome"]
+            }
+        },
+        "required": ["id", "fasta", "type"]
+    }
+}

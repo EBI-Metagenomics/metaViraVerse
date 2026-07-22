@@ -7,26 +7,36 @@ process CHOOSE_SEQUENCES {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    path(fna_files)
-    val(types)
-    val(biomes)
+    tuple val(meta_fna), path(fna_files)
+    tuple val(meta_gff), path(gff_files)
+    tuple val(meta_quality), path(quality, name: "quality_summary.tsv")
+    tuple val(meta_gff), path(rna_gff)
+    tuple val(meta_map), path(map_file, name: "mapping.tsv")
+
 
     output:
-    path("combined.fna"),      emit: combined_fna
-    path("combined_meta.tsv"), emit: metadata
-    path "versions.yml",       emit: versions
+    tuple val(meta_quality), path("${meta_quality.id}_metadata.tsv"),    emit: metadata
+    tuple val(meta_quality), path("*filtered.fna"),                      emit: filtered_fna
+    tuple val(meta_quality), path("*filtered.tsv"),                      emit: filtered_metadata
+    tuple val(meta_quality), path("*filtered.gff"),                      emit: filtered_gff
+    tuple val(meta_quality), path("*excluded.tsv"),                      emit: excluded_metadata
+    path "versions.yml",                                                 emit: versions
 
     script:
     def fna_args   = fna_files.collect { it }.join(' ')
-    def type_args  = types.join(' ')
-    def biome_args = biomes.join(' ')
+    def gff_args   = gff_files.collect { it }.join(' ')
+    def rrna = rna_gff ? "--rrna ${rna_gff}" : ""
+    def quality_arg = quality ? "--quality quality_summary.tsv" : ""
+    def mapping = map_file ? "--map mapping.tsv" : ""
+
     """
     choose_sequences.py \\
         --fna ${fna_args} \\
-        --type ${type_args} \\
-        --biome ${biome_args} \\
-        --output-fna combined.fna \\
-        --output-tsv combined_meta.tsv
+        --gff ${gff_args} \\
+        ${rrna} \\
+        ${quality_arg} \\
+        ${mapping} \\
+        --output-prefix ${meta_quality.id}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

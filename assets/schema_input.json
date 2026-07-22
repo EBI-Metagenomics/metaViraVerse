@@ -51,14 +51,20 @@ feature/OncoProteinStructure
             "type": {
                 "type": "string",
                 "enum": ["genome", "metagenome"],
-                "description": "Use genome for MAG or isolate; use metagenome for assembly"
+                "description": "Use genome for MAG or isolate; use metagenome for assembly",
+                "meta": ["type"]
             },
             "biome": {
                 "type": "string",
-                "description": "Environmental biome"
+                "description": "Environmental biome",
+                "meta": ["biome"]
             }
         },
+feature/OncoProteinStructure
         "required": ["id", "gff", "fna", "type"]
+dev
+=======
+        "required": ["id", "gff", "fna", "faa"]
 dev
     }
 }
