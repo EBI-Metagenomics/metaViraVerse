@@ -1,0 +1,6 @@
+# Suggested CODEOWNERS to request reviewers for PRs touching the repo
+# Format: <path> <github-username(s)>
+# This file lives in your fork branch only; upstream branch-protection controls required reviewers.
+
+# Default: all files -> request the two reviewers mentioned in PR discussion
+* @mberacochea @vagkaratzas
