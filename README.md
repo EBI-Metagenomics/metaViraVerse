@@ -28,44 +28,56 @@ The pipeline takes previously predicted **viral sequences**, **prophages**, and 
     <img src="assets/schema.png" alt="Pipeline overview" width="90%">
 </p>
 
-## Input
 
 > [!NOTE]
 > This pipeline was originally written to build viral catalogues from [MGnify](https://www.ebi.ac.uk/metagenomics/) annotations, using results produced by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP).
 >
 > If you don't have MGnify results, you can still run the pipeline using `--third_party_input`.
 
-First, prepare a samplesheet describing your input data:
-
-`samplesheet.csv`:
-
-```csv
-id,gff,fna,faa,type,biome
-unique_identifier,viral.gff,viral.fna,viral.faa,metagenome/genome,biome
-```
-
-| Column  | Required | Description |
-|---------|----------|-------------|
-| `id`    | Yes | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA. |
-| `gff`   | Yes | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions. |
-| `fna`   | Yes | FASTA file with nucleotide sequences for the selected regions in the GFF. |
-| `faa`   | No | FASTA file with protein sequences for the CDS regions in the GFF. |
-| `type`  | Yes | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
-| `biome` | No | Metadata describing the sequence's environmental origin (for example: marine, soil). |
-
 ## Usage
 
 - For MGnify input, see the [MGnify usage guide](docs/mgnify_usage.md).
 - For third-party data, see the [third-party usage guide](docs/third_party_usage.md).
+- Process mixed data specifying both `--input` and `--third_party_input`
 
 ## Run
+Check the appropriate section in [MGnify](docs/mgnify_usage.md) and [third-party](docs/third_party_usage.md) usage guides.
 
+Example,
 ```bash
-nextflow run EBI-Metagenomics/metaviraverse \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run main.nf \
+    -resume \
+    -profile <appropriate profile> \
+    -c <appropriate.config> \
+    --outdir <OUTDIRNAME> \
+    
+    --input <MGnify samplesheet.csv [optional]> \
+    --third_party_input <third party samplesheet.csv [optional]> \
+    
+    --catalogues_metadata <MGnify genomes-all_metadata.tsv [requred for MGnify data]> \
+    --rename_accession <MGYV [optional, default: seq]> \
+    --start_accession <first identifier number, e.g. 30. Used when renaming, e.g. >seq30 [optional]> \
+    --end_accession <last identifier number, e.g. 40, used when renaming e.g. >seq40 [optional]> \
+    
+    --phammseqs <if you want to run protein clustering [optional, default: true]> \
+    
+    --skip_vitap [default: false] \
+    --skip_genomad [default: false] \
+    
+    --skip_amrfinderplus [default: true] \
+    --skip_deeparg [default: false] \
+    --skip_rgi [default: false] \
+    
+    --skip_iphop [default: false] \
+    
+    --predict_host_from_custom_spacers <if custom CRISPR spacers were provided [optional]> \
+    --custom_spacers_fasta PREFIX_crispr.fasta <if custom CRISPR spacers were provided [optional]> \
+    --custom_spacers_metadata PREFIX_crispr.tsv <if custom CRISPR spacers were provided [optional]> \
 ```
+
+## Outputs
+
+Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](output.md).
 
 ## Citations
 

@@ -172,10 +172,14 @@ id,gff,fna,faa,type,biome
 human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
 ```
 
-- `id` — `<catalogue_name>_<version>`
-- `gff`/`fna`/`faa` — the filtered files produced for that catalogue
-- `type` — always `genome`, since MAG catalogue data is used
-- `biome` — the catalogue name without its version (e.g. `human-vaginal`)
+| Column  | Required | Description |
+|---------|----------|-------------|
+| `id`    | Yes | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA. |
+| `gff`   | Yes | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions. |
+| `fna`   | Yes | FASTA file with nucleotide sequences for the selected regions in the GFF. |
+| `faa`   | No | FASTA file with protein sequences for the CDS regions in the GFF. |
+| `type`  | Yes | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
+| `biome` | No | Metadata describing the sequence's environmental origin (for example: marine, soil). |
 
 ## Run pipeline
 

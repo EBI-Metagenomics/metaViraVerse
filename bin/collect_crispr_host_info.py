@@ -84,26 +84,37 @@ def parse_predictions(predictions_file):
             for spacer in [v[0]]]
 
 
+def lineage_part(parts, idx):
+    """Return the lineage part at idx, or '' if the lineage is too short to have it."""
+    return parts[idx] if len(parts) > idx else ''
+
+
 def build_stats(host_lineage, viral_lineage):
     host_parts = host_lineage.split(';')
     viral_parts = viral_lineage.split(';')
     family_same, genus_same, species_same = 0, 0, 0
     family, genus, species = '', '', ''
     # family
-    if viral_parts[4] == host_parts[4]:
+    viral_family = lineage_part(viral_parts, 4)
+    host_family = lineage_part(host_parts, 4)
+    if viral_family == host_family:
         family_same += 1
     else:
-        family = f'{viral_parts[4]} from {host_parts[4]}'
+        family = f'{viral_family} from {host_family}'
     # genus
-    if viral_parts[5] == host_parts[5]:
+    viral_genus = lineage_part(viral_parts, 5)
+    host_genus = lineage_part(host_parts, 5)
+    if viral_genus == host_genus:
         genus_same += 1
     else:
-        genus = f'{viral_parts[5]} from {host_parts[5]}'
+        genus = f'{viral_genus} from {host_genus}'
     # species
-    if viral_parts[6] == host_parts[6]:
+    viral_species = lineage_part(viral_parts, 6)
+    host_species = lineage_part(host_parts, 6)
+    if viral_species == host_species:
         species_same += 1
     else:
-        species = f'{viral_parts[6]} from {host_parts[6]}'
+        species = f'{viral_species} from {host_species}'
     return family, family_same, genus, genus_same, species, species_same
 
 
