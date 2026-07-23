@@ -15,7 +15,7 @@
             "fasta": {
                 "type": "string",
                 "format": "file-path",
-                "errorMessage": "Path to FASTA file with nucleotide sequences"
+                "description": "Path to FASTA file with nucleotide sequences"
             },
             "type": {
                 "type": "string",
@@ -27,6 +27,16 @@
                 "type": "string",
                 "description": "(Optional) Environmental biome, max 2 words (e.g. marine sediment or human gut)",
                 "meta": ["biome"]
+            },
+            "study_accession": {
+                "type": "string",
+                "description": "(Optional) INSDC study primary or secondary accession related to input data",
+                "meta": ["study_accession"]
+            },
+            "sample_accession": {
+                "type": "string",
+                "description": "(Optional) INSDC sample accession related to input data",
+                "meta": ["sample_accession"]
             }
         },
         "required": ["id", "fasta", "type"]
