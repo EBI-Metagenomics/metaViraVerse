@@ -28,7 +28,8 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_meta
 workflow EBIMETAGENOMICS_METAVIRAVERSE {
 
     take:
-    samplesheet // channel: samplesheet read in from --input
+    samplesheet             // channel: samplesheet read in from --input
+    samplesheet_third_party // channel: samplesheet read in from --third_party_input
 
     main:
 
@@ -36,7 +37,8 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     // WORKFLOW: Run pipeline
     //
     METAVIRAVERSE (
-        samplesheet
+        samplesheet,
+        samplesheet_third_party
     )
     emit:
     multiqc_report = METAVIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -59,14 +61,16 @@ workflow {
         params.monochrome_logs,
         args,
         params.outdir,
-        params.input
+        params.input,
+        params.third_party_input
     )
 
     //
     // WORKFLOW: Run main workflow
     //
     EBIMETAGENOMICS_METAVIRAVERSE (
-        PIPELINE_INITIALISATION.out.samplesheet
+        PIPELINE_INITIALISATION.out.samplesheet,
+        PIPELINE_INITIALISATION.out.samplesheet_third_party
     )
     //
     // SUBWORKFLOW: Run completion tasks

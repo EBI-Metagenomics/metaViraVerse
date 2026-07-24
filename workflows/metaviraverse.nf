@@ -28,166 +28,161 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 workflow METAVIRAVERSE {
 
     take:
-    ch_samplesheet // channel: samplesheet read in from --input
+    ch_samplesheet             // channel: samplesheet read in from --input
+    ch_samplesheet_third_party // channel: samplesheet read in from --third_party_input
+
     main:
 
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
+    multiqc_report = channel.empty()
 
     //
     // ----------- Preprocess third party data (coming not from MGnify)
     //
-
-    ch_third_party = params.third_party_input ? channel.fromPath(params.third_party_input, checkIfExists: true)
-        .splitCsv(header: true)
-        .map { row ->
-                  def meta = [id: row.id]
-                  def fasta = file(row.fasta, checkIfExists: true)
-                  def type  = row.type
-                  def biome = row.biome ?: null
-                  [ meta, fasta, type, biome ]
-              }
-        : channel.empty()
-
-    THIRD_PARTY_DATA (
-         ch_third_party
-    )
+    if (params.third_party_input) {
+        THIRD_PARTY_DATA(
+            ch_samplesheet_third_party
+        )
+    }
 
     // TODO: include THIRD_PARTY_DATA output into PREPROCESSING
-    //
-    // Separate viral sequences and plasmids
-    //
-    PREPROCESSING (
-       ch_samplesheet
-    )
-    ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
+    else {
+        //
+        // Separate viral sequences and plasmids
+        //
+        PREPROCESSING (
+           ch_samplesheet
+        )
+        ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
-    // Process viral_sequences and prophages together as "viruses"
+        // Process viral_sequences and prophages together as "viruses"
 
-    viruses = PREPROCESSING.out.viral_sequences
-        .map{ _meta, seqs -> seqs }
-        .combine(PREPROCESSING.out.prophages
-        .map{ _meta, seqs -> seqs })
-        .flatMap { tuple -> tuple }
-        .collectFile(name: "viruses.fasta")
-        .map{ seqs -> [[id: 'viruses'], seqs]}
+        viruses = PREPROCESSING.out.viral_sequences
+            .map{ _meta, seqs -> seqs }
+            .combine(PREPROCESSING.out.prophages
+            .map{ _meta, seqs -> seqs })
+            .flatMap { tuple -> tuple }
+            .collectFile(name: "viruses.fasta")
+            .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish and compress viruses
-    COMPRESS_VIRUSES (
-        viruses
-    )
+        // publish and compress viruses
+        COMPRESS_VIRUSES (
+            viruses
+        )
 
-    //
-    // Process viruses
-    //
-    PROCESS_VIRAL_SEQUENCES (
-       viruses,
-       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
-       PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
-       PREPROCESSING.out.metadata,
-       PREPROCESSING.out.mapfile.map { _meta, f -> f }
-    )
-    ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
+        //
+        // Process viruses
+        //
+        PROCESS_VIRAL_SEQUENCES (
+           viruses,
+           PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+           PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
+           PREPROCESSING.out.metadata,
+           PREPROCESSING.out.mapfile.map { _meta, f -> f }
+        )
+        ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
-    // Process plasmids filtered from input
+        // Process plasmids filtered from input
 
-    plasmids = PREPROCESSING.out.plasmids
-       .map{ _meta, seqs -> seqs }
-       .collectFile(name: "plasmids.fasta")
-       .map{ seqs -> [[id: 'plasmids'], seqs]}
+        plasmids = PREPROCESSING.out.plasmids
+           .map{ _meta, seqs -> seqs }
+           .collectFile(name: "plasmids.fasta")
+           .map{ seqs -> [[id: 'plasmids'], seqs]}
 
-    // publish and compress plasmids
-    COMPRESS_PLASMIDS (
-        plasmids
-    )
+        // publish and compress plasmids
+        COMPRESS_PLASMIDS (
+            plasmids
+        )
 
-    //
-    // Process plasmids
-    //
-    PROCESS_PLASMIDS (
-       plasmids,
-       PREPROCESSING.out.combined_faa,
-       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
-       []
-    )
-    ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
-
-
-    //
-    // Collect stats for whole catalogue into JSON
-    //
-    COLLECT_CATALOGUE_STATS (
-        PREPROCESSING.out.viral_sequences,
-        PREPROCESSING.out.prophages,
-        PREPROCESSING.out.plasmids,
-        PREPROCESSING.out.metadata,
-        PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
-        PROCESS_PLASMIDS.out.reps_tsv,
-        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
-        PROCESS_PLASMIDS.out.reps_proteins,
-        PREPROCESSING.out.excluded_qc,
-        PREPROCESSING.out.input_metadata
-    )
-    ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
-
-    //
-    // Collect viral and plasmid metadata
-    //
-    COLLECT_METADATA (
-        PREPROCESSING.out.metadata,                   // [id:combined, combined_filtered.tsv]
-        PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
-        PROCESS_PLASMIDS.out.clustering_tsv,
-        params.catalogues_metadata,
-        PROCESS_VIRAL_SEQUENCES.out.vitap_best,
-        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign,
-        PROCESS_VIRAL_SEQUENCES.out.genomad_assign,
-        PREPROCESSING.out.mapfile.map { _meta, f -> f }
-    )
-    ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
+        //
+        // Process plasmids
+        //
+        PROCESS_PLASMIDS (
+           plasmids,
+           PREPROCESSING.out.combined_faa,
+           PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
+           []
+        )
+        ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
 
-    //
-    // Collate and save software versions
-    //
-    softwareVersionsToYAML(ch_versions)
-        .collectFile(
-            storeDir: "${params.outdir}/pipeline_info",
-            name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
-            sort: true,
-            newLine: true
-        ).set { ch_collated_versions }
+        //
+        // Collect stats for whole catalogue into JSON
+        //
+        COLLECT_CATALOGUE_STATS (
+            PREPROCESSING.out.viral_sequences,
+            PREPROCESSING.out.prophages,
+            PREPROCESSING.out.plasmids,
+            PREPROCESSING.out.metadata,
+            PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
+            PROCESS_PLASMIDS.out.reps_tsv,
+            PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
+            PROCESS_PLASMIDS.out.reps_proteins,
+            PREPROCESSING.out.excluded_qc,
+            PREPROCESSING.out.input_metadata
+        )
+        ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 
-    //
-    // MODULE: MultiQC
-    //
-    ch_multiqc_config        = channel.fromPath(
-        "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
-    ch_multiqc_custom_config = params.multiqc_config ?
-        channel.fromPath(params.multiqc_config, checkIfExists: true) :
-        channel.empty()
-    ch_multiqc_logo          = params.multiqc_logo ?
-        channel.fromPath(params.multiqc_logo, checkIfExists: true) :
-        channel.empty()
+        //
+        // Collect viral and plasmid metadata
+        //
+        COLLECT_METADATA (
+            PREPROCESSING.out.metadata,                   // [id:combined, combined_filtered.tsv]
+            PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
+            PROCESS_PLASMIDS.out.clustering_tsv,
+            params.catalogues_metadata,
+            PROCESS_VIRAL_SEQUENCES.out.vitap_best,
+            PROCESS_VIRAL_SEQUENCES.out.viphogs_assign,
+            PROCESS_VIRAL_SEQUENCES.out.genomad_assign,
+            PREPROCESSING.out.mapfile.map { _meta, f -> f }
+        )
+        ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 
-    summary_params      = paramsSummaryMap(
-        workflow, parameters_schema: "nextflow_schema.json")
-    ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
-    ch_multiqc_files = ch_multiqc_files.mix(
-        ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
 
-    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
+        //
+        // Collate and save software versions
+        //
+        softwareVersionsToYAML(ch_versions)
+            .collectFile(
+                storeDir: "${params.outdir}/pipeline_info",
+                name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
+                sort: true,
+                newLine: true
+            ).set { ch_collated_versions }
 
-    MULTIQC (
-        ch_multiqc_files.collect(),
-        ch_multiqc_config.toList(),
-        ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList(),
-        [],
-        []
-    )
+        //
+        // MODULE: MultiQC
+        //
+        ch_multiqc_config        = channel.fromPath(
+            "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+        ch_multiqc_custom_config = params.multiqc_config ?
+            channel.fromPath(params.multiqc_config, checkIfExists: true) :
+            channel.empty()
+        ch_multiqc_logo          = params.multiqc_logo ?
+            channel.fromPath(params.multiqc_logo, checkIfExists: true) :
+            channel.empty()
 
+        summary_params      = paramsSummaryMap(
+            workflow, parameters_schema: "nextflow_schema.json")
+        ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
+        ch_multiqc_files = ch_multiqc_files.mix(
+            ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+
+        ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
+
+        MULTIQC (
+            ch_multiqc_files.collect(),
+            ch_multiqc_config.toList(),
+            ch_multiqc_custom_config.toList(),
+            ch_multiqc_logo.toList(),
+            [],
+            []
+        )
+        multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
+    }
     emit:
-    multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
+    multiqc_report = multiqc_report
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

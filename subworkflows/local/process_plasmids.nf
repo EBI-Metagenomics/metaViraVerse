@@ -6,6 +6,7 @@
 include { CLUSTERING                              } from './clustering'
 include { EXTRACT_CLUSTER_FILES                   } from './extract_cluster_files'
 include { INDEX_RESULTS                           } from './index_results'
+include { PLASQUID_WORKFLOW                       } from './plasquid_workflow'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,6 +67,8 @@ workflow PROCESS_PLASMIDS {
         EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
         false
     )
+
+    PLASQUID_WORKFLOW( EXTRACT_CLUSTER_FILES.out.reps_faa_compressed )
 
     emit:
 
