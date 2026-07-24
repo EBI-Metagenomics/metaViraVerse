@@ -2,104 +2,87 @@
 
 <img align="right" width="120" height="120" src="assets/logo.png">
 
-[MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline to generate **viral catalogue** from assemblies.
+A [MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline for generating a **viral catalogue**.
+
+## Overview
+
+The pipeline takes previously predicted **viral sequences**, **prophages**, and **plasmids** as input and performs downstream analysis and annotation. Viral sequences and prophages are combined into a single **viruses** group, while plasmids are processed as a separate **plasmids** group.
+
+**Viruses:**
+- Quality assessment
+- rRNA detection
+- Clustering at 95% ANI identity
+- Taxonomy assignment
+- Host detection
+- Lifestyle categorisation
+- Protein prediction
+- Protein annotation
+- Protein clustering
+
+**Plasmids:**
+- Clustering at 85% ANI identity
+- Host detection [in development]
+- Prediction of replicon family, relaxase type, and mate-pair formation type [in development]
 
 <p align="center">
     <img src="assets/schema.png" alt="Pipeline overview" width="90%">
 </p>
 
-## Usage
 
 > [!NOTE]
-> This pipeline is based on results provided by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP). In order to generate a catalogue you need to launch VIRify on each sequence file in advance and then use VIRify GFF in MAP execution.
+> This pipeline was originally written to build viral catalogues from [MGnify](https://www.ebi.ac.uk/metagenomics/) annotations, using results produced by [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP).
+>
+> If you don't have MGnify results, you can still run the pipeline using `--third_party_input`.
 
-First, prepare a samplesheet with your input data that looks as follows:
+## Usage
 
-`samplesheet.csv`:
-
-```csv
-id,gff,fna,faa,type,biome
-unique_identifier,viral.gff,viral.fna,viral.faa,metagenome/genome,biome
-```
-
-`id` (mandatory) - unique identifier (It is recommended to use ERZ accession if your MAG or assembly was taken ENA) \
-`gff` (mandatory) - GFF file containing records in types: _viral_sequence_, _plasmid_, _prophage_. It might also contain CDS records for chosen regions \
-`fna` (mandatory) - FASTA file with nucleotide sequences corresponding to chosen regions from GFF \
-`faa` (optional) - FASTA file with protein sequences corresponding to CDS regions from GFF \
-`type` (mandatory) - string value _genome_ or _metagenome_ describing initial sequence \
-`biome` (optional) - metadata describing environmental area of sequence (for example, marine, soil)
+- For MGnify input, see the [MGnify usage guide](docs/mgnify_usage.md).
+- For third-party data, see the [third-party usage guide](docs/third_party_usage.md).
+- Process mixed data specifying both `--input` and `--third_party_input`
 
 ## Run
+Check the appropriate section in [MGnify](docs/mgnify_usage.md) and [third-party](docs/third_party_usage.md) usage guides.
 
+Example,
 ```bash
-nextflow run EBI-Metagenomics/metaviraverse \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run main.nf \
+    -resume \
+    -profile <appropriate profile> \
+    -c <appropriate.config> \
+    --outdir <OUTDIRNAME> \
+    
+    --input <MGnify samplesheet.csv [optional]> \
+    --third_party_input <third party samplesheet.csv [optional]> \
+    
+    --catalogues_metadata <MGnify genomes-all_metadata.tsv [requred for MGnify data]> \
+    --rename_accession <MGYV [optional, default: seq]> \
+    --start_accession <first identifier number, e.g. 30. Used when renaming, e.g. >seq30 [optional]> \
+    --end_accession <last identifier number, e.g. 40, used when renaming e.g. >seq40 [optional]> \
+    
+    --phammseqs <if you want to run protein clustering [optional, default: true]> \
+    
+    --skip_vitap [default: false] \
+    --skip_genomad [default: false] \
+    
+    --skip_amrfinderplus [default: true] \
+    --skip_deeparg [default: false] \
+    --skip_rgi [default: false] \
+    
+    --skip_iphop [default: false] \
+    
+    --predict_host_from_custom_spacers <if custom CRISPR spacers were provided [optional]> \
+    --custom_spacers_fasta PREFIX_crispr.fasta <if custom CRISPR spacers were provided [optional]> \
+    --custom_spacers_metadata PREFIX_crispr.tsv <if custom CRISPR spacers were provided [optional]> \
 ```
 
-## Output
+## Outputs
 
-```
-├── plasmids
-├── viral_sequences
-├── pipeline_info
-```
-
-Folder `plasmids`:
-
-```
-├── cluster_reps
- ──── plasmids_reps.fasta.gz    # cluster rep compressed fasta
-
-├── clustering
- ──── plasmids_clusters.tsv     # clusters (representative \t members)
- ──── plasmids_pairani.tsv      # blastn pairani table
-
-├── plasmids.fasta              # all sequences
-```
-
-Folder `viral_sequences`:
-
-```
-├── cluster_reps
-
- ──── crisprcasfinder
- ──────── viral_sequences_crisprcasfinder.gff
- ──────── viral_sequences_crisprcasfinder.tsv
- ──────── viral_sequences_crisprcasfinder_hq.gff
-
- ──── taxonomy_plot                          # ViPhOG taxonomy
- ──────── viral_sequences_krona.html         # krona plot
- ──────── viral_sequences_krona.tsv          # taxonomy table with counts (count \t taxonomy tav-separated)
- ──────── viral_sequences_sankey.html        # sankey plot
-
- ──── taxonomy_vitap                         # ICTV taxonomy
- ──────── viral_sequences_vitap_best.tsv     # taxonomy table with counts (count \t taxonomy tav-separated)
- ──────── viral_sequences_vitap_sankey.html  # sankey plot
-
- ──── viral_sequences_reps.fasta.gz          # cluster rep compressed fasta
- ──── viral_sequences_reps_stats.tsv         # basic statistics calculated per each cluster representative
-
-├── clustering
- ──── viral_sequences_clusters.tsv           # clusters (representative \t members)
- ──── viral_sequences_pairani.tsv            # blastn pairani table
-
-├── viral_sequences.fasta                    # all sequences
-```
-
-### Under review:
-
-**VITAP** (https://www.nature.com/articles/s41467-025-57500-7)
-Database: https://figshare.com/articles/dataset/The_database_of_VITAP_2024_03_18_/25426159/3?file=49682337
-taxonomy + sankey plot
-
-**PLSDB** (https://academic.oup.com/nar/article/53/D1/D189/7905312)
-plasmids only screening with mash
+Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](output.md).
 
 ## Citations
 
-If you use this pipeline please make sure to cite all used software.
+If you use this pipeline, please cite all software it uses.
+
 This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
 
 > **MGnify: the microbiome sequence data analysis resource in 2023**

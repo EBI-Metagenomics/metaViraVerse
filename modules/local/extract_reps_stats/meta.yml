@@ -36,28 +36,33 @@ input:
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
 output:
-  reps_stats_tsv:
+  reps_list:
     - - meta:
           type: map
-          description: |
-            Groovy Map containing sample information
-            e.g. [ id:'test' ]
-      - "${meta.id}_reps_stats.tsv":
+          description: Groovy Map containing sample information e.g. [ id:'test' ]
+      - "${meta.id}_reps.tsv":
           type: file
-          description: Statistics table for cluster representatives
-          pattern: "*_reps_stats.tsv"
+          description: One representative ID per line
+          pattern: "*_reps.tsv"
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  reps_krona_tsv:
+  reps_gff:
     - - meta:
           type: map
-          description: |
-            Groovy Map containing sample information
-            e.g. [ id:'test' ]
-      - "${meta.id}_krona.tsv":
+          description: Groovy Map containing sample information e.g. [ id:'test' ]
+      - "${meta.id}_reps.gff":
           type: file
-          description: Krona-formatted taxonomy table
-          pattern: "*_krona.tsv"
+          description: GFF records for cluster representatives only
+          pattern: "*_reps.gff"
+          ontologies: []
+  reps_proteins_list:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information e.g. [ id:'test' ]
+      - "${meta.id}_reps_proteins.tsv":
+          type: file
+          description: Protein IDs for cluster representatives
+          pattern: "*_reps_proteins.tsv"
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions:

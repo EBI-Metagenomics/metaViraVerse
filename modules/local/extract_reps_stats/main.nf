@@ -15,7 +15,6 @@ process EXTRACT_REPS_STATS {
     path(mapfile)
 
     output:
-    tuple val(meta), path("${meta.id}_reps_stats.tsv"),     emit: reps_stats_tsv
     tuple val(meta), path("${meta.id}_reps.tsv"),           emit: reps_list
     tuple val(meta), path("${meta.id}_reps.gff"),           emit: reps_gff
     tuple val(meta), path("${meta.id}_reps_proteins.tsv"),  emit: reps_proteins_list
@@ -27,7 +26,6 @@ process EXTRACT_REPS_STATS {
     extract_reps_stats.py \\
        --viral-list ${reps_file} \\
        --gff ${full_gff} \\
-       --output ${meta.id}_reps_stats.tsv \\
        --output-reps-list ${meta.id}_reps.tsv \\
        --output-reps-gff ${meta.id}_reps.gff \\
        --output-reps-proteins ${meta.id}_reps_proteins.tsv \\

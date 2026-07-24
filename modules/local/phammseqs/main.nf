@@ -26,7 +26,7 @@ process PHAMMSEQS {
 
     echo "Running phams_to_tsv"
     phams_to_tsv.py \\
-      -i ${meta.id}_pham \\
+      -i ${meta.id}_pham/pham_fastas \\
       -o ${meta.id}_phams.tsv
 
     echo "Done."

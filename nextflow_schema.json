@@ -61,6 +61,21 @@
             "fa_icon": "fas fa-terminal",
             "description": "Rename input contigs and find rRNA contamination",
             "properties": {
+                "viral_sequence_identifier": {
+                    "type": "string",
+                    "help_text": "Pattern used to grep viral sequences from gff",
+                    "default": "viral_sequence"
+                },
+                "prophage_identifier": {
+                    "type": "string",
+                    "help_text": "Pattern to grep prophages from gff",
+                    "default": "prophage"
+                },
+                "plasmid_identifier": {
+                    "type": "string",
+                    "help_text": "Pattern to grep plasmids from gff",
+                    "default": "plasmid"
+                },
                 "skip_rrna_detection": {
                     "type": "boolean",
                     "help_text": "Skip step to detect rRNA",

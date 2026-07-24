@@ -134,12 +134,14 @@ workflow METAVIRAVERSE {
     // Collect viral and plasmid metadata
     //
     COLLECT_METADATA (
-        PREPROCESSING.out.metadata,
+        PREPROCESSING.out.metadata,                   // [id:combined, combined_filtered.tsv]
         PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
         PROCESS_PLASMIDS.out.clustering_tsv,
         params.catalogues_metadata,
         PROCESS_VIRAL_SEQUENCES.out.vitap_best,
-        PREPROCESSING.out.combined_gff
+        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign,
+        PROCESS_VIRAL_SEQUENCES.out.genomad_assign,
+        PREPROCESSING.out.mapfile.map { _meta, f -> f }
     )
     ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 

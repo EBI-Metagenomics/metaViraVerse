@@ -164,6 +164,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     reps_seqs      = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed  // compressed
     reps_proteins  = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed  // compressed
     vitap_best     = TAXONOMY_ASSIGNMENT.out.vitap_best
+    viphogs_assign = TAXONOMY_ASSIGNMENT.out.viphogs_taxonomy
+    genomad_assign = TAXONOMY_ASSIGNMENT.out.genomad_taxonomy
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
