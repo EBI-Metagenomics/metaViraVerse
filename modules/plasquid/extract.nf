@@ -6,7 +6,6 @@ process EXTRACT {
 
     input:
     tuple val(meta), path(filt_tsv), path(domains), path(mob_table), path(fna), path(faa)
-    path(db_search)
 
     output:
     tuple val(meta), path("Plasmids_contigs.fasta"), emit: fasta
