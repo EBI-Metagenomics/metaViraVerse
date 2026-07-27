@@ -34,6 +34,10 @@ The pipeline takes previously predicted **viral sequences**, **prophages**, and 
 >
 > If you don't have MGnify results, you can still run the pipeline using `--third_party_input`.
 
+## Download databases
+
+Check [documentation](docs/databases.md) how to download and prepare databases.
+
 ## Usage
 
 - For MGnify input, see the [MGnify usage guide](docs/mgnify_usage.md).
