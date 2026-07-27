@@ -43,13 +43,13 @@ workflow PLASQUID_WORKFLOW {
         params.mobsearch_db
     )
 
-    EXTRACT(
-        INCSEARCH.out.filt_classification
-           .join(MOBSEARCH.out.mob_table)
-           .join(REPSEARCH.out.rep_domains)
-           .join(plasmids_fna)
-           .join(plasmids_faa)
-    )
+    //EXTRACT(
+    //    INCSEARCH.out.filt_classification
+    //       .join(MOBSEARCH.out.mob_table)
+    //       .join(REPSEARCH.out.rep_domains)
+    //       .join(plasmids_fna)
+    //       .join(plasmids_faa)
+    //)
 
 }
 
