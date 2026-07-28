@@ -9,7 +9,7 @@ include { GUNZIP as GUNZIP_FAA_PLASMID   } from '../../../modules/nf-core/gunzip
 include { GUNZIP as GUNZIP_FNA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FNA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
 include { PLASQUID_WORKFLOW              } from '../plasquid_workflow'
-include { MOBSUITE_TYPER                 } from '../../../modules/local/mobsuite/typer/main'
+include { MOBSUITE_TYPER                 } from '../../../modules/nf-core/mobsuite/typer/main'
 
 
 workflow THIRD_PARTY_DATA {
