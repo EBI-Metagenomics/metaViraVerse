@@ -8,11 +8,6 @@
  tbd = args[2]
  tbm = args[3]
  asm = args[4]
-
- tbr = 'Filtered_classif.tsv'
- tbd = 'Rep_domains.tsv'
- tbm = 'Mob_table.tsv'
- asm = 'assembly.fa'
  
  library(tidyverse)
  library(Biostrings)

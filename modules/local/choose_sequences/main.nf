@@ -10,7 +10,7 @@ process CHOOSE_SEQUENCES {
     tuple val(meta_fna), path(fna_files)
     tuple val(meta_gff), path(gff_files)
     tuple val(meta_quality), path(quality, name: "quality_summary.tsv")
-    tuple val(meta_gff), path(rna_gff)
+    tuple val(meta_rna_gff), path(rna_gff)
     tuple val(meta_map), path(map_file, name: "mapping.tsv")
 
 

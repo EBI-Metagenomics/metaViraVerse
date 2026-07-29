@@ -5,8 +5,7 @@ process EXTRACT {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(filt_tsv), path(domains), path(mob_table), path(fna), path(faa)
-    path(db_search)
+    tuple val(meta), path(filt_tsv), path(mob_table), path(domains), path(fna), path(faa)
 
     output:
     tuple val(meta), path("Plasmids_contigs.fasta"), emit: fasta

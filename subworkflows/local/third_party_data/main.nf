@@ -8,7 +8,8 @@ include { GUNZIP as GUNZIP_FAA_VIRUS     } from '../../../modules/nf-core/gunzip
 include { GUNZIP as GUNZIP_FAA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FNA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FNA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
-include { PLASQUID_WORKFLOW                       } from '../plasquid_workflow'
+include { PLASQUID_WORKFLOW              } from '../plasquid_workflow'
+include { MOBSUITE_TYPER                 } from '../../../modules/nf-core/mobsuite/typer/main'
 
 
 workflow THIRD_PARTY_DATA {
@@ -60,5 +61,13 @@ workflow THIRD_PARTY_DATA {
     PLASQUID_WORKFLOW(
         GUNZIP_FNA_PLASMID.out.gunzip,
         GUNZIP_FAA_PLASMID.out.gunzip
+    )
+
+    MOBSUITE_TYPER(
+        GUNZIP_FNA_PLASMID.out.gunzip,
+        params.mobsuite_db,
+        [], [], [], [], [], [], [],
+        true,
+        true
     )
 }
