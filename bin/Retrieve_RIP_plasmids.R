@@ -8,7 +8,7 @@
  tbd = args[2]
  tbm = args[3]
  asm = args[4]
- 
+
  library(tidyverse)
  library(Biostrings)
  
@@ -32,10 +32,15 @@
  
  #Extract plasmidic contigs
 
- nms <- names(mtg)
- idx <- which(nms %in% cnts)
- 
+ nms <- sub(" .*", "", names(mtg))
+ ctg <- sub("_.*", "", nms)
+
+ names(mtg) <- nms
+
+ idx <- which(ctg %in% cnts)
+
  hit <- mtg[idx]
+ hct <- ctg[idx]
  
  
  #Parsing output tables
@@ -135,20 +140,19 @@
  
  
  fct <- ftb2$Contig
- nht <- names(hit)
- len <- numeric(0)
- 
+ len <- character(0)
+
  for (i in 1:length(fct)){
-     
+
      ct <- fct[i]
-     idx <- which(nht == ct)
+     idx <- which(hct == ct)
      cnl <- width(hit[idx])
-     
-     len <- c(len, cnl)
-     
+
+     len <- c(len, paste(cnl, collapse = ','))
+
  }
  
- if(is.na(fct)) {
+ if(all(is.na(fct))) {
  
  ftb2$contig_length <- NA
  

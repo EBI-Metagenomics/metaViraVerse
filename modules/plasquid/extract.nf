@@ -1,4 +1,4 @@
-process EXTRACT {
+process EXTRACT_PLASMIDS_DATA {
 
     label 'process_medium'
     tag "${meta.id}"
@@ -17,12 +17,12 @@ process EXTRACT {
     script:
     """
     echo "GeneRetrieve"
-    Retrieve_RIP_plasmids.R ${filt_tsv} ${domains} ${mob_table} ${fna}
+    Retrieve_RIP_plasmids.R ${filt_tsv} ${domains} ${mob_table} ${fna}  # output:  Plasmids_contigs.fasta, Plasmid_Report.tsv
 
     echo "RipExtract"
-    RIP_extraction.R ${faa} ${filt_tsv} ${domains}
+    RIP_extraction.R ${faa} ${filt_tsv} ${domains}  # output: RIP_seqs.faa
 
     echo "RepSearchOut"
-    repsearch_sum.R Plasmid_Report.tsv ${fna}
+    repsearch_sum.R Plasmid_Report.tsv ${fna}  # output: Result.tsv, Result.fasta
     """
 }
