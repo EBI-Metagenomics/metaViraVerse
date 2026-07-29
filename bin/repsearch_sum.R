@@ -10,24 +10,15 @@ dnn = args[2]
 
 dna <- readDNAStringSet(dnn)
 
-tab <- read_delim(tbb, delim = "\t")
+nms <- sub(" .*", "", names(dna))
+ctg <- sub("_.*", "", nms)
+names(dna) <- nms
+
+tab <- read_delim(tbb, delim = "\t", col_types = cols(contig_length = "c"))
 
 cnt <- tab$Contig
-idx <- numeric()
+idx <- match(cnt, ctg)
 
-for (i in 1:length(cnt)) {
-  
-  cn <- cnt[i]
-  id <- strsplit(cn, "-")[[1]][2]
-  
-  paste0()
-    
-  idx <- c(idx,id)
-  
-  
-}
-  
-idx <- as.numeric(idx)
 dnr <- dna[idx]
 names(dnr)<-tab$Contig
 writeXStringSet(dnr, "Result.fasta")
