@@ -10,7 +10,7 @@ cmt = "RNA_candidates.tsv"
 
 library(tidyverse)
 
-hmt <- as_tibble(read.table(hmt, header=FALSE, sep = "", comment.char = '#', 
+hmt <- as_tibble(read.table(hmt, header=FALSE, sep = "", comment.char = '#',
             col.names= c("query_name","taccession","tlen","Inc_det",
                         "qaccession","qlen","Evalue","score","bias",
                         "num","of","CEvalue","iEvalue","domscore","dombias",
@@ -18,7 +18,7 @@ hmt <- as_tibble(read.table(hmt, header=FALSE, sep = "", comment.char = '#',
                         "envto","acc"), fill = TRUE, stringsAsFactors = FALSE))
 
 Incs <- c("Inc11_B", "Inc11", "Inc13_A", "Inc13_B", "Inc13_C", "Inc18", "Inc1", "Inc1_B",
-          "Inc4_A", "Inc4B-9-10-14", "Inc7_A","Inc7_B","Inc8", "IncAC", "IncB-O-K-I", 
+          "Inc4_A", "Inc4B-9-10-14", "Inc7_A","Inc7_B","Inc8", "IncAC", "IncB-O-K-I",
           "IncFI_RepB", "IncFI_RepE", "IncGU", "IncHIA", "IncHIB", "IncHI2", "IncLM",
           "IncN","IncP2","IncP7","IncP9","IncP","IncQ","IncR","IncT","IncW","IncX","IncZ")
 
@@ -30,30 +30,30 @@ hdl <- tibble("Inc_det" = character(0),
               "tlen" = character(0),
               "query_name" = character(0),
               "score" = numeric(0))
-       
+
  for (i in 1:length(Incs)) {
-   
+
    inc <- Incs[i]
    scc <- sci[i]
-   
+
    hm1 <- subset.data.frame(hmt, hmt$Inc_det == inc)
    hms <- subset.data.frame(hm1, subset = hm1$score >= scc, select = c("Inc_det", "tlen", "query_name", "score"))
-   
+
    hdl <- rbind(hdl, hms)
-   
+
  }
- 
+
 
   if (nrow(hdl) > 0) {
-  
+
    cnt <- character(0)
- 
+
    for (i in 1:length(hdl$query_name)){
-    
+
     ri <- hdl$query_name[i]
-    
+
     rc <- strsplit(ri, split = "_")[[1]][1]
-    
+
     cnt <- c(cnt, rc)
    }
 
@@ -62,13 +62,13 @@ hdl <- tibble("Inc_det" = character(0),
 
 # Threshold specific filtering of RNA incompatibility determinants
 
-cm1 <- as_tibble(read.table(cmt, header=FALSE, sep = "", comment.char = '#', 
+cm1 <- as_tibble(read.table(cmt, header=FALSE, sep = "", comment.char = '#',
                            col.names= c("query_name","accession", "Inc_det","accession","mdl",
                                         "mdl_from","mdl_to","seq_from","seq_to","strand","trunc",
                                         "pass","gc","bias","score","E-value", "inc", "DoT"),
                            fill = TRUE, stringsAsFactors = FALSE))
-         
- 
+
+
  cmm <- c("Col156","Col3M","Col440I","Col440II","Col8282","Col(BS512)","ColE10","Col(IMGS31)","Col(IRGK)",
           "ColKP3","Col(MP18)","ColpVC","ColRNAI","Col(SD853)","Col(Ye4449)","Col(MG828)","IncFII_1_pKP91",
           "IncFII(29)_1_pUTI89","IncFII(p96A)_1_p96A","IncFII(pCoo)_1_pCoo","IncFII(pCRY)_1_pCRY","IncFII(pCTU2)_1_pCTU2",
@@ -78,43 +78,40 @@ cm1 <- as_tibble(read.table(cmt, header=FALSE, sep = "", comment.char = '#',
 
  scm <- c(138.2, 106.9, 115.4, 248.8, 193.6, 245.0, 179.6, 197.2,190.3, 298.4,182.9,178.0,113.2,173,188.8,182,
          210.5,266.6,587.6, 264,608.5,636.1,786.8,262.5,585.0,629.7,261.8,274.2,697.6,238.4,217.4,205.9)
- 
+
  hdc <- tibble("Inc_det" = character(0),
                "query_name" = character(0),
                "score" = numeric(0))
- 
+
 
   for (i in 1:length(cmm)) {
-   
-   
+
+
    cmi <- cmm[i]
    sci <- scm[i]
-   
+
    cmk <- subset.data.frame(cm1, cm1$Inc_det == cmi)
    cmh <- subset.data.frame(cmk, cmk$score >= sci, select = c(Inc_det, query_name, score, mdl_from))
-   
+
    if (cmi == "Col440I") {
-     
+
      cmh1 <- subset.data.frame(cmh, cmh$mdl_from == 1, select = c(Inc_det, query_name, score))
-     
+
    } else {
-     
-     cmh1 <- cmh[,1:3] 
-     
+
+     cmh1 <- cmh[,1:3]
+
    }
-   
+
    hdc <- rbind(hdc, cmh1)
  }
 
   n <- length(hdc$query_name)
   hdc$tlen <- rep("NA", n)
   hdc$contig <- hdc$query_name
-  
+
 
   ctb <- rbind(hdc, hdl)
-  
-  
-  write_delim(ctb, "Classification_table.tsv", delim = "\t")
 
-  
-                           
+
+  write_delim(ctb, "Classification_table.tsv", delim = "\t")

@@ -16,11 +16,11 @@ nrf <- names(orf)
 nms <- character(0)
 
 for(i in 1:length(nrf)) {
-  
+
   nri <- nrf[i]
-  
+
   nm <- strsplit(nri, split = " ")[[1]][1]
-  
+
   nms <- c(nms, nm)
 }
 
@@ -56,14 +56,14 @@ tbf1 <- tbf %>% group_by_at(vars(Rep_ORF)) %>%
 nmf <- character(0)
 
 for(i in 1:length(tbf1$Rep_ORF)){
-  
+
   rpi <- tbf1$Rep_ORF[i]
   rti <- tbf1$Rep_type[i]
-  
+
   nmi <- paste(rpi,rti, sep ="#")
-  
+
   nmf <- c(nmf, nmi)
-  
+
 }
 
 names(rep) <- nmf

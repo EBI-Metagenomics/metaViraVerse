@@ -67,12 +67,12 @@
             },
             "anyOf": [
                 {
-                  "required": ["input"]
+                    "required": ["input"]
                 },
                 {
-                  "required": ["third_party_input"]
+                    "required": ["third_party_input"]
                 }
-              ]
+            ]
         },
         "preprocessing_options": {
             "title": "Preprocessing input data",
