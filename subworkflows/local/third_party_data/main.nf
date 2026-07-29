@@ -8,8 +8,6 @@ include { GUNZIP as GUNZIP_FAA_VIRUS     } from '../../../modules/nf-core/gunzip
 include { GUNZIP as GUNZIP_FAA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FNA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FNA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
-include { PLASQUID_WORKFLOW              } from '../plasquid_workflow'
-include { MOBSUITE_TYPER                 } from '../../../modules/nf-core/mobsuite/typer/main'
 
 
 workflow THIRD_PARTY_DATA {
@@ -54,20 +52,8 @@ workflow THIRD_PARTY_DATA {
     plasmid_proteins = PYRODIGAL.out.faa.filter{meta, faa -> meta.type == 'plasmid'}
     plasmid_fna      = PYRODIGAL.out.fna.filter{meta, fna -> meta.type == 'plasmid'}
 
-    GUNZIP_FAA_PLASMID(plasmid_proteins)
-    GUNZIP_FNA_PLASMID(plasmid_fna)
+    //GUNZIP_FAA_PLASMID(plasmid_proteins)
+    //GUNZIP_FNA_PLASMID(plasmid_fna)
 
-    // TODO remove after testing
-    PLASQUID_WORKFLOW(
-        GUNZIP_FNA_PLASMID.out.gunzip,
-        GUNZIP_FAA_PLASMID.out.gunzip
-    )
 
-    MOBSUITE_TYPER(
-        GUNZIP_FNA_PLASMID.out.gunzip,
-        params.mobsuite_db,
-        [], [], [], [], [], [], [],
-        true,
-        true
-    )
 }

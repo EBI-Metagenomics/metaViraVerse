@@ -25,7 +25,7 @@ The pipeline takes previously predicted **viral sequences**, **prophages**, and 
 - Prediction of replicon family, relaxase type, and mate-pair formation type [in development]
 
 <p align="center">
-    <img src="assets/schema.png" alt="Pipeline overview" width="90%">
+    <img src="assets/schema.png" alt="Pipeline overview" width="1000%">
 </p>
 
 

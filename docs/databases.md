@@ -48,11 +48,4 @@ Download databases for PlaSquid workflow from https://github.com/mgimenez720/pla
 
 #### MOB-suite typer
 
-1. Download database mentioned in [Introduction](https://github.com/phac-nml/mob-suite/tree/master#introduction)
-2. Uncompress archive
-3. Generate mash index for `ncbi_plasmid_full_seqs.fas` using commands from [Update](https://github.com/phac-nml/mob-suite/tree/master#using-mob-cluster) section. You should use container `quay.io/biocontainers/mob_suite:3.1.9--pyhdfd78af_0` with pre-installed blastn and mash
-```
-makeblastdb -in mob_db_path/ncbi_plasmid_full_seqs.fas -dbtype nucl
-
-mash sketch -i mob_db_path/ncbi_plasmid_full_seqs.fas 
-```
+Download and prepare database with `mob_init`. Documentation: https://github.com/phac-nml/mob-suite#mob-init

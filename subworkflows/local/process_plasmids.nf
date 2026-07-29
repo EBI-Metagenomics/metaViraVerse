@@ -7,6 +7,8 @@ include { CLUSTERING                              } from './clustering'
 include { EXTRACT_CLUSTER_FILES                   } from './extract_cluster_files'
 include { INDEX_RESULTS                           } from './index_results'
 include { PLASQUID_WORKFLOW                       } from './plasquid_workflow'
+include { MOBSUITE_TYPER                          } from '../../modules/nf-core/mobsuite/typer/main'
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,7 +70,22 @@ workflow PROCESS_PLASMIDS {
         false
     )
 
-    PLASQUID_WORKFLOW( EXTRACT_CLUSTER_FILES.out.reps_faa_compressed )
+    //
+    // ----------- Analysis -----------
+    //
+
+    PLASQUID_WORKFLOW(
+        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed
+    )
+
+    MOBSUITE_TYPER(
+        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+        params.mobsuite_db,
+        [], [], [], [], [], [], [],
+        true,
+        true
+    )
 
     emit:
 
