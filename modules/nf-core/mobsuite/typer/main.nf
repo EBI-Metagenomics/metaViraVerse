@@ -43,6 +43,8 @@ process MOBSUITE_TYPER {
     def plasmid_orit_fas_cmd = plasmid_orit_fas ? "--plasmid_orit ${plasmid_orit_fas}" : ''
     def db_cmd = db ? "--database_directory ${db}" : ''
     """
+    mob_init --database_directory db
+
     mob_typer \\
         --num_threads ${task.cpus} \\
         --sample_id ${prefix} \\
@@ -55,7 +57,7 @@ process MOBSUITE_TYPER {
         ${plasmid_mob_cmd} \\
         ${plasmid_mpf_cmd} \\
         ${plasmid_orit_fas_cmd} \\
-        ${db_cmd} \\
+        --database_directory db \\
         --out_file ${prefix}.txt \\
         ${biomarker_report_cmd} \\
         ${mge_report_cmd}
