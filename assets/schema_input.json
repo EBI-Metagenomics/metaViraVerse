@@ -1,46 +1,51 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/assets/schema_input.json",
-    "title": "EBI-Metagenomics/metaviraverse pipeline - params.input schema",
-    "description": "Schema for the file provided with params.input",
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "id": {
-                "type": "string",
-                "description": "For catalogue data: catalogueName_version, example, tomato-rhizosphere_1.0. For assembly data: ERZ accession",
-                "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
-            },
-            "gff": {
-                "type": "string",
-                "format": "file-path",
-                "errorMessage": "GFF file containing viral data"
-            },
-            "fna": {
-                "type": "string",
-                "format": "file-path",
-                "errorMessage": "FASTA file corresponding to GFF with viral sequences"
-            },
-            "faa": {
-                "type": "string",
-                "format": "file-path",
-                "errorMessage": "FASTA file corresponding to GFF with protein sequences"
-            },
-            "type": {
-                "type": "string",
-                "enum": ["genome", "metagenome"],
-                "description": "Use genome for MAG or isolate; use metagenome for assembly",
-                "meta": ["type"]
-            },
-            "biome": {
-                "type": "string",
-                "description": "Environmental biome",
-                "meta": ["biome"]
-            }
-        },
-        "required": ["id", "gff", "fna", "faa"]
-    }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/EBI-Metagenomics/metaviraverse/main/assets/schema_input.json",
+  "title": "EBI-Metagenomics/metaviraverse pipeline - params.input schema",
+  "description": "Schema for the file provided with params.input",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "For catalogue data: catalogueName_version, example, tomato-rhizosphere_1.0. For assembly data: ERZ accession",
+        "pattern": "^\\S+$",
+        "errorMessage": "Sample name must be provided and cannot contain spaces",
+        "meta": ["id"]
+      },
+      "gff": {
+        "type": "string",
+        "format": "file-path",
+        "errorMessage": "GFF file containing viral data"
+      },
+      "fna": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q(\\.gz)?$",
+        "errorMessage": "FASTA/FASTQ file corresponding to GFF with viral sequences"
+      },
+      "faa": {
+        "type": "string",
+        "format": "file-path",
+        "exists": false,
+        "pattern": "^(\\S+\\.(faa|fasta|fsa)(\\.gz)?)?$",
+        "description": "Path to protein FASTA (.faa) for structure prediction. Optional — subworkflow skipped if absent.",
+        "errorMessage": "Protein FASTA must have extension .faa, .fasta or .fsa (optionally gzipped)"
+      },
+      "type": {
+        "type": "string",
+        "enum": ["genome", "metagenome"],
+        "description": "Use genome for MAG or isolate; use metagenome for assembly",
+        "meta": ["type"]
+      },
+      "biome": {
+        "type": "string",
+        "description": "Environmental biome",
+        "meta": ["biome"]
+      }
+    },
+    "required": ["id", "gff", "fna", "type"]
+  }
 }

@@ -13,9 +13,17 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+feature/OncoProteinStructure
+include { VIRAVERSE  } from './workflows/viraverse'
+include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
+include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_viraverse_pipeline'
+
+include { PROTEIN_STRUCTURE } from './subworkflows/local/protein_structure/main'
+=======
 include { METAVIRAVERSE           } from './workflows/metaviraverse'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
+dev
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
@@ -76,6 +84,24 @@ workflow {
         params.monochrome_logs,
         EBIMETAGENOMICS_METAVIRAVERSE.out.multiqc_report
     )
+    //
+    // OPTIONAL: Protein structure prediction and annotation
+    // Activated when params.run_protein_structure = true
+    // and .faa is provided in the samplesheet
+    //
+    if (params.run_protein_structure) {
+        ch_faa = ch_samplesheet
+            .map { meta, reads, faa -> faa ? [ meta, file(faa) ] : null }
+            .filter { it != null }
+
+        PROTEIN_STRUCTURE (
+            ch_faa,
+            ch_reps_stats,          // from upstream clustering process
+            params.bfvd_db      ?: 'BFVD',
+            params.plddt_cutoff ?: 0.7
+        )
+    }
+
 }
 
 /*

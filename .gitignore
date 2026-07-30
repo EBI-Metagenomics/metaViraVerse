@@ -7,6 +7,9 @@ testing/
 testing*
 *.pyc
 null/
+feature/OncoProteinStructure
+metaViraVerse_issue16_SCAFFOLD.sh
+=======
 # IDE files
 .idea/
 
@@ -21,3 +24,4 @@ test2/
 
 # Sample/test results
 sample_mobtyper_results.txt
+dev
