@@ -18,6 +18,34 @@
 >
 > _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://doi.org/10.1038/s41587-020-0439-x).
 
+## Pre-processing
+
+### Barrnap
+
+> **barrnap 0.9 : rapid ribosomal RNA prediction.**
+>
+> Seemann T.
+>
+> 2013. [https://github.com/tseemann/barrnap](https://github.com/tseemann/barrnap).
+
+## Clustering
+
+### Vclust
+
+> **Ultrafast and accurate sequence alignment and clustering of viral genomes.**
+>
+> Zielezinski A, Gudyś A, Barylski J, Siminski K, Rozwalak P, Dutilh BE, Deorowicz S.
+>
+> _Nat Methods._ 2025;22(6):1191-1194. doi: [10.1038/s41592-025-02701-7](https://doi.org/10.1038/s41592-025-02701-7).
+
+### BLAST
+
+> **Basic local alignment search tool.**
+>
+> Altschul SF, Gish W, Miller W, Myers EW, Lipman DJ.
+>
+> _J Mol Biol._ 1990;215(3):403-410. doi: [10.1016/S0022-2836(05)80360-2](https://doi.org/10.1016/S0022-2836(05)80360-2).
+
 ## Viruses and prophages
 
 ### CheckV
@@ -68,6 +96,30 @@
 >
 > _PLoS Biol._ 2023;21(4):e3002083. doi: [10.1371/journal.pbio.3002083](https://doi.org/10.1371/journal.pbio.3002083).
 
+### BACPHLIP
+
+> **BACPHLIP: predicting bacteriophage lifestyle from conserved protein domains.**
+>
+> Hockenberry AJ, Wilke CO.
+>
+> _PeerJ._ 2021;9:e11396. doi: [10.7717/peerj.11396](https://doi.org/10.7717/peerj.11396).
+
+### SpacePHARER
+
+> **SpacePHARER: sensitive identification of phages from CRISPR spacers in prokaryotic hosts.**
+>
+> Zhang R, Mirdita M, Levy Karin E, Norroy C, Galiez C, Söding J.
+>
+> _Bioinformatics._ 2021;37(19):3364-3366. doi: [10.1093/bioinformatics/btab222](https://doi.org/10.1093/bioinformatics/btab222).
+
+### HMMER
+
+> **Accelerated profile HMM searches.**
+>
+> Eddy SR.
+>
+> _PLoS Comput Biol._ 2011;7(10):e1002195. doi: [10.1371/journal.pcbi.1002195](https://doi.org/10.1371/journal.pcbi.1002195).
+
 ### AMRFinderPlus
 
 > **AMRFinderPlus and the Reference Gene Catalog facilitate examination of the genomic links among antimicrobial resistance, stress response, and virulence.**
@@ -92,7 +144,39 @@
 >
 > _Nucleic Acids Res._ 2023;51(D1):D690-D699. doi: [10.1093/nar/gkac920](https://doi.org/10.1093/nar/gkac920).
 
+### Pyrodigal
+
+> **Pyrodigal: Python bindings and interface to Prodigal, an efficient method for gene prediction in prokaryotes.**
+>
+> Larralde M.
+>
+> _J Open Source Softw._ 2022;7(72):4296. doi: [10.21105/joss.04296](https://doi.org/10.21105/joss.04296).
+
+### Krona
+
+> **Interactive metagenomic visualization in a Web browser.**
+>
+> Ondov BD, Bergman NH, Phillippy AM.
+>
+> _BMC Bioinformatics._ 2011;12:385. doi: [10.1186/1471-2105-12-385](https://doi.org/10.1186/1471-2105-12-385).
+
+### iTOL
+
+> **Interactive Tree Of Life (iTOL) v5: an online tool for phylogenetic tree display and annotation.**
+>
+> Letunic I, Bork P.
+>
+> _Nucleic Acids Res._ 2021;49(W1):W293-W296. doi: [10.1093/nar/gkab301](https://doi.org/10.1093/nar/gkab301).
+
 ## Plasmids
+
+### MOB-suite
+
+> **Universal whole-sequence-based plasmid typing and its utility to prediction of host range and epidemiological surveillance.**
+>
+> Robertson J, Bessonov K, Schonfeld J, Nash JHE.
+>
+> _Microb Genom._ 2020;6(10). doi: [10.1099/mgen.0.000435](https://doi.org/10.1099/mgen.0.000435).
 
 ### plaSquid
 

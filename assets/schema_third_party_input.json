@@ -19,9 +19,15 @@
             },
             "type": {
                 "type": "string",
-                "enum": ["virus", "plasmid"],
-                "description": "Sequence type: virus or plasmid",
+                "enum": ["virus", "plasmid", "prophage"],
+                "description": "Sequence type: virus | plasmid | prophage",
                 "meta": ["type"]
+            },
+            "source": {
+                "type": "string",
+                "enum": ["genome", "metagenome"],
+                "description": "Use 'genome' for MAG or isolate; use 'metagenome' for assembly",
+                "meta": ["source"]
             },
             "biome": {
                 "type": "string",

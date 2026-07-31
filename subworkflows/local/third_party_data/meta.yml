@@ -19,13 +19,6 @@ input:
       type: file
       description: FASTA file containing nucleotide sequences
       pattern: "*.{fa,fasta,fna}"
-  - type:
-      type: string
-      description: Sequence type, either 'virus' or 'plasmid'
-      enum: ["virus", "plasmid"]
-  - biome:
-      type: string
-      description: Biome where the sequence was collected (optional, max 2 words, e.g. marine sediment or human gut)
 output:
   - fna:
       type: file
@@ -39,12 +32,6 @@ output:
       type: file
       description: Gene annotations in GFF format (decompressed)
       pattern: "*.gff"
-  - types:
-      type: string
-      description: Sequence types (virus or plasmid)
-  - biomes:
-      type: string
-      description: Biomes where the sequences were collected
 authors:
   - "@EfraMP"
 maintainers:

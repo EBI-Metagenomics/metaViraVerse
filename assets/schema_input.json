@@ -32,7 +32,7 @@
             "type": {
                 "type": "string",
                 "enum": ["genome", "metagenome"],
-                "description": "Use genome for MAG or isolate; use metagenome for assembly",
+                "description": "Use 'genome' for MAG or isolate; use 'metagenome' for assembly",
                 "meta": ["type"]
             },
             "biome": {

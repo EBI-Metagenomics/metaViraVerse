@@ -45,6 +45,10 @@ Check [documentation](docs/databases.md) how to download and prepare databases.
 - For third-party data, see the [third-party usage guide](docs/third_party_usage.md).
 - Process mixed data specifying both `--input` and `--third_party_input`
 
+## Methods
+
+In detail pipeline description can be found in [methods](docs/methods.md).
+
 ## Run
 
 Check the appropriate section in [MGnify](docs/mgnify_usage.md) and [third-party](docs/third_party_usage.md) usage guides.

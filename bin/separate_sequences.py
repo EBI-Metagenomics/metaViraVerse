@@ -1,117 +1,171 @@
 #!/usr/bin/env python3
 """
-Filter FASTA sequences by a header pattern and optionally rename contigs.
+Split a renamed, combined FASTA/GFF/FAA set into virus/prophage/plasmid groups.
 
-Sequences whose description matches the given regex pattern are written to the
-output file.  When a mapping file is supplied, each kept sequence is renamed
-from its temporary contig ID to the original name before writing.
+Sequences are bucketed by the 'definition' column of the rename map (written
+by rename_contigs.py), stripping any 'third_party_' prefix so that, for
+example, both 'virus' and 'third_party_virus' land in the same 'virus'
+bucket. The matching GFF and (optionally) FAA records are split the same way,
+so cross-category deduplication downstream (choose_sequences.py) has a
+consistent fna/gff/faa triple to work with per category.
 
 Usage:
-    separate_sequences.py -i input.fna -p "viral_sequence" -o viral.fna
-    separate_sequences.py -i input.fna -p "plasmid" -o plasmid.fna --map names.tsv
+    separate_sequences.py \
+        --fna combined.fna --gff combined.gff --faa combined.faa \
+        --map combined.tsv --category virus --output-prefix viruses
 """
 from __future__ import annotations
 
 import argparse
-import re
+import csv
 
 from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
+
+from utils import parse_attributes
+
+
+CATEGORIES = ('virus', 'prophage', 'plasmid')
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments.
 
     Returns:
-        argparse.Namespace with input (str), pattern (str), output (str),
-        and map (list[str] | None).
+        argparse.Namespace with fna, gff, faa, map, category, output_prefix.
     """
     parser = argparse.ArgumentParser(
-        description="Filter FASTA sequences by header pattern."
+        description="Split a combined FASTA/GFF/FAA set into a virus/prophage/plasmid group."
     )
-    parser.add_argument("-i", "--input", required=True, help="Input FASTA file")
-    parser.add_argument(
-        "-p", "--pattern", required=True, help="Regex pattern to match against sequence headers"
-    )
-    parser.add_argument("-o", "--output", required=True, help="Output FASTA file")
-    parser.add_argument(
-        "--map",
-        required=False,
-        nargs="+",
-        help="TSV mapping file(s) with original and temporary contig names",
-    )
+    parser.add_argument("--fna", required=True, help="Combined (renamed) input FASTA file")
+    parser.add_argument("--gff", required=False, help="Combined (renamed) input GFF file")
+    parser.add_argument("--faa", required=False, help="Combined input protein FASTA file (original protein IDs)")
+    parser.add_argument("--map", required=True, help="Rename map TSV (must include a 'definition' column)")
+    parser.add_argument("--category", required=True, choices=CATEGORIES, help="Category to extract")
+    parser.add_argument("--output-prefix", required=True, help="Prefix for output files")
     return parser.parse_args()
 
 
-def read_map(map_files: list[str]) -> dict[str, str]:
-    """Read one or more TSV mapping files from temporary to original contig names.
+def read_definitions(map_file: str) -> dict[str, str]:
+    """Read the map file and return {temporary_name: base_category}.
 
-    Each file is expected to have a header row containing 'original' and 'temporary',
-    followed by rows with (original_name, temporary_name) tab-separated columns.
+    The 'definition' column may carry a 'third_party_' prefix (e.g.
+    'third_party_virus'); that prefix is stripped here so third-party and
+    MGnify sequences of the same biological category land in the same bucket.
 
     Args:
-        map_files: Paths to mapping TSV files.
+        map_file: Path to the rename map TSV (from rename_contigs.py).
 
     Returns:
-        Dict mapping temporary contig name -> original contig name.
-
-    Raises:
-        SystemExit: If a temporary name appears in more than one mapping entry.
+        Dict mapping temporary contig name -> base category ('virus',
+        'prophage', 'plasmid', or 'NA').
     """
-    mapping: dict[str, str] = {}
-    for map_file in map_files:
-        with open(map_file) as f:
-            for line in f:
-                if "original" in line and "temporary" in line:
-                    continue
-                parts = line.strip().split("\t")
-                original, temporary = parts[0], parts[1]
-                if temporary in mapping:
-                    print(f"Mapping already exists {temporary}. Exit")
-                    exit(1)
-                mapping[temporary] = original
-    return mapping
+    definitions: dict[str, str] = {}
+    with open(map_file) as f:
+        for row in csv.DictReader(f, delimiter='\t'):
+            temporary = row['temporary']
+            definition = row.get('definition') or 'NA'
+            definitions[temporary] = definition.removeprefix('third_party_')
+    return definitions
 
 
-def separate_sequences(
-    input_fasta: str,
-    pattern: str,
-    output_fasta: str,
-    mapping: dict[str, str],
-) -> None:
-    """Filter sequences by header pattern and write matching records to output.
-
-    Sequences whose BioPython description matches ``pattern`` are kept.  If a
-    mapping is provided, the record ID and description are replaced with the
-    original contig name before writing.
+def split_fasta(fna_file: str, definitions: dict[str, str], category: str, output_fna: str) -> set[str]:
+    """Write sequences whose definition matches ``category`` to ``output_fna``.
 
     Args:
-        input_fasta: Path to the input FASTA file.
-        pattern: Regex pattern tested against each record's full description.
-        output_fasta: Path for the output FASTA file.
-        mapping: Dict of temporary -> original contig names (may be empty).
+        fna_file: Path to the combined (renamed) input FASTA file.
+        definitions: Dict of temporary contig name -> base category (see ``read_definitions``).
+        category: Category to keep ('virus', 'prophage', or 'plasmid').
+        output_fna: Path for the output FASTA file.
+
+    Returns:
+        Set of temporary contig IDs that were kept.
     """
-    regex = re.compile(pattern)
-    kept: list[SeqRecord] = []
-    pattern_filtered = 0
+    kept_ids: set[str] = set()
+    with open(output_fna, 'w') as out_f:
+        for record in SeqIO.parse(fna_file, "fasta"):
+            if definitions.get(record.id) == category:
+                SeqIO.write(record, out_f, "fasta")
+                kept_ids.add(record.id)
+    print(f"Wrote {len(kept_ids)} sequences to {output_fna}")
+    return kept_ids
 
-    for record in SeqIO.parse(input_fasta, "fasta"):
-        if mapping:
-            original = mapping.get(record.id, record.id)
-        if regex.search(original):
-            kept.append(record)
-        else:
-            pattern_filtered += 1
 
-    SeqIO.write(kept, output_fasta, "fasta")
-    print(f"Sequences kept: {len(kept)}")
-    print(f"Sequences excluded (pattern mismatch): {pattern_filtered}")
+def split_gff(gff_file: str, kept_ids: set[str], output_gff: str) -> set[str]:
+    """Write GFF records belonging to ``kept_ids`` to ``output_gff``.
+
+    CDS lines don't repeat their parent's ID, so the current sequence ID is
+    tracked from the most recently seen non-CDS feature line (same convention
+    used by rename_contigs.py/choose_sequences.py).
+
+    Args:
+        gff_file: Path to the combined (renamed) input GFF file.
+        kept_ids: Set of temporary contig IDs to keep (see ``split_fasta``).
+        output_gff: Path for the output GFF file.
+
+    Returns:
+        Set of CDS protein IDs (original naming) belonging to kept sequences.
+    """
+    protein_ids: set[str] = set()
+    current_seq_id: str | None = None
+    seqs_written = 0
+    with open(gff_file) as gff_in, open(output_gff, 'w') as gff_out:
+        gff_out.write("##gff-version 3\n")
+        for line in gff_in:
+            if line.startswith('#'):
+                continue
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 9:
+                continue
+            if parts[2] != 'CDS':
+                attrs, _ = parse_attributes(parts[8])
+                current_seq_id = attrs.get('ID')
+
+            if current_seq_id not in kept_ids:
+                continue
+
+            gff_out.write(line if line.endswith('\n') else line + '\n')
+            if parts[2] == 'CDS':
+                attrs, _ = parse_attributes(parts[8])
+                protein_id = attrs.get('ID')
+                if protein_id:
+                    protein_ids.add(protein_id)
+            else:
+                seqs_written += 1
+    print(f"Wrote {seqs_written} sequences to {output_gff}")
+    return protein_ids
+
+
+def split_faa(faa_file: str, protein_ids: set[str], output_faa: str) -> None:
+    """Write protein records whose ID is in ``protein_ids`` to ``output_faa``.
+
+    Args:
+        faa_file: Path to the combined protein FASTA file.
+        protein_ids: Set of protein IDs to keep (see ``split_gff``).
+        output_faa: Path for the output protein FASTA file.
+    """
+    count = 0
+    with open(output_faa, 'w') as out_f:
+        for record in SeqIO.parse(faa_file, "fasta"):
+            if record.id in protein_ids:
+                SeqIO.write(record, out_f, "fasta")
+                count += 1
+    print(f"Wrote {count} proteins to {output_faa}")
 
 
 def main() -> None:
     args = parse_args()
-    mapping: dict[str, str] = read_map(args.map) if args.map else {}
-    separate_sequences(args.input, args.pattern, args.output, mapping)
+    definitions = read_definitions(args.map)
+
+    output_fna = f"{args.output_prefix}.fna"
+    kept_ids = split_fasta(args.fna, definitions, args.category, output_fna)
+
+    if args.gff:
+        output_gff = f"{args.output_prefix}.gff"
+        protein_ids = split_gff(args.gff, kept_ids, output_gff)
+
+        if args.faa:
+            output_faa = f"{args.output_prefix}.faa"
+            split_faa(args.faa, protein_ids, output_faa)
 
 
 if __name__ == "__main__":

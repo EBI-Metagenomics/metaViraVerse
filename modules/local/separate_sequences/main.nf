@@ -1,29 +1,36 @@
 process SEPARATE_SEQUENCES {
 
     label 'process_low'
-    tag "${meta.id}"
+    tag "${meta.id}_${category}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
 
 
     input:
-    tuple val(meta), path(fasta)
-    val pattern
+    tuple val(meta), path(fna)
+    tuple val(meta_gff), path(gff)
+    tuple val(meta_faa), path(faa)
     tuple val(meta_map), path(map_file)
+    val category
 
     output:
-    tuple val(meta), path("${meta.id}_${pattern}.fasta"), emit: chosen_sequences
-    path "versions.yml",                                  emit: versions
+    tuple val(meta), path("${category}.fna"),                emit: chosen_sequences
+    tuple val(meta), path("${category}.gff"), optional: true, emit: chosen_gff
+    tuple val(meta), path("${category}.faa"), optional: true, emit: chosen_faa
+    path "versions.yml",                                      emit: versions
 
     script:
-    def mapping = map_file ? "--map ${map_file}" : ""
+    def gff_arg = gff ? "--gff ${gff}" : ""
+    def faa_arg = faa ? "--faa ${faa}" : ""
     """
     separate_sequences.py \\
-       --input ${fasta} \\
-       --output ${meta.id}_${pattern}.fasta \\
-       --pattern ${pattern} \\
-       ${mapping}
+       --fna ${fna} \\
+       ${gff_arg} \\
+       ${faa_arg} \\
+       --map ${map_file} \\
+       --category ${category} \\
+       --output-prefix ${category}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

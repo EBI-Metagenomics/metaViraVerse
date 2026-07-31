@@ -20,7 +20,7 @@ def input_args():
         description="Rename multi fasta"
     )
     parser.add_argument(
-        "-f", "--fasta", help="indicate input FASTA file", required=True, nargs='+'
+        "-f", "--fasta", help="MGnify input FASTA file(s)", required=False, nargs='+', default=[]
     )
     parser.add_argument(
         "-g", "--gff", help="Input GFF file(s), one per FASTA file", required=False, nargs='+'
@@ -53,7 +53,63 @@ def input_args():
         "--type",
         required=False,
         nargs='+',
-        help="Source type for each input FASTA file (same order as --fasta)"
+        help="Source type for each input FASTA file (same order as --fasta): 'genome' or 'metagenome'"
+    )
+    parser.add_argument(
+        "--viral-sequence-identifier",
+        dest="viral_sequence_identifier",
+        required=False,
+        help="Regex identifying free viral sequences by their original name (MGnify input), e.g. 'viral_sequence'"
+    )
+    parser.add_argument(
+        "--prophage-identifier",
+        dest="prophage_identifier",
+        required=False,
+        help="Regex identifying prophages by their original name (MGnify input), e.g. 'prophage'"
+    )
+    parser.add_argument(
+        "--plasmid-identifier",
+        dest="plasmid_identifier",
+        required=False,
+        help="Regex identifying plasmids by their original name (MGnify input), e.g. 'plasmid'"
+    )
+    parser.add_argument(
+        "--fasta-tp",
+        dest="fasta_tp",
+        required=False,
+        nargs='+',
+        default=[],
+        help="Third-party input FASTA file(s), renamed after --fasta, continuing the same accession count"
+    )
+    parser.add_argument(
+        "--gff-tp",
+        dest="gff_tp",
+        required=False,
+        nargs='+',
+        help="Third-party input GFF file(s), one per --fasta-tp file"
+    )
+    parser.add_argument(
+        "--biome-tp",
+        dest="biome_tp",
+        required=False,
+        nargs='+',
+        help="Biome label for each --fasta-tp file (same order as --fasta-tp)"
+    )
+    parser.add_argument(
+        "--source-tp",
+        dest="source_tp",
+        required=False,
+        nargs='+',
+        help="Source label for each --fasta-tp file (same order as --fasta-tp), from the third-party "
+             "samplesheet's 'source' column: 'genome' or 'metagenome'"
+    )
+    parser.add_argument(
+        "--type-tp",
+        dest="type_tp",
+        required=False,
+        nargs='+',
+        choices=['virus', 'plasmid', 'prophage'],
+        help="Sequence type for each --fasta-tp file: 'virus', 'plasmid' or 'prophage' (same order as --fasta-tp)"
     )
     args = parser.parse_args()
     if args.biome and len(args.biome) != len(args.fasta):
@@ -62,6 +118,21 @@ def input_args():
         parser.error("--type must have the same number of values as --fasta")
     if args.gff and len(args.gff) != len(args.fasta):
         parser.error("--gff must have the same number of values as --fasta")
+
+    if not args.fasta and not args.fasta_tp:
+        parser.error("At least one of --fasta or --fasta-tp must be provided")
+
+    if args.fasta_tp:
+        if not args.type_tp or len(args.type_tp) != len(args.fasta_tp):
+            parser.error("--type-tp is required and must have the same number of values as --fasta-tp")
+        if args.biome_tp and len(args.biome_tp) != len(args.fasta_tp):
+            parser.error("--biome-tp must have the same number of values as --fasta-tp")
+        if args.source_tp and len(args.source_tp) != len(args.fasta_tp):
+            parser.error("--source-tp must have the same number of values as --fasta-tp")
+        if args.gff_tp and len(args.gff_tp) != len(args.fasta_tp):
+            parser.error("--gff-tp must have the same number of values as --fasta-tp")
+        if not args.combine:
+            parser.error("--fasta-tp is only supported together with --combine")
     return args
 
 
@@ -90,6 +161,36 @@ def define_prefix(prefix, num):
     return accession
 
 
+def classify_definition(
+    name: str,
+    viral_sequence_identifier: str | None,
+    prophage_identifier: str | None,
+    plasmid_identifier: str | None,
+) -> str:
+    """Classify an MGnify sequence as virus/prophage/plasmid from its original name.
+
+    Mirrors the pattern matching performed later by ``separate_sequences.py``:
+    each identifier is a regex tested (in this priority order) against the
+    sequence's original description, and the first pattern that matches wins.
+
+    Args:
+        name: Original sequence description (before renaming).
+        viral_sequence_identifier: Regex identifying free viral sequences (e.g. 'viral_sequence').
+        prophage_identifier: Regex identifying prophages (e.g. 'prophage').
+        plasmid_identifier: Regex identifying plasmids (e.g. 'plasmid').
+
+    Returns:
+        'virus', 'prophage', 'plasmid', or 'NA' if no pattern is given or none match.
+    """
+    if viral_sequence_identifier and re.search(viral_sequence_identifier, name):
+        return 'virus'
+    if prophage_identifier and re.search(prophage_identifier, name):
+        return 'prophage'
+    if plasmid_identifier and re.search(plasmid_identifier, name):
+        return 'plasmid'
+    return 'NA'
+
+
 def rename_fasta(
     input_fasta: str,
     prefix: str,
@@ -98,6 +199,10 @@ def rename_fasta(
     end_accession: int | None,
     biome: str = 'NA',
     source_type: str = 'NA',
+    definition: str | None = None,
+    viral_sequence_identifier: str | None = None,
+    prophage_identifier: str | None = None,
+    plasmid_identifier: str | None = None,
 ) -> tuple[list, dict[str, str], list, int]:
     """Rename FASTA entries with <prefix><counter> and build a mapping table.
 
@@ -109,7 +214,16 @@ def rename_fasta(
         start_accession: Starting counter value for accession numbering.
         end_accession: Expected final counter value (used only for logging).
         biome: Biome label to record in the map file for every sequence.
-        source_type: Source type label to record in the map file for every sequence.
+        source_type: Source type label to record in the map file for every sequence
+            (MGnify: 'genome'/'metagenome'; third-party: the given --source-tp value).
+        definition: Fixed 'virus'/'prophage'/'plasmid' classification to record for
+            every sequence from this file (used for third-party input, where the type
+            is already known). When ``None``, the classification is instead derived
+            per-record from ``viral_sequence_identifier``/``prophage_identifier``/
+            ``plasmid_identifier`` (used for MGnify input).
+        viral_sequence_identifier: Regex identifying free viral sequences by original name.
+        prophage_identifier: Regex identifying prophages by original name.
+        plasmid_identifier: Regex identifying plasmids by original name.
 
     Returns:
         Tuple of (fasta_records, map_dir, map_records, count) where:
@@ -137,7 +251,10 @@ def rename_fasta(
         fasta_records.append(new_record)
         # populate mapping
         short_name = name.split(' ')[0]
-        map_records.append([name, temporary_name, short_name, biome, source_type])
+        record_definition = definition if definition is not None else classify_definition(
+            name, viral_sequence_identifier, prophage_identifier, plasmid_identifier
+        )
+        map_records.append([name, temporary_name, short_name, biome, source_type, record_definition])
         map_key = name.replace('|' + viral_identifier, '') if viral_identifier else name
         map_dir[map_key] = temporary_name
         count += 1
@@ -234,11 +351,11 @@ def write_mapfile(mapfilename: str, map_data: list) -> None:
     Args:
         mapfilename: Output path for the TSV map file.
         map_data: List of rows, each containing
-            [original, temporary, short, biome, type].
+            [original, temporary, short, biome, type, definition].
     """
     with open(mapfilename, "w") as map_tsv:
         tsv_map = csv.writer(map_tsv, delimiter="\t")
-        tsv_map.writerow(["original", "temporary", "short", "biome", "type"])
+        tsv_map.writerow(["original", "temporary", "short", "biome", "type", "definition"])
         for line in map_data:
             tsv_map.writerow(line)
 
@@ -251,6 +368,7 @@ def main():
     all_fasta_records: list = []
     all_map_records: list = []
     combined_map_dir: dict[str, str] = {}
+    all_gff_files: list = []
     count_fasta = 0
 
     biomes = args.biome if args.biome else ['NA'] * len(args.fasta)
@@ -261,6 +379,9 @@ def main():
         fasta_records, map_dir, map_records, count_fasta = rename_fasta(
             fna, args.prefix, args.keep_viral_identifier, start_accession, end_accession,
             biome=biome, source_type=source_type,
+            viral_sequence_identifier=args.viral_sequence_identifier,
+            prophage_identifier=args.prophage_identifier,
+            plasmid_identifier=args.plasmid_identifier,
         )
         if not args.combine:
             basename = os.path.splitext(os.path.basename(fna))[0]
@@ -277,22 +398,44 @@ def main():
             all_fasta_records.extend(fasta_records)
             all_map_records.extend(map_records)
             combined_map_dir.update(map_dir)
+            if gff:
+                all_gff_files.append(gff)
             start_accession += count_fasta
 
     if args.combine:
-        combined_base = os.path.splitext(args.map)[0]
-        write_fasta(combined_base + '.fna', all_fasta_records)
-        write_mapfile(args.map, all_map_records)
+        if args.fasta_tp:
+            biomes_tp  = args.biome_tp  if args.biome_tp  else ['NA'] * len(args.fasta_tp)
+            sources_tp = args.source_tp if args.source_tp else ['NA'] * len(args.fasta_tp)
+            gffs_tp    = args.gff_tp    if args.gff_tp    else [None]  * len(args.fasta_tp)
 
-        if args.gff:
-            combined_gff = combined_base + '.gff'
-            total_gff = 0
-            for i, gff in enumerate(args.gff):
-                total_gff += rename_gff(gff, combined_gff, combined_map_dir, append=(i > 0))
-            if total_gff != len(all_fasta_records):
-                print(f"Sanity check failed: GFF={total_gff}, FASTA={len(all_fasta_records)}. Exit")
-                exit(1)
-            print("Sanity check passed")
+            for fna, gff, biome, source, seq_type in zip(args.fasta_tp, gffs_tp, biomes_tp, sources_tp, args.type_tp):
+                fasta_records, map_dir, map_records, count_fasta = rename_fasta(
+                    fna, args.prefix, args.keep_viral_identifier, start_accession, end_accession,
+                    biome=biome, source_type=source, definition=f"third_party_{seq_type}",
+                )
+                all_fasta_records.extend(fasta_records)
+                all_map_records.extend(map_records)
+                combined_map_dir.update(map_dir)
+                if gff:
+                    all_gff_files.append(gff)
+                start_accession += count_fasta
+
+        if all_fasta_records:
+            combined_base = os.path.splitext(args.map)[0]
+            write_fasta(combined_base + '.fna', all_fasta_records)
+            write_mapfile(args.map, all_map_records)
+
+            if all_gff_files:
+                combined_gff = combined_base + '.gff'
+                total_gff = 0
+                for i, gff in enumerate(all_gff_files):
+                    total_gff += rename_gff(gff, combined_gff, combined_map_dir, append=(i > 0))
+                if total_gff != len(all_fasta_records):
+                    print(f"Sanity check failed: GFF={total_gff}, FASTA={len(all_fasta_records)}. Exit")
+                    exit(1)
+                print("Sanity check passed")
+        else:
+            print("No input provided (neither MGnify nor third-party), nothing to write")
 
 
 if __name__ == "__main__":
