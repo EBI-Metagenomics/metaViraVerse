@@ -28,7 +28,7 @@ workflow PREPROCESSING {
 
     ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
     ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
-    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.type]) }.collect()
+    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.source]) }.collect()
     ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }.collect()
 
     ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect()

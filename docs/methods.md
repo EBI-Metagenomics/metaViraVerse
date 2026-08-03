@@ -8,14 +8,14 @@ The pipeline accepts two independent kinds of input, which are merged during pre
 
 MGnify input format:
 
-| Column  | Required | Description                                                                                                  |
-| ------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `id`    | Yes      | Unique identifier for the sample/assembly. We recommend using the ERZ accession when the MAG or assembly originates from ENA, so that results can always be traced back to the original submission. |
-| `gff`   | Yes      | GFF file describing the viral and plasmid records predicted for this sample. It may also contain CDS features for the selected regions, which are carried through the pipeline alongside the nucleotide sequences. |
-| `fna`   | Yes      | FASTA file with the nucleotide sequences for the regions listed in the GFF (i.e. the candidate viral/plasmid contigs, not the whole assembly). |
-| `faa`   | No       | FASTA file with the protein sequences translated from the CDS regions in the GFF. When supplied, it is used downstream instead of re-predicting genes. |
-| `type`  | Yes      | `genome` (the sequence comes from a MAG) or `metagenome` (the sequence comes from an assembly). This label is later used to decide which copy of a duplicated sequence to keep. |
-| `biome` | No       | Free-text metadata describing the sequence's environmental origin (for example: marine, soil, human gut). Retained purely as metadata and merged across duplicates. |
+| Column   | Required | Description                                                                                                  |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `id`     | Yes      | Unique identifier for the sample/assembly. We recommend using the ERZ accession when the MAG or assembly originates from ENA, so that results can always be traced back to the original submission. |
+| `gff`    | Yes      | GFF file describing the viral and plasmid records predicted for this sample. It may also contain CDS features for the selected regions, which are carried through the pipeline alongside the nucleotide sequences. |
+| `fna`    | Yes      | FASTA file with the nucleotide sequences for the regions listed in the GFF (i.e. the candidate viral/plasmid contigs, not the whole assembly). |
+| `faa`    | No       | FASTA file with the protein sequences translated from the CDS regions in the GFF. When supplied, it is used downstream instead of re-predicting genes. |
+| `source` | Yes      | `genome` (the sequence comes from a MAG) or `metagenome` (the sequence comes from an assembly). This label is later used to decide which copy of a duplicated sequence to keep — the same column, and the same meaning, as the third-party samplesheet's own `source` column below. |
+| `biome`  | No       | Free-text metadata describing the sequence's environmental origin (for example: marine, soil, human gut). Retained purely as metadata and merged across duplicates. |
 
 Third party input format:
 
@@ -41,7 +41,7 @@ Before anything else, every incoming record is given a short, unique, pipeline-i
 - The prefix defaults to `seq` and is controlled by `--rename_accession`; for MGnify catalogue generation it is recommended to set this to `MGYV` so identifiers match the MGnify accession convention.
 - The numeric part of the accession can be bounded with `--start_accession` and `--end_accession`, which is useful when a catalogue is built incrementally and new sequences need to continue numbering from where a previous batch left off.
 - A mapping file (`combined.tsv`) is produced alongside the renamed, combined FASTA/GFF, recording, for every new temporary name: the original sequence name, its `biome`, its `type`, and its `definition`. This mapping is consulted by nearly every later step (separation, quality filtering, deduplication, cluster extraction) whenever the original identity or provenance of a sequence needs to be recovered.
-  - `type` always means `genome` (MAG/isolate) or `metagenome` (assembly), regardless of where the sequence came from: for MGnify records it is copied from the samplesheet's own `type` column, and for third-party records it is copied from the samplesheet's `source` column instead. Keeping this single, consistent vocabulary is what lets the deduplication step (below) compare an MGnify and a third-party record on equal footing.
+  - `type` always means `genome` (MAG/isolate) or `metagenome` (assembly), regardless of where the sequence came from: both the MGnify and the third-party samplesheets carry this value in their own `source` column, and it is copied verbatim into the mapping file's `type` column for either origin. Keeping this single, consistent vocabulary is what lets the deduplication step (below) compare an MGnify and a third-party record on equal footing.
   - `definition` records the sequence's biological category — `virus`, `prophage`, or `plasmid`. For MGnify records this is derived automatically by testing the sequence's original name against the `--viral_sequence_identifier`, `--prophage_identifier` and `--plasmid_identifier` patterns (the same three patterns used to physically separate sequences afterwards). For third-party records it is simply copied from the samplesheet's own `type` column, but prefixed with `third_party_` (e.g. `third_party_prophage`) — that prefix is what lets later steps recognise a record as third-party-derived even though its `type` (genome/metagenome) column looks identical in shape to an MGnify record's.
 
 ### Separate into viruses, prophages and plasmids

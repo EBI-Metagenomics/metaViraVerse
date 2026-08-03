@@ -175,18 +175,18 @@ sp_19345        spacer_19345_29 MGYG000518600_13_19319_19399
 The "Collect data from existing catalogues" step generates `samplesheet.csv` in the output directory automatically — no manual step needed. It contains one row per catalogue, following [`assets/schema_input.json`](../assets/schema_input.json):
 
 ```csv
-id,gff,fna,faa,type,biome
+id,gff,fna,faa,source,biome
 human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
 ```
 
-| Column  | Required | Description                                                                                                  |
-| ------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `id`    | Yes      | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA.          |
-| `gff`   | Yes      | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions.        |
-| `fna`   | Yes      | FASTA file with nucleotide sequences for the selected regions in the GFF.                                    |
-| `faa`   | No       | FASTA file with protein sequences for the CDS regions in the GFF.                                            |
-| `type`  | Yes      | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
-| `biome` | No       | Metadata describing the sequence's environmental origin (for example: marine, soil).                         |
+| Column   | Required | Description                                                                                                  |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `id`     | Yes      | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA.          |
+| `gff`    | Yes      | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions.        |
+| `fna`    | Yes      | FASTA file with nucleotide sequences for the selected regions in the GFF.                                    |
+| `faa`    | No       | FASTA file with protein sequences for the CDS regions in the GFF.                                            |
+| `source` | Yes      | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
+| `biome`  | No       | Metadata describing the sequence's environmental origin (for example: marine, soil).                         |
 
 ## Run pipeline
 
