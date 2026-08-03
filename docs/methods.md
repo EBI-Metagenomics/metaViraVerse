@@ -26,6 +26,8 @@ Third party input format:
 | `type`   | Yes      | `virus`, `prophage`, or `plasmid`.                                                    |
 | `source` | No       | `genome` (the sequence comes from a MAG or isolate) or `metagenome` (the sequence comes from an assembly) — the same distinction MGnify's own `type` column makes, and used the same way downstream to decide which copy of a duplicated sequence to keep. |
 | `biome`  | No       | Metadata describing the sequence's environmental origin (for example: marine, soil). |
+| `study_accession`  | No       | INSDC study accession (primary or secondary) associated with the data, kept as metadata.              |
+| `sample_accession` | No       | INSDC sample accession associated with the data, kept as metadata.                                    |
 
 Third-party records go through their own preparation subworkflow (annotation, gene calling where needed) before being merged with the MGnify samplesheet, so that from the pre-processing stage onward both sources are treated uniformly. A run may supply only MGnify input, only third-party input, or both together.
 
