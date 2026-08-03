@@ -28,7 +28,7 @@ workflow PREPROCESSING {
 
     ch_fna       = input.map { meta, gff, fna, faa -> fna }.collect()
     ch_gff       = input.map { meta, gff, fna, faa -> gff }.collect()
-    ch_types     = input.map { meta, gff, fna, faa -> tuple([meta.source]) }.collect()
+    ch_sources   = input.map { meta, gff, fna, faa -> tuple([meta.source]) }.collect()
     ch_biomes    = input.map { meta, gff, fna, faa -> tuple([meta.biome]) }.collect()
 
     ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect()
@@ -48,7 +48,7 @@ workflow PREPROCESSING {
     RENAME_CONTIGS(
         ch_fna,
         ch_gff,
-        ch_types,
+        ch_sources,
         ch_biomes,
         params.start_accession,
         params.end_accession,
