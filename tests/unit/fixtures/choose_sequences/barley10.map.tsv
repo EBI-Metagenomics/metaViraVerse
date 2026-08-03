@@ -1,0 +1,14 @@
+original	temporary	short	biome	type	definition
+MGYG000535629_9 viral_sequence|1:3862	barley1	MGYG000535629_9	rhizosphere	genome	virus
+MGYG000535629_15 viral_sequence|1:5155	barley2	MGYG000535629_15	rhizosphere	genome	virus
+MGYG000535629_32 plasmid|1:5663	barley3	MGYG000535629_32	rhizosphere	genome	plasmid
+MGYG000535629_34 plasmid|1:5917	barley4	MGYG000535629_34	rhizosphere	genome	plasmid
+MGYG000535629_35 viral_sequence|1:5520	barley5	MGYG000535629_35	rhizosphere	genome	virus
+MGYG000535629_61 viral_sequence|1:10903	barley6	MGYG000535629_61	rhizosphere	genome	virus
+MGYG000535629_80 viral_sequence|1:3654	barley7	MGYG000535629_80	rhizosphere	genome	virus
+MGYG000535629_82 viral_sequence|1:10560	barley8	MGYG000535629_82	rhizosphere	genome	virus
+MGYG000535629_83 viral_sequence|1:6642	barley9	MGYG000535629_83	rhizosphere	genome	virus
+MGYG000535629_85 viral_sequence|1:3269	barley10	MGYG000535629_85	rhizosphere	genome	virus
+MGYG000535629_90 prophage|1:60	barley11	MGYG000535629_90	arctic	genome	prophage
+THIRDPARTY_dup_of_barley5|1:5520	barley12	THIRDPARTY_dup_of_barley5	desert	metagenome	third_party_prophage
+MGYG000535629_91 prophage|1:5155	barley17	MGYG000535629_91	peat	metagenome	prophage

@@ -1,0 +1,3 @@
+##gff-version 3
+THIRDPARTY_seq_1	external	plasmid	1	5300	.	.	.	ID=THIRDPARTY_seq_1;mobile_element_type=plasmid
+THIRDPARTY_seq_1	Prodigal:002006	CDS	120	890	.	+	0	ID=THIRDPARTY_seq_1_00001;locus_tag=THIRDPARTY_seq_1_00001;product=hypothetical protein

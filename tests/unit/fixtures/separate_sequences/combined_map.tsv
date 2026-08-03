@@ -1,0 +1,5 @@
+original	temporary	short	biome	type	definition
+MGYG1_1 viral_sequence|1:61	seq1	MGYG1_1	rhizosphere	genome	virus
+TP1|1:61	seq2	TP1	marine	metagenome	third_party_prophage
+MGYG3_1 plasmid|1:61	seq3	MGYG3_1	rhizosphere	genome	plasmid
+MGYG4_1 prophage|1:61	seq4	MGYG4_1	soil	genome	prophage
