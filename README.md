@@ -1,7 +1,5 @@
 # metaViraVerse
 
-<img align="right" width="120" height="120" src="assets/logo.png">
-
 A [MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline for generating a **viral catalogue**.
 
 ## Overview
