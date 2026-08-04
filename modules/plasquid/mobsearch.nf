@@ -9,19 +9,19 @@ process MOBSEARCH {
     path(db_search)
 
     output:
-    tuple val(meta), path("Mob_candidates.tsv"), emit: mob_candidates
-    tuple val(meta), path("Mob_table.tsv"), emit: mob_table
-    tuple val(meta), path("MOB_seqs.faa"), emit: mob_seqs
+    tuple val(meta), path("mob_candidates.tsv"), emit: mob_candidates
+    tuple val(meta), path("mob_table.tsv"),      emit: mob_table
+    tuple val(meta), path("mob_seqs.faa"),       emit: mob_seqs
 
     script:
     """
     echo "hmsearch"
-    hmmsearch -o log --cpu ${task.cpus} --domtblout Mob_candidates.tsv ${db_search} ${proteins}
+    hmmsearch -o log --cpu ${task.cpus} --domtblout mob_candidates.tsv ${db_search} ${proteins}
 
-    echo "MOB filder"
-    Filter_Mob.R Mob_candidates.tsv
+    echo "MOB filter"
+    plasquid_filter_mob.R mob_candidates.tsv   # output: mob_table.tsv
 
     echo "MOB extraction"
-    MOB_extraction.R ${proteins} Mob_table.tsv
+    plasquid_mob_extraction.R ${proteins} mob_table.tsv  # output: mob_seqs.faa
     """
 }

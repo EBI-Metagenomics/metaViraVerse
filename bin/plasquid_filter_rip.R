@@ -174,4 +174,4 @@
 
    ftb <-  rbind(ssp, sop, mop)
 
-   write_delim(ftb, "Rep_domains.tsv", delim = "\t")
+   write_delim(ftb, "rep_domains.tsv", delim = "\t")

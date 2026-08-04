@@ -8,12 +8,10 @@ process RNASEARCH {
     path(db_search)
 
     output:
-    tuple val(meta), path("RNA_candidates.tsv"), emit: rna_candidates
+    tuple val(meta), path("rna_candidates.tsv"), emit: rna_candidates
 
     script:
     """
-
-    cmsearch --cpu ${task.cpus} --tblout RNA_candidates.tsv ${db_search} ${fna}
-
+    cmsearch --cpu ${task.cpus} --tblout rna_candidates.tsv ${db_search} ${fna}
     """
 }

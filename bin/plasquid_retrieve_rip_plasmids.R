@@ -164,5 +164,5 @@
 
  #Writing final results
 
- writeXStringSet(hit, "Plasmids_contigs.fasta")
- write_delim(ftb2, "Plasmid_Report.tsv", delim = "\t")
+ writeXStringSet(hit, "plasmids_contigs.fasta")
+ write_delim(ftb2, "plasmid_report.tsv", delim = "\t")

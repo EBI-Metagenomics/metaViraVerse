@@ -10,18 +10,18 @@ process REPSEARCH {
     path(db_filter)
 
    output:
-   tuple val(meta), path("ProtsvsRep.tsv"), emit: prots_vs_rep
-   tuple val(meta), path("Rep_domains.tsv"), emit: rep_domains
+   tuple val(meta), path("prots_vs_rep.tsv"), emit: prots_vs_rep
+   tuple val(meta), path("rep_domains.tsv"),  emit: rep_domains
 
    script:
    """
    echo "hmsearch"
-   hmmsearch --cut_ga --cpu ${task.cpus} -o log --domtblout ProtsvsRep.tsv ${db_search} ${proteins}
+   hmmsearch --cut_ga --cpu ${task.cpus} -o log --domtblout prots_vs_rep.tsv ${db_search} ${proteins}
 
    echo "DomainArch"
-   Dom_Arch.R ProtsvsRep.tsv  # output: multi_dom_RIP.tsv, single_dom_RIP.tsv, Domain_Architecture.RDS
+   plasquid_dom_arch.R prots_vs_rep.tsv  # output: multi_dom_rip.tsv, single_dom_rip.tsv, domain_architecture.RDS
 
    echo "FilterDomain"
-   Filter_RIP.R multi_dom_RIP.tsv single_dom_RIP.tsv Domain_Architecture.RDS ${db_filter}
+   plasquid_filter_rip.R multi_dom_rip.tsv single_dom_rip.tsv domain_architecture.RDS ${db_filter}  # output: rep_domains.tsv
    """
 }

@@ -44,4 +44,4 @@ args = commandArgs(trailingOnly=TRUE)
  }
 
 
- writeXStringSet(seqs, "MOB_seqs.faa")
+ writeXStringSet(seqs, "mob_seqs.faa")

@@ -59,4 +59,4 @@ if (nrow(tbf)>0) {
  tbf$contig <- cn
 
 }
- write_delim(tbf, "Mob_table.tsv", delim = "\t")
+ write_delim(tbf, "mob_table.tsv", delim = "\t")

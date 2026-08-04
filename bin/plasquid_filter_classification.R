@@ -122,4 +122,4 @@
 
 # Write final table
 
-   write_delim(tib, "Filtered_Classif.tsv", delim = "\t")
+   write_delim(tib, "filtered_classif.tsv", delim = "\t")

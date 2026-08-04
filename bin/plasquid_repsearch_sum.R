@@ -21,7 +21,7 @@ idx <- match(cnt, ctg)
 
 dnr <- dna[idx]
 names(dnr)<-tab$Contig
-writeXStringSet(dnr, "Result.fasta")
+writeXStringSet(dnr, "result.fasta")
 
 colnames(tab) <- c("Contig", "RIP_domain", "MOB_group", "Rep_type", "contig_length")
-write_delim(tab, "Result.tsv", delim = "\t")
+write_delim(tab, "result.tsv", delim = "\t")

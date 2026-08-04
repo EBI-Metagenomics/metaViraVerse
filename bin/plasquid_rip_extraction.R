@@ -68,4 +68,4 @@ for(i in 1:length(tbf1$Rep_ORF)){
 
 names(rep) <- nmf
 
-writeXStringSet(rep, "RIP_seqs.faa")
+writeXStringSet(rep, "rip_seqs.faa")

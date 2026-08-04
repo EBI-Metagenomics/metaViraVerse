@@ -9,19 +9,19 @@ process INCSEARCH {
     path(db_search)
 
     output:
-    tuple val(meta), path("Inc_candidates.tsv"), emit: inc_candidates
-    tuple val(meta), path("Classification_table.tsv"), emit: inc_classification
-    tuple val(meta), path("Filtered_Classif.tsv"), emit: filt_classification
+    tuple val(meta), path("inc_candidates.tsv"),       emit: inc_candidates
+    tuple val(meta), path("classification_table.tsv"), emit: inc_classification
+    tuple val(meta), path("filtered_classif.tsv"),     emit: filt_classification
 
     script:
     """
     echo "hmsearch"
-    hmmsearch -o log --cpu ${task.cpus} --domtblout Inc_candidates.tsv ${db_search} ${proteins}
+    hmmsearch -o log --cpu ${task.cpus} --domtblout inc_candidates.tsv ${db_search} ${proteins}
 
     echo "Inc_classification"
-    Inc_classification.R Inc_candidates.tsv ${rna_candidates}
+    plasquid_inc_classification.R inc_candidates.tsv ${rna_candidates}
 
     echo "Filter_classification"
-    Filter_classification.R Classification_table.tsv
+    plasquid_filter_classification.R classification_table.tsv
     """
 }

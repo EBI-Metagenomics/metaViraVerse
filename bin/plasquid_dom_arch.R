@@ -171,7 +171,7 @@
   }
 
 
-  saveRDS(l1, "Domain_Architecture.RDS")
+  saveRDS(l1, "domain_architecture.RDS")
   nl2 <- as.tibble(nl1)
-  write_delim(nl2, "multi_dom_RIP.tsv")
-  write_delim(tsd, "single_dom_RIP.tsv")
+  write_delim(nl2, "multi_dom_rip.tsv")
+  write_delim(tsd, "single_dom_rip.tsv")

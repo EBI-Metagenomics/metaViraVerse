@@ -5,8 +5,8 @@ args = commandArgs(trailingOnly=TRUE)
 hmt = args[1]
 cmt = args[2]
 
-hmt = "Inc_candidates.tsv"
-cmt = "RNA_candidates.tsv"
+hmt = "inc_candidates.tsv"
+cmt = "rna_candidates.tsv"
 
 library(tidyverse)
 
@@ -114,4 +114,4 @@ cm1 <- as_tibble(read.table(cmt, header=FALSE, sep = "", comment.char = '#',
   ctb <- rbind(hdc, hdl)
 
 
-  write_delim(ctb, "Classification_table.tsv", delim = "\t")
+  write_delim(ctb, "classification_table.tsv", delim = "\t")
