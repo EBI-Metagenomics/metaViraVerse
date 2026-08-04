@@ -10,13 +10,24 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
+            "required": ["outdir"],
             "properties": {
                 "input": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "schema": "assets/schema_input.json",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
+                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "third_party_input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_third_party_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
@@ -53,7 +64,15 @@
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
                 }
-            }
+            },
+            "anyOf": [
+                {
+                    "required": ["input"]
+                },
+                {
+                    "required": ["third_party_input"]
+                }
+            ]
         },
         "preprocessing_options": {
             "title": "Preprocessing input data",
@@ -254,6 +273,56 @@
                     "description": "E-value limit for viphogs filtering",
                     "fa_icon": "fas fa-weight",
                     "type": "number"
+                }
+            }
+        },
+        "plasmid_analysis_options": {
+            "title": "Plasmid analysis databases",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define necessary DB",
+            "properties": {
+                "repsearch_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for repsearch step in plasquid",
+                    "help_text": "You need to pre-download plaSquid/data/All_Rep.hmm file from https://github.com/mgimenez720/plaSquid repo",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "repfilter_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for repfilter step in plasquid",
+                    "help_text": "You need to pre-download plaSquid/data/Arq_RIP_new.RDS file from https://github.com/mgimenez720/plaSquid repo",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "rna_inc_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for rna search step in plasquid",
+                    "help_text": "You need to pre-download plaSquid/data/All_RNA_Inc.hmm file from https://github.com/mgimenez720/plaSquid repo",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "incsearch_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for incsearch step in plasquid",
+                    "help_text": "You need to pre-download plaSquid/data/All_Inc.hmm file from https://github.com/mgimenez720/plaSquid repo",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "mobsearch_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for mobsearch step in plasquid",
+                    "help_text": "You need to pre-download plaSquid/data/All_MOB.hmm file from https://github.com/mgimenez720/plaSquid repo",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "mobsuite_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to database for mobsuite-typer",
+                    "help_text": "You need to run mob_init step to download and prepare database. Docs: https://github.com/phac-nml/mob-suite#mob-init",
+                    "fa_icon": "fas fa-folder-open"
                 }
             }
         },
@@ -460,11 +529,9 @@
         },
         {
             "$ref": "#/$defs/generic_options"
+        },
+        {
+            "$ref": "#/$defs/plasmid_analysis_options"
         }
-    ],
-    "properties": {
-        "third_party_input": {
-            "type": "string"
-        }
-    }
+    ]
 }

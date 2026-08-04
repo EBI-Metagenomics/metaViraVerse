@@ -30,6 +30,7 @@ workflow PIPELINE_INITIALISATION {
     nextflow_cli_args //   array: List of positional nextflow CLI args
     outdir            //  string: The output directory where the results will be saved
     input             //  string: Path to input samplesheet
+    third_party_input //  string: Path to input third party samplehseet
 
     main:
 
@@ -70,14 +71,24 @@ workflow PIPELINE_INITIALISATION {
     //
     // Create channel from input file provided through params.input
     //
-
-    Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .set { ch_samplesheet }
+    ch_samplesheet = Channel.empty()
+    if (input) {
+        ch_samplesheet = Channel
+            .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
+    }
+    //
+    // Create channel from third party input file provided through params.input
+    //
+    ch_samplesheet_third_party = Channel.empty()
+    if (third_party_input) {
+        ch_samplesheet_third_party = Channel
+            .fromList(samplesheetToList(third_party_input, "${projectDir}/assets/schema_third_party_input.json"))
+    }
 
     emit:
-    samplesheet = ch_samplesheet
-    versions    = ch_versions
+    samplesheet             = ch_samplesheet
+    samplesheet_third_party = ch_samplesheet_third_party
+    versions                = ch_versions
 }
 
 /*

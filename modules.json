@@ -129,6 +129,11 @@
                         "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
                         "installed_by": ["modules"]
                     },
+                    "mobsuite/typer": {
+                        "branch": "master",
+                        "git_sha": "2080397432fcb0d079121dbacf22ce42ef175cec",
+                        "installed_by": ["modules"]
+                    },
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "80cba9452fb1e9bb79884976fa1ca0e671949aa2",

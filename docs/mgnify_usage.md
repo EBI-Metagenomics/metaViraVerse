@@ -3,6 +3,7 @@
 ## Data preparation
 
 Viruses and plasmids for the viral catalogue are detected using [emg-viral-pipeline](https://github.com/EBI-Metagenomics/emg-viral-pipeline) (VIRify) and [mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline) (MAP), run as part of:
+
 - [MAG catalogue](https://www.ebi.ac.uk/metagenomics/browse/genomes) generation
 - [Assembly analysis pipeline](https://github.com/EBI-Metagenomics/assembly-analysis-pipeline) (ASA) runs
 
@@ -15,16 +16,17 @@ VIRify+MAP use pre-defined names for viruses (**viral_sequence**), prophages (**
 
 Make sure those names haven't changed (check MAP). Pipeline execution can regulate those names via `--viral_sequence_identifier`, `--prophage_identifier` and `--plasmid_identifier`.
 
-
 > [!NOTE]
-> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far. 
+> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far.
 
 ### Fetch data from MGnify genomes
 
 **Mandatory step:**
+
 - Collect data from existing catalogues (this also fetches each catalogue's metadata and generates the pipeline input samplesheet)
 
 **Optional step:**
+
 - Collect CRISPR spacers
 
 #### Collect data from existing catalogues
@@ -81,9 +83,11 @@ python3 collect_data_from_catalogues.py \
 - `<CATALOGUE_NAME>_<VERSION>_viral.fna` — FASTA file with viral sequences (viral sequences, prophages, plasmids) found in `CATALOGUE_NAME_VERSION`.
 
   Header format example:
+
   ```
   >MGYG000517142_2 prophage|311953:328572
   ```
+
   Where:
   - `MGYG000517142` is the MGnify genome identifier
   - `MGYG000517142_2` is the contig identifier
@@ -93,9 +97,11 @@ python3 collect_data_from_catalogues.py \
 - `<CATALOGUE_NAME>_<VERSION>_viral.faa` — FASTA file with proteins detected within the chosen viral regions.
 
   Header format example:
+
   ```
   >MGYG000517142_00528 Alpha-xylosidase
   ```
+
   Where:
   - `MGYG000517142_00528` is the protein identifier
   - `Alpha-xylosidase` is the protein name
@@ -156,6 +162,7 @@ python3 collect_crispr_spacers_from_catalogues.py \
 - `PREFIX_crispr.tsv` — TSV with spacer metadata: ID, name, and parent (genome, protein ID, and fragment coordinates).
 
 Example:
+
 ```commandline
 crispr_id       name    parent
 sp_19345        spacer_19345_29 MGYG000518600_13_19319_19399
@@ -172,14 +179,14 @@ id,gff,fna,faa,type,biome
 human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
 ```
 
-| Column  | Required | Description |
-|---------|----------|-------------|
-| `id`    | Yes | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA. |
-| `gff`   | Yes | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions. |
-| `fna`   | Yes | FASTA file with nucleotide sequences for the selected regions in the GFF. |
-| `faa`   | No | FASTA file with protein sequences for the CDS regions in the GFF. |
-| `type`  | Yes | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
-| `biome` | No | Metadata describing the sequence's environmental origin (for example: marine, soil). |
+| Column  | Required | Description                                                                                                  |
+| ------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `id`    | Yes      | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA.          |
+| `gff`   | Yes      | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions.        |
+| `fna`   | Yes      | FASTA file with nucleotide sequences for the selected regions in the GFF.                                    |
+| `faa`   | No       | FASTA file with protein sequences for the CDS regions in the GFF.                                            |
+| `type`  | Yes      | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
+| `biome` | No       | Metadata describing the sequence's environmental origin (for example: marine, soil).                         |
 
 ## Run pipeline
 
