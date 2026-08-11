@@ -3,18 +3,18 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../modules/nf-core/find/concatenate'
-include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../../modules/nf-core/find/concatenate'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../../modules/nf-core/seqkit/split2'
 
-include { BACPHLIP                                     } from '../../modules/local/bacphlip'
-include { BUILD_FINAL_GFF                              } from '../../modules/local/build_final_gff'
+include { BACPHLIP                                     } from '../../../modules/local/bacphlip'
+include { BUILD_FINAL_GFF                              } from '../../../modules/local/build_final_gff'
 
-include { EXTRACT_CLUSTER_FILES                        } from './extract_cluster_files'
-include { CLUSTERING                                   } from './clustering'
-include { HOST_DETECTION                               } from './host_detection_subwf'
-include { INDEX_RESULTS                                } from './index_results'
-include { PROTEINS_PROCESSING                          } from './proteins_subwf'
-include { TAXONOMY_ASSIGNMENT                          } from './taxonomy_subwf'
+include { EXTRACT_CLUSTER_FILES                        } from '../extract_cluster_files/main'
+include { CLUSTERING                                   } from '../clustering/main'
+include { HOST_DETECTION                               } from '../host_detection_subwf/main'
+include { INDEX_RESULTS                                } from '../index_results/main'
+include { PROTEINS_PROCESSING                          } from '../proteins_subwf/main'
+include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

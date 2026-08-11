@@ -4,16 +4,16 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENOME     } from '../../modules/nf-core/find/concatenate'
-include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENUS      } from '../../modules/nf-core/find/concatenate'
-include { IPHOP_PREDICT                                    } from '../../modules/nf-core/iphop/predict/main'
-include { SEQKIT_SPLIT2 as CHUNK_FNA_IPHOP                 } from '../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENOME     } from '../../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_IPHOP_GENUS      } from '../../../modules/nf-core/find/concatenate'
+include { IPHOP_PREDICT                                    } from '../../../modules/nf-core/iphop/predict/main'
+include { SEQKIT_SPLIT2 as CHUNK_FNA_IPHOP                 } from '../../../modules/nf-core/seqkit/split2'
 
-include { COLLECT_HOST_INFO                                } from '../../modules/local/spacepharer/collect_crispr_host_info'
-include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB     } from '../../modules/local/spacepharer/createdb'
-include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB_REV } from '../../modules/local/spacepharer/createdb'
-include { SPACEPHARER_EASYPREDICT                          } from '../../modules/local/spacepharer/easy_predict'
-include { CHANGE_SPACE_TO_UNDERSCORE                       } from '../../modules/local/utils'
+include { COLLECT_HOST_INFO                                } from '../../../modules/local/spacepharer/collect_crispr_host_info'
+include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB     } from '../../../modules/local/spacepharer/createdb'
+include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB_REV } from '../../../modules/local/spacepharer/createdb'
+include { SPACEPHARER_EASYPREDICT                          } from '../../../modules/local/spacepharer/easy_predict'
+include { CHANGE_SPACE_TO_UNDERSCORE                       } from '../../../modules/local/change_space_to_underscore'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

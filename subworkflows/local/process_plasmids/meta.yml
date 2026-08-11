@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "process_plasmids"
+description: Cluster/dereplicate plasmid sequences, extract cluster representative files, index them for the website, and run plasmid-specific analysis (plasquid, MOB-suite typing)
+keywords:
+  - plasmid
+  - clustering
+  - mob-suite
+  - plasquid
+components:
+  - clustering
+  - extract_cluster_files
+  - index_results
+  - plasquid_workflow
+  - mobsuite/typer
+input:
+  - sequences:
+      type: file
+      description: |
+        Deduplicated plasmid nucleotide sequences
+        Structure: [ val(meta), path(fasta) ]
+  - combined_faa:
+      type: file
+      description: |
+        Combined (filtered) protein FASTA covering all input sequences
+        Structure: [ val(meta), path(fasta) ]
+  - combined_gff:
+      type: file
+      description: |
+        Combined (filtered) GFF covering all input sequences
+        Structure: [ val(meta), path(gff) ]
+  - mapfile:
+      type: file
+      description: Rename map TSV produced by rename_contigs.py
+output:
+  - clustering_tsv:
+      type: file
+      description: |
+        Cluster assignment table for plasmid sequences (gANI-based)
+        Structure: [ val(meta), path(tsv) ]
+  - reps_tsv:
+      type: file
+      description: |
+        One representative plasmid sequence ID per line
+        Structure: [ val(meta), path(tsv) ]
+  - reps_seqs:
+      type: file
+      description: |
+        Gzip-compressed nucleotide FASTA for plasmid cluster representatives
+        Structure: [ val(meta), path(fasta.gz) ]
+  - reps_proteins:
+      type: file
+      description: |
+        Gzip-compressed protein FASTA for plasmid cluster representatives
+        Structure: [ val(meta), path(fasta.gz) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

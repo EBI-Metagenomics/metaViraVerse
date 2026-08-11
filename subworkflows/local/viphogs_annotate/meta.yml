@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "viphogs_annotate"
+description: Annotate representative proteins against the ViPhOGs HMM profile database and assign a taxonomic lineage per genome from the resulting protein hits
+keywords:
+  - viphogs
+  - hmmer
+  - taxonomy
+  - viral
+components:
+  - seqkit/split2
+  - hmmer/hmmsearch
+  - find/concatenate
+  - hmm_postprocessing
+  - ratio_evalue
+  - annotation
+  - assign
+input:
+  - proteins_faa:
+      type: file
+      description: |
+        Representative protein sequences to annotate
+        Structure: [ val(meta), path(fasta) ]
+  - proteins_gff:
+      type: file
+      description: |
+        GFF matching `proteins_faa`, joined against the ViPhOGs hits before assignment
+        Structure: [ val(meta), path(gff) ]
+  - viphog_db:
+      type: directory
+      description: Path to the ViPhOGs HMM profile database (`--viphog_db`)
+  - additional_model_data:
+      type: file
+      description: Supplementary ViPhOGs model metadata used when scoring HMM hits
+  - ncbi_db:
+      type: directory
+      description: Path to the NCBI taxonomy database used for lineage assignment (`--ncbi_db`)
+  - factor_file:
+      type: file
+      description: Optional ViPhOGs lineage weighting factor file (`--factor_file`), or `false` to leave unset
+output:
+  - assignment:
+      type: file
+      description: |
+        Per-genome ViPhOGs taxonomic lineage assignment table
+        Structure: [ val(meta), path(tsv) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

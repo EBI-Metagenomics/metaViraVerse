@@ -3,11 +3,11 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { CLUSTERING                              } from './clustering'
-include { EXTRACT_CLUSTER_FILES                   } from './extract_cluster_files'
-include { INDEX_RESULTS                           } from './index_results'
-include { PLASQUID_WORKFLOW                       } from './plasquid_workflow'
-include { MOBSUITE_TYPER                          } from '../../modules/nf-core/mobsuite/typer/main'
+include { CLUSTERING                              } from '../clustering/main'
+include { EXTRACT_CLUSTER_FILES                   } from '../extract_cluster_files/main'
+include { INDEX_RESULTS                           } from '../index_results/main'
+include { PLASQUID_WORKFLOW                       } from '../plasquid_workflow/main'
+include { MOBSUITE_TYPER                          } from '../../../modules/nf-core/mobsuite/typer/main'
 
 
 /*

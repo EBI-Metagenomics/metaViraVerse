@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "clustering"
+description: Cluster/dereplicate a set of sequences (viral or plasmid) by nucleotide identity, using vclust by default with a BLASTN + anicalc/aniclust fallback
+keywords:
+  - clustering
+  - dereplication
+  - ani
+  - viral
+  - plasmid
+components:
+  - checkv/anicalc
+  - checkv/aniclust
+  - blast/makeblastdb
+  - blast/blastn
+  - vclust/align
+  - vclust/cluster
+  - vclust/prefilter
+input:
+  - sequences:
+      type: file
+      description: |
+        Channel of sequences to cluster
+        Structure: [ val(meta), path(fasta) ]
+  - vclust_metric:
+      type: string
+      description: Similarity metric for vclust clustering ('tani', 'gani' or 'ani'); ignored when `--cluster_vclust` is disabled
+  - vclust_tani_threshold:
+      type: value
+      description: Minimum total ANI threshold for vclust clustering, or `false` to leave unset
+  - vclust_gani_threshold:
+      type: value
+      description: Minimum global ANI threshold for vclust clustering (used for plasmids), or `false` to leave unset
+  - vclust_ani_threshold:
+      type: value
+      description: Minimum ANI threshold for vclust clustering (used for viruses), or `false` to leave unset
+output:
+  - clusters_tsv:
+      type: file
+      description: |
+        Cluster assignment table: one row per input sequence, mapping it to its cluster
+        representative (vclust `cluster` output, or the anicalc/aniclust equivalent)
+        Structure: [ val(meta), path(tsv) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

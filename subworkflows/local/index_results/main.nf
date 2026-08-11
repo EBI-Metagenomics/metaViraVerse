@@ -3,14 +3,14 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../modules/nf-core/samtools/faidx'
-include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../modules/nf-core/samtools/faidx'
-include { TABIX_BGZIPTABIX as INDEX_COMPRESS_GFF       } from '../../modules/nf-core/tabix/bgziptabix'
-include { TABIX_BGZIPTABIX as BGZIP_FNA                } from '../../modules/nf-core/tabix/bgziptabix'
-include { TABIX_BGZIPTABIX as BGZIP_FAA                } from '../../modules/nf-core/tabix/bgziptabix'
-include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../modules/nf-core/tabix/bgziptabix'
+include { SAMTOOLS_FAIDX as INDEX_FAA                  } from '../../../modules/nf-core/samtools/faidx'
+include { SAMTOOLS_FAIDX as INDEX_FNA                  } from '../../../modules/nf-core/samtools/faidx'
+include { TABIX_BGZIPTABIX as INDEX_COMPRESS_GFF       } from '../../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as BGZIP_FNA                } from '../../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as BGZIP_FAA                } from '../../../modules/nf-core/tabix/bgziptabix'
+include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../../modules/nf-core/tabix/bgziptabix'
 
-include { SORT_GFF                                     } from '../../modules/local/sort_gff'
+include { SORT_GFF                                     } from '../../../modules/local/sort_gff'
 
 
 workflow INDEX_RESULTS {

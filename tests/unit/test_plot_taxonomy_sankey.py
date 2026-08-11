@@ -32,7 +32,7 @@ class TestParseTaxonomy(unittest.TestCase):
         levels = ['realm', 'kingdom', 'phylum', 'class', 'order']
         result = plot_taxonomy_sankey.parse_taxonomy(taxonomy_str, levels)
         self.assertEqual(result[0], 'Viruses')
-        self.assertEqual(result[1], 'Unclassified')
+        self.assertEqual(result[1], 'unclassified_kingdom_Viruses')
         self.assertEqual(result[2], 'Uroviricota')
         self.assertIn('unclassified_class', result[3])
         self.assertEqual(result[4], 'Caudovirales')

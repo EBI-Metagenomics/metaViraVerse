@@ -1,0 +1,39 @@
+name: sort_gff
+description: Sort a GFF file by sequence ID and start coordinate
+keywords:
+  - gff
+  - sort
+tools:
+  - coreutils:
+      description: |
+        GNU core utilities, here the `sort` command (natural version sort on column 1,
+        numeric sort on column 4)
+      homepage: https://www.gnu.org/software/coreutils/
+      documentation: https://www.gnu.org/software/coreutils/manual/coreutils.html
+      licence: ["GPL v3"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - gff:
+        type: file
+        description: Input GFF file
+        pattern: "*.gff"
+        ontologies: []
+output:
+  sorted_gff:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*sorted*":
+          type: file
+          description: GFF sorted by sequence ID (natural order) and start coordinate
+          pattern: "*.sorted.gff"
+          ontologies: []
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

@@ -3,11 +3,11 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { REPSEARCH                              } from '../../modules/plasquid/repsearch'
-include { RNASEARCH                              } from '../../modules/plasquid/rnasearch'
-include { INCSEARCH                              } from '../../modules/plasquid/incsearch'
-include { MOBSEARCH                              } from '../../modules/plasquid/mobsearch'
-include { EXTRACT_PLASMIDS_DATA                  } from '../../modules/plasquid/extract'
+include { REPSEARCH                              } from '../../../modules/plasquid/repsearch'
+include { RNASEARCH                              } from '../../../modules/plasquid/rnasearch'
+include { INCSEARCH                              } from '../../../modules/plasquid/incsearch'
+include { MOBSEARCH                              } from '../../../modules/plasquid/mobsearch'
+include { EXTRACT_PLASMIDS_DATA                  } from '../../../modules/plasquid/extract'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "host_detection_subwf"
+description: Predict prokaryotic hosts for representative viral/prophage genomes, via iPHoP and (optionally) CRISPR spacer matching against a custom spacer database with SpacePHARER
+keywords:
+  - host prediction
+  - iphop
+  - spacepharer
+  - crispr
+  - viral
+components:
+  - iphop/predict
+  - seqkit/split2
+  - find/concatenate
+  - spacepharer/createdb
+  - spacepharer/easy_predict
+  - spacepharer/collect_crispr_host_info
+  - utils
+input:
+  - fna:
+      type: file
+      description: |
+        Representative viral/prophage nucleotide sequences
+        Structure: [ val(meta), path(fasta) ]
+  - metadata:
+      type: file
+      description: Catalogues metadata TSV (`--catalogues_metadata`), joined against SpacePHARER host predictions
+output:
+  - iphop_host_genome:
+      type: file
+      description: |
+        Concatenated iPHoP genome-level host predictions (empty channel if `--skip_iphop`)
+        Structure: [ val(meta), path(tsv) ]
+  - iphop_host_genus:
+      type: file
+      description: |
+        Concatenated iPHoP genus-level host predictions (empty channel if `--skip_iphop`)
+        Structure: [ val(meta), path(tsv) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

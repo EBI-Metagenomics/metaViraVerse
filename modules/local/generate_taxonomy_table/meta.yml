@@ -1,0 +1,63 @@
+name: generate_taxonomy_table
+description: Convert a per-sequence taxonomy table (VITAP, geNomad or ViPhOGs output) into Krona-format taxon counts, joined with sequence metadata
+keywords:
+  - taxonomy
+  - krona
+  - viral
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information, including a 'tool' key
+          (e.g. 'vitap', 'genomad', 'viphogs') identifying the taxonomy source
+    - table:
+        type: file
+        description: Per-sequence taxonomy assignment table from VITAP, geNomad or ViPhOGs
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta2:
+        type: map
+        description: Groovy Map containing sample information
+    - metadata_file:
+        type: file
+        description: Combined/filtered sequence metadata TSV to join taxonomy against
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  taxonomy_and_metadata:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_taxonomy_counts.tsv":
+          type: file
+          description: Krona-format taxon counts (count, then one column per rank)
+          pattern: "*_taxonomy_counts.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - "*_metadata_table.tsv":
+          type: file
+          description: Sequence metadata joined with the per-sequence taxonomy call
+          pattern: "*_metadata_table.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

@@ -1,0 +1,45 @@
+name: hmm_postprocessing
+description: Reformat a concatenated HMMER domain-hits table (ViPhOGs search) into a simplified TSV for downstream ratio/e-value scoring
+keywords:
+  - hmmer
+  - viphogs
+  - taxonomy
+  - postprocessing
+tools:
+  - hmm_postprocessing:
+      description: |
+        Local script (hmmer_format_table.py, from the VIRify pipeline) that reformats
+        a concatenated HMMER --domtblout table into a simplified TSV
+      homepage: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      documentation: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      licence: ["Apache-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - hmmer_tbl:
+        type: file
+        description: Concatenated HMMER domain-hits table (ViPhOGs search against representative proteins)
+        pattern: "*.tbl*"
+        ontologies: []
+output:
+  # This process has no explicit `emit:` label on its output tuple, so it is only
+  # addressable positionally (e.g. `HMM_POSTPROCESSING.out[0]`), and it does not
+  # emit a versions.yml.
+  modified_tbl:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_modified.tsv":
+          type: file
+          description: Reformatted HMMER hits table
+          pattern: "*_modified.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

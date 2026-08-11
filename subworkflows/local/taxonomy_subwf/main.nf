@@ -3,19 +3,19 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../modules/nf-core/find/concatenate'
-include { GENOMAD_ENDTOEND                             } from '../../modules/nf-core/genomad/endtoend'
-include { CSVTK_CONCAT as CONCATENATE_GENOMAD          } from '../../modules/nf-core/csvtk/concat'
+include { FIND_CONCATENATE as CONCATENATE_VITAP        } from '../../../modules/nf-core/find/concatenate'
+include { GENOMAD_ENDTOEND                             } from '../../../modules/nf-core/genomad/endtoend'
+include { CSVTK_CONCAT as CONCATENATE_GENOMAD          } from '../../../modules/nf-core/csvtk/concat'
 
-include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../modules/local/generate_taxonomy_table'
-include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../modules/local/generate_taxonomy_table'
-include { GENERATE_TAXONOMY_TABLE as TAX_GENOMAD       } from '../../modules/local/generate_taxonomy_table'
-include { VITAP                                        } from '../../modules/local/vitap'
+include { GENERATE_TAXONOMY_TABLE as TAX_VIPHOGS       } from '../../../modules/local/generate_taxonomy_table'
+include { GENERATE_TAXONOMY_TABLE as TAX_VITAP         } from '../../../modules/local/generate_taxonomy_table'
+include { GENERATE_TAXONOMY_TABLE as TAX_GENOMAD       } from '../../../modules/local/generate_taxonomy_table'
+include { VITAP                                        } from '../../../modules/local/vitap'
 
-include { VIPHOGS_ANNOTATION                           } from './viphogs_annotate'
-include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from './taxonomy_visualisation'
-include { TAXONOMY_VISUALISATION as VIS_VITAP          } from './taxonomy_visualisation'
-include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from './taxonomy_visualisation'
+include { VIPHOGS_ANNOTATION                           } from '../viphogs_annotate/main'
+include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from '../taxonomy_visualisation/main'
+include { TAXONOMY_VISUALISATION as VIS_VITAP          } from '../taxonomy_visualisation/main'
+include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from '../taxonomy_visualisation/main'
 
 
 

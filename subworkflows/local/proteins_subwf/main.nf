@@ -1,11 +1,11 @@
-include { PHAMMSEQS                                    } from '../../modules/local/phammseqs'
-include { SUMMARISE_ANNOTATIONS                        } from '../../modules/local/summarise_annotations'
+include { PHAMMSEQS                                    } from '../../../modules/local/phammseqs'
+include { SUMMARISE_ANNOTATIONS                        } from '../../../modules/local/summarise_annotations'
 
-include { HMMER_HMMSEARCH                              } from '../../modules/nf-core/hmmer/hmmsearch'
-include { SEQKIT_SPLIT2                                } from '../../modules/nf-core/seqkit/split2'
-include { FIND_CONCATENATE as CONCATENATE_HMMER_TBLOUT } from '../../modules/nf-core/find/concatenate'
+include { HMMER_HMMSEARCH                              } from '../../../modules/nf-core/hmmer/hmmsearch'
+include { SEQKIT_SPLIT2                                } from '../../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_HMMER_TBLOUT } from '../../../modules/nf-core/find/concatenate'
 
-include { AMR_ANNOTATION                               } from '../ebi-metagenomics/amr_annotation'
+include { AMR_ANNOTATION                               } from '../../ebi-metagenomics/amr_annotation'
 
 
 workflow PROTEINS_PROCESSING {

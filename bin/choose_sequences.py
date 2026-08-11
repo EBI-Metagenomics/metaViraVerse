@@ -227,7 +227,7 @@ def read_quality(quality_files: list[str]) -> dict[str, dict[str, str]]:
                 if contig_id in quality:
                     print(f'Warning: duplicate quality entry for {contig_id}, keeping first')
                     continue
-                quality[contig_id] = {col: row.get(col, 'NA') for col in QUALITY_COLUMNS}
+                quality[contig_id] = {col: row.get(col) or 'NA' for col in QUALITY_COLUMNS}
     return quality
 
 

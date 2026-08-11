@@ -1,11 +1,11 @@
-include { HMMER_HMMSEARCH as HMMER_VIPHOGS   } from '../../modules/nf-core/hmmer/hmmsearch'
-include { FIND_CONCATENATE                   } from '../../modules/nf-core/find/concatenate'
-include { SEQKIT_SPLIT2                      } from '../../modules/nf-core/seqkit/split2/main'
+include { HMMER_HMMSEARCH as HMMER_VIPHOGS   } from '../../../modules/nf-core/hmmer/hmmsearch'
+include { FIND_CONCATENATE                   } from '../../../modules/nf-core/find/concatenate'
+include { SEQKIT_SPLIT2                      } from '../../../modules/nf-core/seqkit/split2/main'
 
-include { ANNOTATION                         } from '../../modules/local/annotation'
-include { ASSIGN                             } from '../../modules/local/assign'
-include { HMM_POSTPROCESSING                 } from '../../modules/local/hmm_postprocessing'
-include { RATIO_EVALUE                       } from '../../modules/local/ratio_evalue'
+include { ANNOTATION                         } from '../../../modules/local/annotation'
+include { ASSIGN                             } from '../../../modules/local/assign'
+include { HMM_POSTPROCESSING                 } from '../../../modules/local/hmm_postprocessing'
+include { RATIO_EVALUE                       } from '../../../modules/local/ratio_evalue'
 
 workflow VIPHOGS_ANNOTATION {
 

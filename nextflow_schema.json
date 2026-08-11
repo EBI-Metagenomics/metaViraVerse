@@ -43,6 +43,7 @@
                 },
                 "phammseqs": {
                     "type": "boolean",
+                    "description": "Cluster representative viral proteins into phamilies with PHAMMSeqs.",
                     "help_text": "Run phams generation",
                     "default": false
                 },
@@ -82,41 +83,49 @@
             "properties": {
                 "viral_sequence_identifier": {
                     "type": "string",
+                    "description": "Pattern identifying free viral sequences by their original name (matched against the rename map).",
                     "help_text": "Pattern used to grep viral sequences from gff",
                     "default": "viral_sequence"
                 },
                 "prophage_identifier": {
                     "type": "string",
+                    "description": "Pattern identifying prophage sequences by their original name (matched against the rename map).",
                     "help_text": "Pattern to grep prophages from gff",
                     "default": "prophage"
                 },
                 "plasmid_identifier": {
                     "type": "string",
+                    "description": "Pattern identifying plasmid sequences by their original name (matched against the rename map).",
                     "help_text": "Pattern to grep plasmids from gff",
                     "default": "plasmid"
                 },
                 "skip_rrna_detection": {
                     "type": "boolean",
+                    "description": "Skip the rRNA/tRNA/tmRNA screening step (Barrnap).",
                     "help_text": "Skip step to detect rRNA",
                     "default": false
                 },
                 "skip_checkv": {
                     "type": "boolean",
+                    "description": "Skip the CheckV quality evaluation step.",
                     "help_text": "Skip step to evaluate quality",
                     "default": false
                 },
                 "rename_accession": {
                     "type": "string",
+                    "description": "Prefix used when renaming input sequences to a simplified naming scheme, for example 'seq' (seq1, seq2, ...) or 'MGYV' for MGnify catalogue accessions.",
                     "help_text": "Rename all input sequences into simpler naming space, for example, seq1",
                     "default": "seq"
                 },
                 "start_accession": {
                     "type": "number",
+                    "description": "First accession number to use when renaming sequences, for example 1 for seq1.",
                     "help_text": "First ID that would be used in renaming, for example, seq1",
                     "default": 1
                 },
                 "end_accession": {
                     "type": "number",
+                    "description": "Last accession number expected when renaming sequences, for example 100 for seq100 (used for logging only; can be omitted).",
                     "help_text": "Last ID that would be used in renaming, for example, seq100 (that argument can be skipped)",
                     "default": 1
                 }
@@ -137,6 +146,7 @@
                 },
                 "skip_iphop": {
                     "type": "boolean",
+                    "description": "Skip iPHoP host prediction.",
                     "help_text": "Flag to skip iphop",
                     "default": false
                 },
@@ -176,6 +186,7 @@
             "properties": {
                 "cluster_vclust": {
                     "type": "boolean",
+                    "description": "Use vclust for sequence clustering (instead of the BLASTN + anicalc/aniclust fallback).",
                     "help_text": "Use vclust as clustering tool",
                     "default": true
                 }
@@ -224,16 +235,19 @@
             "properties": {
                 "skip_vitap": {
                     "type": "boolean",
+                    "description": "Skip VITAP taxonomy assignment.",
                     "help_text": "Flag to skip VITAP",
                     "default": false
                 },
                 "skip_genomad": {
                     "type": "boolean",
+                    "description": "Skip geNomad taxonomy assignment.",
                     "help_text": "Flag to skip genomAD",
                     "default": false
                 },
                 "skip_viphogs": {
                     "type": "boolean",
+                    "description": "Skip ViPhOGs taxonomy assignment.",
                     "help_text": "Flag to skip viphogs annotation",
                     "default": false
                 },
@@ -267,11 +281,6 @@
                     "type": "string",
                     "format": "file-path",
                     "description": "Path to file with viral assemblies metadata, including taxon-specific factors"
-                },
-                "viphogs_hmmer_tool": {
-                    "type": "string",
-                    "description": "hmmer tool used to run viphogs",
-                    "default": "hmmsearch"
                 },
                 "viphogs_evalue": {
                     "default": 0.01,
@@ -339,46 +348,55 @@
             "properties": {
                 "amrfinderplus_db": {
                     "type": "string",
+                    "description": "Path to the AMRFinderPlus database. If not supplied and AMRFinderPlus is enabled, it is downloaded automatically.",
                     "help_text": "Path to amrfinderplus database",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "deeparg_db": {
                     "type": "string",
+                    "description": "Path to the DeepARG database.",
                     "help_text": "Path to deeparg database",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "deeparg_db_version": {
                     "type": "string",
+                    "description": "Version of the DeepARG database being used.",
                     "help_text": "Version of deeparg database",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "deeparg_model": {
                     "type": "string",
+                    "description": "DeepARG model to use: 'SS' for short reads, or 'LS' for genes/proteins.",
                     "help_text": "Model of deeparg",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "deeparg_tool_version": {
                     "type": "string",
+                    "description": "Version of the DeepARG tool being used.",
                     "help_text": "Version of deeparg tool",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "rgi_db": {
                     "type": "string",
+                    "description": "Path to the RGI/CARD database, already processed for RGI (card_database_processed).",
                     "help_text": "Path of RGI db",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "skip_amrfinderplus": {
                     "type": "boolean",
+                    "description": "Skip AMRFinderPlus antimicrobial resistance annotation.",
                     "help_text": "Flag to skip amrfinderplus ",
-                    "default": false
+                    "default": true
                 },
                 "skip_deeparg": {
                     "type": "boolean",
+                    "description": "Skip DeepARG antimicrobial resistance annotation.",
                     "help_text": "Flag to skip deeparg ",
                     "default": false
                 },
                 "skip_rgi": {
                     "type": "boolean",
+                    "description": "Skip RGI antimicrobial resistance annotation.",
                     "help_text": "Flag to skip RGI ",
                     "default": false
                 }

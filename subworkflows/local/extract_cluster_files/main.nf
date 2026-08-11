@@ -3,12 +3,12 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../modules/nf-core/gunzip'
-include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../modules/nf-core/gunzip'
-include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../modules/nf-core/seqtk/subseq'
-include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../modules/nf-core/seqtk/subseq'
+include { GUNZIP as UNCOMPRESSED_REPS_FNA              } from '../../../modules/nf-core/gunzip'
+include { GUNZIP as UNCOMPRESSED_REPS_FAA              } from '../../../modules/nf-core/gunzip'
+include { SEQTK_SUBSEQ as GREP_FNA                     } from '../../../modules/nf-core/seqtk/subseq'
+include { SEQTK_SUBSEQ as GREP_FAA                     } from '../../../modules/nf-core/seqtk/subseq'
 
-include { EXTRACT_REPS_STATS                           } from '../../modules/local/extract_reps_stats'
+include { EXTRACT_REPS_STATS                           } from '../../../modules/local/extract_reps_stats'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

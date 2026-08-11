@@ -1,0 +1,54 @@
+name: assign
+description: Assign a taxonomic lineage to each viral contig from its per-protein ViPhOG annotations, resolved against the NCBI taxonomy database
+keywords:
+  - taxonomy
+  - viphogs
+  - viral
+  - ncbi
+tools:
+  - assign:
+      description: |
+        Local script (contig_taxonomic_assign.py, from the VIRify pipeline) that
+        resolves a contig's taxonomic lineage from the ViPhOG hits of its proteins,
+        using ete3's NCBITaxa for lineage lookups and an optional taxon-weighting factor file
+      homepage: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      documentation: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      licence: ["Apache-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - tab:
+        type: file
+        description: Per-contig ViPhOG annotation table (ANNOTATION module output)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - db:
+        type: directory
+        description: NCBI taxonomy database directory (ete3 NCBITaxa)
+        pattern: "*"
+        ontologies: []
+  - - factor:
+        type: file
+        description: Optional taxon-weighting factor file
+        pattern: "*"
+        ontologies: []
+output:
+  taxonomy_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_taxonomy.tsv":
+          type: file
+          description: Per-contig taxonomic lineage assignment
+          pattern: "*_taxonomy.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
