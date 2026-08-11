@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "index_results"
+description: Sort, compress and index the representative-genome GFF/FNA/FAA/BACPHLIP files for the catalogue website (samtools faidx, tabix bgzip+index)
+keywords:
+  - indexing
+  - website
+  - gff
+  - fasta
+components:
+  - sort_gff
+  - samtools/faidx
+  - tabix/bgziptabix
+input:
+  - reps_gff:
+      type: file
+      description: |
+        GFF for cluster representatives
+        Structure: [ val(meta), path(gff) ]
+  - fna_uncompressed:
+      type: file
+      description: |
+        Decompressed representative nucleotide FASTA
+        Structure: [ val(meta), path(fasta) ]
+  - faa_uncompressed:
+      type: file
+      description: |
+        Decompressed representative protein FASTA
+        Structure: [ val(meta), path(fasta) ]
+  - bacphlip_concatenated:
+      type: file
+      description: |
+        Concatenated BACPHLIP lifestyle predictions table, or `false` to skip
+        indexing it (plasmids have no lifestyle prediction)
+        Structure: [ val(meta), path(tsv) ]
+output:
+  # This subworkflow has no `emit:` block -- it only publishes files (sorted/compressed/
+  # indexed GFF, bgzipped+faidx-indexed FNA/FAA, and optionally a bgzipped+indexed
+  # BACPHLIP table) via each module's own publishDir; nothing is passed on to the caller.
+  []
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "process_viral_sequences"
+description: Cluster/dereplicate viral and prophage sequences, extract cluster representative files, and run host prediction, lifestyle prediction, taxonomy assignment and protein annotation on the representatives
+keywords:
+  - viral
+  - clustering
+  - host prediction
+  - lifestyle
+  - taxonomy
+  - proteins
+components:
+  - clustering
+  - extract_cluster_files
+  - seqkit/split2
+  - host_detection_subwf
+  - bacphlip
+  - find/concatenate
+  - taxonomy_subwf
+  - proteins_subwf
+  - build_final_gff
+  - index_results
+input:
+  - sequences:
+      type: file
+      description: |
+        Deduplicated viral/prophage nucleotide sequences
+        Structure: [ val(meta), path(fasta) ]
+  - gff:
+      type: file
+      description: |
+        Combined (filtered) GFF covering all input sequences
+        Structure: [ val(meta), path(gff) ]
+  - faa:
+      type: file
+      description: |
+        Combined (filtered) protein FASTA covering all input sequences
+        Structure: [ val(meta), path(fasta) ]
+  - combined_metadata:
+      type: file
+      description: |
+        Combined catalogue metadata TSV, used for taxonomy visualisation joins
+        Structure: [ val(meta), path(tsv) ]
+  - mapfile:
+      type: file
+      description: Rename map TSV produced by rename_contigs.py
+output:
+  - clustering_tsv:
+      type: file
+      description: |
+        Cluster assignment table for viral sequences (ANI-based)
+        Structure: [ val(meta), path(tsv) ]
+  - reps_tsv:
+      type: file
+      description: |
+        One representative viral sequence ID per line
+        Structure: [ val(meta), path(tsv) ]
+  - reps_seqs:
+      type: file
+      description: |
+        Gzip-compressed nucleotide FASTA for viral cluster representatives
+        Structure: [ val(meta), path(fasta.gz) ]
+  - reps_proteins:
+      type: file
+      description: |
+        Gzip-compressed protein FASTA for viral cluster representatives
+        Structure: [ val(meta), path(fasta.gz) ]
+  - vitap_best:
+      type: file
+      description: |
+        Concatenated best-lineage VITAP predictions (empty channel if `--skip_vitap`)
+        Structure: [ val(meta), path(tsv) ]
+  - viphogs_assign:
+      type: file
+      description: |
+        ViPhOGs lineage assignment table (empty channel if `--skip_viphogs`)
+        Structure: [ val(meta), path(tsv) ]
+  - genomad_assign:
+      type: file
+      description: |
+        Concatenated geNomad virus-summary taxonomy table (empty channel if `--skip_genomad`)
+        Structure: [ val(meta), path(tsv) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

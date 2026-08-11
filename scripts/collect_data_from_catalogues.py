@@ -23,7 +23,7 @@ from Bio.SeqRecord import SeqRecord
 
 VIRAL_TYPES = ['viral_sequence', 'plasmid', 'prophage']
 MGNIFY_GENOMES_BASE_URL = "https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes"
-SAMPLESHEET_COLUMNS = ['id', 'gff', 'fna', 'faa', 'source', 'biome']
+SAMPLESHEET_COLUMNS = ['id', 'fna', 'gff', 'faa', 'source', 'biome']
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -402,8 +402,8 @@ def generate_samplesheet(catalogue_paths: list[str], output_path: str) -> str:
             sample_id = f'{catalogue_name}_{version}'
             writer.writerow({
                 'id': sample_id,
-                'gff': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.gff')),
                 'fna': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.fna')),
+                'gff': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.gff')),
                 'faa': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.faa')),
                 'source': 'genome',
                 'biome': catalogue_name,

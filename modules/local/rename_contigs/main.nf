@@ -10,6 +10,7 @@ process RENAME_CONTIGS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
+    val(meta)
     path(fna)
     path(gff)
     val(types)
@@ -26,10 +27,10 @@ process RENAME_CONTIGS {
     val(plasmid_identifier)
 
     output:
-    path("combined.fna"),      optional: true, emit: fna_renamed
-    path("combined.gff"),      optional: true, emit: gff_renamed
-    path("combined.tsv"),      optional: true, emit: map_file
-    path "versions.yml",                       emit: versions
+    tuple val(meta), path("combined.fna"), emit: fna_renamed
+    tuple val(meta), path("combined.gff"), emit: gff_renamed
+    tuple val(meta), path("combined.tsv"), emit: map_file
+    tuple val("${task.process}"), val('python'), eval('python --version 2>&1 | sed "s/Python //g"'), topic: versions
 
     script:
     def args   = task.ext.args ?: ''
@@ -77,11 +78,5 @@ process RENAME_CONTIGS {
        ${prophage_id_arg} \\
        ${plasmid_id_arg} \\
        ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
     """
 }

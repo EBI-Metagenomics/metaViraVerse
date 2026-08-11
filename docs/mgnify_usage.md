@@ -182,8 +182,8 @@ human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/result
 | Column   | Required | Description                                                                                                  |
 | -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
 | `id`     | Yes      | Unique identifier. We recommend using the ERZ accession if the MAG or assembly originates from ENA.          |
-| `gff`    | Yes      | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions.        |
 | `fna`    | Yes      | FASTA file with nucleotide sequences for the selected regions in the GFF.                                    |
+| `gff`    | Yes      | GFF file containing viral and plasmid records. May also contain CDS records for the selected regions.        |
 | `faa`    | No       | FASTA file with protein sequences for the CDS regions in the GFF.                                            |
 | `source` | Yes      | `genome` (for a MAG source) or `metagenome` (for an assembly source), describing the origin of the sequence. |
 | `biome`  | No       | Metadata describing the sequence's environmental origin (for example: marine, soil).                         |

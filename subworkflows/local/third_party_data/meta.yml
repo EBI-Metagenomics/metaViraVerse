@@ -1,37 +1,50 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
 name: "third_party_data"
-description: Integrate non-MGnify inputs (viruses and plasmids) sample sheet for third-party data sources.
+description: Prepare third-party (non-MGnify) viral/prophage/plasmid sequences for merging with the MGnify catalogue - decompresses, validates and gene-calls each input FASTA.
 keywords:
   - third-party data
   - validation
+  - gene calling
   - fasta
   - plasmids
+  - prophage
   - virus
 components:
   - falint
   - pyrodigal
   - gunzip
 input:
-  - meta:
-      type: map
-      description: Sample metadata with at minimum an 'id' field
-  - fasta:
+  - ch_input:
       type: file
-      description: FASTA file containing nucleotide sequences
-      pattern: "*.{fa,fasta,fna}"
+      description: |
+        Channel containing one nucleotide FASTA per third-party samplesheet row, optionally gzip-compressed
+        Structure: [ val(meta), path(fasta) ]
+        meta contains 'id' and 'type' (virus/prophage/plasmid) from every row, plus the optional
+        'source' (genome/metagenome), 'biome', 'study_accession' and 'sample_accession' fields
+        when present in the third-party samplesheet.
 output:
-  - fna:
-      type: file
-      description: Gene nucleotide sequences (decompressed)
-      pattern: "*.fna"
-  - faa:
-      type: file
-      description: Predicted amino acid sequences (decompressed)
-      pattern: "*.faa.gz"
-  - gff:
-      type: file
-      description: Gene annotations in GFF format (decompressed)
-      pattern: "*.gff"
+  - third_party_data:
+      description: |
+        Channel with one entry per samplesheet row that passed FASTA validation, carrying the
+        (decompressed) nucleotide FASTA together with its predicted gene annotations and proteins.
+        Structure: [ val(meta), path(fasta), path(gff), path(faa) ]
+      meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1', type:'virus', source:'metagenome', biome:'marine' ]`
+      fasta:
+        type: file
+        description: Decompressed input nucleotide FASTA (unchanged sequence content, validated by FALint)
+        pattern: "*.{fa,fasta,fna}"
+      gff:
+        type: file
+        description: Predicted CDS annotations from Pyrodigal (decompressed)
+        pattern: "*.gff"
+      faa:
+        type: file
+        description: Predicted protein sequences from Pyrodigal (decompressed)
+        pattern: "*.faa"
 authors:
   - "@EfraMP"
 maintainers:

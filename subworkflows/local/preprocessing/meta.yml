@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "preprocessing"
+description: Combine MGnify and third-party input, assign unique sequence identifiers, split records into virus/prophage/plasmid categories, evaluate quality (CheckV) and rRNA content (Barrnap), then deduplicate across categories
+keywords:
+  - preprocessing
+  - rename
+  - deduplication
+  - checkv
+  - barrnap
+components:
+  - rename_contigs
+  - separate_sequences
+  - checkv/endtoend
+  - csvtk/concat
+  - barrnap
+  - seqkit/split2
+  - choose_sequences
+input:
+  - input:
+      type: file
+      description: |
+        MGnify samplesheet records
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - ch_third_party_data:
+      type: file
+      description: |
+        Third-party samplesheet records
+        Structure: [ val(meta[id, biome, type, source]), path(fasta), path(gff), path(faa) ]
+output:
+  - mapfile:
+      type: file
+      description: |
+        Rename map TSV linking original sequence identifiers to renamed identifiers, biome and source
+        Structure: [ val(meta), path(tsv) ]
+  - separated_prophages:
+      type: file
+      description: |
+        Renamed prophage records after category splitting (pre-deduplication)
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - separated_viruses:
+      type: file
+      description: |
+        Renamed viral records after category splitting (pre-deduplication)
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - separated_plasmids:
+      type: file
+      description: |
+        Renamed plasmid records after category splitting (pre-deduplication)
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - input_metadata:
+      type: file
+      description: |
+        Combined per-sequence metadata table before quality filtering/deduplication
+        Structure: [ val(meta), path(tsv) ]
+  - metadata:
+      type: file
+      description: |
+        Combined per-sequence metadata table after quality filtering/deduplication
+        Structure: [ val(meta), path(tsv) ]
+  - excluded_qc:
+      type: file
+      description: |
+        Metadata for sequences excluded by quality filtering or deduplication, with exclusion reason
+        Structure: [ val(meta), path(tsv) ]
+  - viral_sequences:
+      type: file
+      description: |
+        Deduplicated viral FNA/GFF/FAA
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - prophages:
+      type: file
+      description: |
+        Deduplicated prophage FNA/GFF/FAA
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - plasmids:
+      type: file
+      description: |
+        Deduplicated plasmid FNA/GFF/FAA
+        Structure: [ val(meta), path(fna), path(gff), path(faa) ]
+  - combined_gff:
+      type: file
+      description: |
+        Combined (filtered) GFF covering all deduplicated sequences
+        Structure: [ val(meta), path(gff) ]
+  - combined_faa:
+      type: file
+      description: |
+        Combined (filtered) protein FASTA covering all deduplicated sequences
+        Structure: [ val(meta), path(fasta) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

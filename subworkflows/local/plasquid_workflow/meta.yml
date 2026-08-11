@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "plasquid_workflow"
+description: Run the plasquid analysis chain (replicon, RNA, incompatibility-group and mobilisation-gene searches) on plasmid representative sequences and extract a combined plasmid feature table
+keywords:
+  - plasmid
+  - plasquid
+  - replicon
+  - mobilisation
+components:
+  - repsearch
+  - rnasearch
+  - incsearch
+  - mobsearch
+  - extract_plasmids_data
+input:
+  - plasmids_fna:
+      type: file
+      description: |
+        Plasmid cluster representative nucleotide sequences
+        Structure: [ val(meta), path(fasta) ]
+  - plasmids_faa:
+      type: file
+      description: |
+        Plasmid cluster representative protein sequences
+        Structure: [ val(meta), path(fasta) ]
+output:
+  # This subworkflow has no `emit:` block -- EXTRACT_PLASMIDS_DATA publishes the combined
+  # plasquid feature table directly via its own publishDir; nothing is passed on to the caller.
+  []
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

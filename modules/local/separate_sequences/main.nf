@@ -6,7 +6,6 @@ process SEPARATE_SEQUENCES {
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
 
-
     input:
     tuple val(meta), path(fna)
     tuple val(meta_gff), path(gff)
@@ -15,10 +14,8 @@ process SEPARATE_SEQUENCES {
     val category
 
     output:
-    tuple val(meta), path("${category}.fna"),                emit: chosen_sequences
-    tuple val(meta), path("${category}.gff"), optional: true, emit: chosen_gff
-    tuple val(meta), path("${category}.faa"), optional: true, emit: chosen_faa
-    path "versions.yml",                                      emit: versions
+    tuple val(meta), path("${category}.fna"), path("${category}.gff"), path("${category}.faa"),      emit: chosen_sequences
+    tuple val("${task.process}"), val('python'), eval('python --version 2>&1 | sed "s/Python //g"'), topic: versions
 
     script:
     def gff_arg = gff ? "--gff ${gff}" : ""
@@ -31,11 +28,5 @@ process SEPARATE_SEQUENCES {
        --map ${map_file} \\
        --category ${category} \\
        --output-prefix ${category}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
     """
 }

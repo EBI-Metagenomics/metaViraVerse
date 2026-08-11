@@ -1,0 +1,35 @@
+{
+    "virus and plasmid fasta": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test_plasmid",
+                        "type": "plasmid",
+                        "source": "metagenome",
+                        "biome": "marine sediment"
+                    },
+                    "plasmids.fasta:md5,8fc88abb83235cbbb1c5cdc235cbadc7",
+                    "test_plasmid.gff:md5,51f568838af4be6f937be75bafe5f91c",
+                    "test_plasmid.faa:md5,3bb15decf911b7d88fac963166e4ad82"
+                ],
+                [
+                    {
+                        "id": "test_virus",
+                        "type": "virus",
+                        "source": "metagenome",
+                        "biome": "human gut"
+                    },
+                    "viruses.fasta:md5,b064285406ed07491a2f556a8f4e7ef6",
+                    "test_virus.gff:md5,9ccd6975bee3e402745ffa7fd6943ccc",
+                    "test_virus.faa:md5,6c51e06cb27dae6f4ba004042acf138c"
+                ]
+            ]
+        ],
+        "timestamp": "2026-08-05T19:39:23.601383",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.0"
+        }
+    }
+}

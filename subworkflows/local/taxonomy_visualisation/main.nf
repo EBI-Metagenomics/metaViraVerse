@@ -3,9 +3,9 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { KRONA_KTIMPORTTEXT               } from '../../modules/nf-core/krona/ktimporttext'
-include { SANKEY_PLOT                      } from '../../modules/local/sankey_plot'
-include { PLOT_ITOL                        } from '../../modules/local/plot_itol'
+include { KRONA_KTIMPORTTEXT               } from '../../../modules/nf-core/krona/ktimporttext'
+include { SANKEY_PLOT                      } from '../../../modules/local/sankey_plot'
+include { PLOT_ITOL                        } from '../../../modules/local/plot_itol'
 
 
 workflow TAXONOMY_VISUALISATION {

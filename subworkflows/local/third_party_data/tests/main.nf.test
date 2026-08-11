@@ -5,28 +5,21 @@ nextflow_workflow {
     workflow "THIRD_PARTY_DATA"
 
     tag "subworkflows"
-    tag "subworkflows/third_party_data"
-    tag "falint"
-    tag "pyrodigal"
-    tag "gunzip"
+    tag "third_party_data"
 
     test("virus and plasmid fasta") {
 
         when {
             workflow {
                 """
-                input[0] = Channel.of(
+                input[0] = channel.of(
                     [
-                        [ id: 'test_virus' ],
-                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
-                        'virus',
-                        'human gut'
+                        [ id: 'test_virus', type: 'virus', source: 'metagenome', biome: 'human gut' ],
+                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true)
                     ],
                     [
-                        [ id: 'test_plasmid' ],
-                        file("${projectDir}/assets/test_data/third_party/plasmids.fasta.gz", checkIfExists: true),
-                        'plasmid',
-                        'marine sediment'
+                        [ id: 'test_plasmid', type: 'plasmid', source: 'metagenome', biome: 'marine sediment' ],
+                        file("${projectDir}/assets/test_data/third_party/plasmids.fasta.gz", checkIfExists: true)
                     ]
                 )
                 """
@@ -36,104 +29,11 @@ nextflow_workflow {
         then {
             assert workflow.success
 
-            // Assert output number
-            assert workflow.out.fna.size()    == 2
-            assert workflow.out.faa.size()    == 2
-            assert workflow.out.types.size()  == 2
-            assert workflow.out.biomes.size() == 2
-
-            // Assert file extensions
-            assert workflow.out.fna.every   { it.endsWith('.fna')    }
-            assert workflow.out.faa.every   { it[1].endsWith('.faa.gz') }
-
-            // Assert fields
-            assert workflow.out.types.toSorted()  == ['plasmid', 'virus']
-            assert workflow.out.biomes.toSorted() == ['human gut', 'marine sediment']
-
-            // Assert
-            assert workflow.out.fna.every { path(it).exists() }
-            assert workflow.out.fna.every { path(it).size() > 0 }
-        }
-    }
-
-    test("missing biome defaults to unknown") {
-
-        when {
-            workflow {
-                """
-                input[0] = Channel.of(
-                    [
-                        [ id: 'test_no_biome' ],
-                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
-                        'virus',
-                        null
-                    ]
-                )
-                """
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.biomes.get(0) == 'unknown'
-            assert workflow.out.fna.size()    == 1
-        }
-    }
-
-    test("stub - virus and plasmid fasta") {
-        options "-stub"
-
-        when {
-            workflow {
-                """
-                input[0] = Channel.of(
-                    [
-                        [ id: 'test_virus' ],
-                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
-                        'virus',
-                        'human gut'
-                    ],
-                    [
-                        [ id: 'test_plasmid' ],
-                        file("${projectDir}/assets/test_data/third_party/plasmids.fasta.gz", checkIfExists: true),
-                        'plasmid',
-                        'marine sediment'
-                    ]
-                )
-                """
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.fna.size()   == 2
-            assert workflow.out.faa.size()   == 2
-            assert workflow.out.types.size() == 2
-            assert workflow.out.biomes.size() == 2
-        }
-    }
-
-    test("stub - missing biome defaults to unknown") {
-        options "-stub"
-
-        when {
-            workflow {
-                """
-                input[0] = Channel.of(
-                    [
-                        [ id: 'test_no_biome' ],
-                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
-                        'virus',
-                        null
-                    ]
-                )
-                """
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.biomes.get(0) == 'unknown'
+            assertAll(
+                { assert snapshot(
+                    workflow.out.third_party_data
+                ).match() }
+            )
         }
     }
 }

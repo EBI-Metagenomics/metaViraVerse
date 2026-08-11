@@ -1,11 +1,11 @@
 contig_id	contig_length	provirus	proviral_length	gene_count	viral_genes	host_genes	checkv_quality	miuvig_quality	completeness	completeness_method	contamination	kmer_freq	warnings
-barley1	3862	No	NA	3	1	0	Low-quality	Genome-fragment	2.26	AAI-based (medium-confidence)	0.0	1.0	
-barley2	5155	No	NA	7	2	0	Low-quality	Genome-fragment	1.52	HMM-based (lower-bound)	0.0	1.0	
+barley1	3862	No	NA	3	1	0	Low-quality	Genome-fragment	2.26	AAI-based (medium-confidence)	0.0	1.0
+barley2	5155	No	NA	7	2	0	Low-quality	Genome-fragment	1.52	HMM-based (lower-bound)	0.0	1.0
 barley3	5663	No	NA	7	0	4	Not-determined	Genome-fragment	NA	NA	0.0	1.0	no viral genes detected
 barley4	5917	No	NA	5	0	5	Not-determined	Genome-fragment	NA	NA	0.0	1.0	no viral genes detected
-barley5	5520	No	NA	6	1	0	Low-quality	Genome-fragment	0.25	HMM-based (lower-bound)	0.0	1.0	
-barley6	10903	No	NA	11	3	1	Low-quality	Genome-fragment	0.65	HMM-based (lower-bound)	0.0	1.01	
-barley7	3654	No	NA	4	1	0	Low-quality	Genome-fragment	0.29	HMM-based (lower-bound)	0.0	1.0	
-barley8	10560	No	NA	10	1	0	Low-quality	Genome-fragment	1.68	HMM-based (lower-bound)	0.0	1.01	
-barley9	6642	No	NA	6	1	0	Not-determined	Genome-fragment	NA	NA	0.0	1.0	
-barley10	3269	No	NA	6	1	0	Low-quality	Genome-fragment	0.94	HMM-based (lower-bound)	0.0	1.0	
+barley5	5520	No	NA	6	1	0	Low-quality	Genome-fragment	0.25	HMM-based (lower-bound)	0.0	1.0
+barley6	10903	No	NA	11	3	1	Low-quality	Genome-fragment	0.65	HMM-based (lower-bound)	0.0	1.01
+barley7	3654	No	NA	4	1	0	Low-quality	Genome-fragment	0.29	HMM-based (lower-bound)	0.0	1.0
+barley8	10560	No	NA	10	1	0	Low-quality	Genome-fragment	1.68	HMM-based (lower-bound)	0.0	1.01
+barley9	6642	No	NA	6	1	0	Not-determined	Genome-fragment	NA	NA	0.0	1.0
+barley10	3269	No	NA	6	1	0	Low-quality	Genome-fragment	0.94	HMM-based (lower-bound)	0.0	1.0

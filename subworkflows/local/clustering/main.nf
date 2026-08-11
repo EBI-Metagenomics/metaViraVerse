@@ -1,11 +1,11 @@
-include { ANICALC               } from '../../modules/local/checkv/anicalc'
-include { ANICLUST              } from '../../modules/local/checkv/aniclust'
+include { ANICALC               } from '../../../modules/local/checkv/anicalc'
+include { ANICLUST              } from '../../../modules/local/checkv/aniclust'
 
-include { BLAST_MAKEBLASTDB     } from '../../modules/nf-core/blast/makeblastdb'
-include { BLAST_BLASTN          } from '../../modules/nf-core/blast/blastn'
-include { VCLUST_ALIGN          } from '../../modules/nf-core/vclust/align'
-include { VCLUST_CLUSTER        } from '../../modules/nf-core/vclust/cluster'
-include { VCLUST_PREFILTER      } from '../../modules/nf-core/vclust/prefilter'
+include { BLAST_MAKEBLASTDB     } from '../../../modules/nf-core/blast/makeblastdb'
+include { BLAST_BLASTN          } from '../../../modules/nf-core/blast/blastn'
+include { VCLUST_ALIGN          } from '../../../modules/nf-core/vclust/align'
+include { VCLUST_CLUSTER        } from '../../../modules/nf-core/vclust/cluster'
+include { VCLUST_PREFILTER      } from '../../../modules/nf-core/vclust/prefilter'
 
 
 workflow CLUSTERING {
@@ -49,9 +49,9 @@ workflow CLUSTERING {
     } else {
         // Creation of a blast+ database
         BLAST_MAKEBLASTDB(
-            sequences
+            sequences,
+            'nucl'
         )
-        ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions)
 
         // Using megablast from blast+ package to perform all-vs-all blastn of sequences
         BLAST_BLASTN(

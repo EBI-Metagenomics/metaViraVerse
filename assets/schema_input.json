@@ -14,15 +14,15 @@
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "gff": {
-                "type": "string",
-                "format": "file-path",
-                "errorMessage": "GFF file containing viral data"
-            },
             "fna": {
                 "type": "string",
                 "format": "file-path",
                 "errorMessage": "FASTA file corresponding to GFF with viral sequences"
+            },
+            "gff": {
+                "type": "string",
+                "format": "file-path",
+                "errorMessage": "GFF file containing viral data"
             },
             "faa": {
                 "type": "string",
@@ -37,7 +37,8 @@
             },
             "biome": {
                 "type": "string",
-                "description": "Environmental biome",
+                "description": "Environmental biome, no spaces",
+                "pattern": "^\\S+$",
                 "meta": ["biome"]
             }
         },

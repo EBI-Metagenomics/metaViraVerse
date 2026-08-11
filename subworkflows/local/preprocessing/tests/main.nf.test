@@ -1,0 +1,86 @@
+// --- genome
+// 1. MGYG000517124_123 plasmid|1:5441 (4 proteins)
+// 2. MGYG000517048_21 viral_sequence (2 proteins)
+// 3. MGYG000516930_11 prophage (1 protein)
+// 4. MGYG000517048_21 viral_sequence (2 proteins) - second virus on the same contig
+// --- metagenome
+// 1. MGYG000517124_125 plasmid|1:5441 (4 proteins) -- same as MGYG000517124_123
+// 2. MGYG000517124_128 viral_sequence (3 proteins)
+// --- third party virus
+// 8 sequences
+// --- third party plasmid
+// 7 sequences
+
+nextflow_workflow {
+
+    name "Test Subworkflow PREPROCESSING"
+    script "../main.nf"
+    workflow "PREPROCESSING"
+
+    tag "subworkflows"
+    tag "preprocessing"
+
+    test("Use genomes and metagenomes and third party inputs. Skip checkv and rrna") {
+
+        when {
+            params {
+                db = 'database'
+                skip_checkv = true
+                skip_rrna_detection = true
+            }
+            workflow {
+                """
+                input[0] = channel.of(
+                    [
+                        [ id: 'genome', source: 'genome', biome: 'human_gut' ],
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/genome.fna", checkIfExists: true),
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/genome.gff", checkIfExists: true),
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/genome.faa", checkIfExists: true)
+                    ],
+                    [
+                        [ id: 'metagenome', source: 'metagenome', biome: 'marine_sediment' ],
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/metagenome.fna", checkIfExists: true),
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/metagenome.gff", checkIfExists: true),
+                        file("${projectDir}/subworkflows/local/preprocessing/tests/data/metagenome.faa", checkIfExists: true)
+                    ],
+                )
+                input[1] = channel.of(
+                    [
+                        [ id: 'test_virus', type: 'virus', source: 'metagenome', biome: 'human_oral' ],
+                        file("${projectDir}/assets/test_data/third_party/viruses.fasta.gz", checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/test_virus.gff.gz", checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/test_virus.faa", checkIfExists: true)
+                    ],
+                    [
+                        [ id: 'test_plasmid', type: 'plasmid', source: 'genome', biome: 'marine' ],
+                        file("${projectDir}/assets/test_data/third_party/plasmids.fasta.gz", checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/test_plasmid.gff.gz", checkIfExists: true),
+                        file("${projectDir}/assets/test_data/third_party/test_plasmid.faa", checkIfExists: true)
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            assertAll(
+                { assert snapshot(
+                    workflow.out
+                ).match() },
+
+                // Check number of viruses
+                { assert path(workflow.out.separated_viruses.get(0).get(1)).fasta.size() == 11 },
+                // Check number of prophages
+                { assert path(workflow.out.separated_prophages.get(0).get(1)).fasta.size() == 1 },
+                // Check number of plasmids
+                { assert path(workflow.out.separated_plasmids.get(0).get(1)).fasta.size() == 9 },
+                // check choose sequences results (1 seq was excluded)
+                { assert path(workflow.out.viral_sequences.get(0).get(1)).fasta.size() == 11 },
+                { assert path(workflow.out.prophages.get(0).get(1)).fasta.size() == 1 },
+                { assert path(workflow.out.plasmids.get(0).get(1)).fasta.size() == 8 },
+            )
+        }
+    }
+}

@@ -221,7 +221,7 @@ class TestChooseSeqsCrossCategory(unittest.TestCase):
 
     def setUp(self):
         self.mapping = cs.read_map([str(FIXTURES / "barley10.map.tsv")])
-        self.seen = cs.choose_seqs(
+        self.seen, self.duplicates = cs.choose_seqs(
             [
                 ("virus", str(FIXTURES / "viruses.fasta")),
                 ("prophage", str(FIXTURES / "prophages.fasta")),
@@ -234,6 +234,9 @@ class TestChooseSeqsCrossCategory(unittest.TestCase):
 
     def _entry_by_seq_id(self, seq_id):
         return next(e for e in self.seen.values() if e["seq_id"] == seq_id)
+
+    def _duplicate_by_seq_id(self, seq_id):
+        return next(e for e in self.duplicates if e["seq_id"] == seq_id)
 
     def test_total_unique_sequences(self):
         # 10 barley1-10 + barley11 unique + (barley12 dup of barley5) + (barley17 dup of barley2)
@@ -276,6 +279,75 @@ class TestChooseSeqsCrossCategory(unittest.TestCase):
     def test_plasmid_category_unaffected(self):
         entry = self._entry_by_seq_id("barley3")
         self.assertEqual(entry["category"], "plasmid")
+
+    def test_losing_records_are_returned_as_duplicates(self):
+        seq_ids = {e["seq_id"] for e in self.duplicates}
+        self.assertEqual(seq_ids, {"barley12", "barley2"})
+
+    def test_duplicate_count_matches_lost_records(self):
+        # 13 records in, 11 unique hashes -> 2 records lost a collision
+        self.assertEqual(len(self.duplicates), 2)
+
+    def test_duplicate_carries_its_own_single_biome_not_the_merged_set(self):
+        # barley12 lost to barley5; the merged set on the winner is
+        # {"rhizosphere", "desert"}, but the duplicate itself only carries
+        # its own biome ("desert").
+        entry = self._duplicate_by_seq_id("barley12")
+        self.assertEqual(entry["biomes"], {"desert"})
+
+    def test_duplicate_keeps_its_own_definition_and_category(self):
+        entry = self._duplicate_by_seq_id("barley12")
+        self.assertEqual(entry["category"], "prophage")
+        self.assertEqual(entry["definition"], "third_party_prophage")
+
+    def test_demoted_former_winner_is_also_a_duplicate(self):
+        # barley2 was the first record seen for its hash (so it started as the
+        # 'seen' winner) but was later demoted when higher-priority barley17
+        # showed up -- it must still end up in duplicates, not just vanish.
+        entry = self._duplicate_by_seq_id("barley2")
+        self.assertEqual(entry["category"], "virus")
+
+
+class TestReadInputGff(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_indexes_by_column_one_even_when_id_attribute_is_stale(self):
+        # Regression test: rename_contigs.py rewrites column 1 (the seqid) to the new
+        # temporary name but leaves the sequence-level ID= attribute as the original,
+        # un-renamed value. read_input_gff must key gff_data off column 1 -- entry
+        # lookups in write_final_files use entry['seq_id'], which is the FASTA
+        # record.id (also the temporary name) -- or a genuinely-renamed GFF would
+        # never be found.
+        gff_with_stale_attribute = (
+            "##gff-version 3\n"
+            "seq1\tVIRify\tviral_sequence\t1\t61\t.\t.\t.\t"
+            "ID=MGYG000535629_9|viral_sequence-1:3862;checkv_quality=Low-quality\n"
+            "seq1\tProdigal:002006\tCDS\t1\t30\t.\t+\t0\tID=MGYG000535629_00028;product=hypothetical protein\n"
+        )
+        gff_path = str(Path(self.tmp.name) / "stale_attr.gff")
+        with open(gff_path, "w") as f:
+            f.write(gff_with_stale_attribute)
+
+        gff_data, source_map = cs.read_input_gff([gff_path])
+
+        self.assertIn("seq1", gff_data)
+        self.assertEqual(len(gff_data["seq1"]), 2)
+        self.assertEqual(source_map["seq1"], "VIRify")
+
+    def test_source_map_ignores_cds_lines(self):
+        gff_path = str(Path(self.tmp.name) / "test.gff")
+        with open(gff_path, "w") as f:
+            f.write(
+                "##gff-version 3\n"
+                "seq1\tgeNomad\tplasmid\t1\t61\t.\t.\t.\tID=seq1;mobile_element_type=plasmid\n"
+                "seq1\tProdigal:002006\tCDS\t1\t30\t.\t+\t0\tID=seq1_00001\n"
+            )
+        _, source_map = cs.read_input_gff([gff_path])
+        self.assertEqual(source_map["seq1"], "geNomad")
 
 
 class TestMainIntegration(unittest.TestCase):
@@ -379,6 +451,32 @@ class TestMainIntegration(unittest.TestCase):
         self.assertEqual(header[0], "filter_reason")
         by_id = {r[1]: r[0] for r in rows[1:]}
         self.assertEqual(by_id["barley1"], "rrna")
+
+    def test_excluded_tsv_has_duplicate_records(self):
+        # barley12 lost to barley5, and barley2 (the original winner for its hash)
+        # was later demoted by barley17 -- both must show up in excluded.tsv rather
+        # than silently vanishing.
+        self._run()
+        rows = self._read_tsv(self.prefix + "_excluded.tsv")
+        by_id = {r[1]: r[0] for r in rows[1:]}
+        self.assertEqual(by_id["barley12"], "duplicate")
+        self.assertEqual(by_id["barley2"], "duplicate")
+
+    def test_excluded_tsv_covers_every_filtered_out_record(self):
+        # Every record that never makes it into the combined filtered FASTA must
+        # appear in excluded.tsv -- whether it lost a quality filter or a dedup
+        # collision -- so nothing is filtered out without a trace.
+        self._run()
+        with open(self.prefix + "_filtered.fna") as f:
+            kept_ids = {l.strip().lstrip(">") for l in f if l.startswith(">")}
+        metadata_rows = self._read_tsv(self.prefix + "_metadata.tsv")[1:]
+        excluded_rows = self._read_tsv(self.prefix + "_excluded.tsv")[1:]
+
+        all_seen_ids = {r[0] for r in metadata_rows}
+        excluded_ids = {r[1] for r in excluded_rows}
+        duplicate_ids = {"barley12", "barley2"}
+
+        self.assertEqual(excluded_ids, (all_seen_ids - kept_ids) | duplicate_ids)
 
     def test_tsv_has_correct_columns(self):
         self._run()

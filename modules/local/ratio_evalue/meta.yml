@@ -1,0 +1,49 @@
+name: ratio_evalue
+description: Compute, per protein-ViPhOG hit, the aligned-profile length ratio and total e-value, to identify informative ViPhOG hits
+keywords:
+  - viphogs
+  - evalue
+  - hmmer
+  - viral
+tools:
+  - ratio_evalue:
+      description: |
+        Local script (ratio_evalue_table.py, from the VIRify pipeline) that combines
+        the reformatted HMMER domain table with ViPhOG model metadata to compute the
+        profile alignment ratio and total e-value for each protein-ViPhOG pair
+      homepage: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      documentation: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      licence: ["Apache-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - modified_table:
+        type: file
+        description: Reformatted HMMER hits table (HMM_POSTPROCESSING output)
+        pattern: "*_modified.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - model_metadata:
+        type: file
+        description: ViPhOG model metadata (additional_model_data)
+        pattern: "*"
+        ontologies: []
+output:
+  informative_hits_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_modified_informative.tsv":
+          type: file
+          description: Per-protein ViPhOG hits with alignment ratio and total e-value, filtered by `--viphogs_evalue`
+          pattern: "*_modified_informative.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "taxonomy_visualisation"
+description: Generate Krona, Sankey and iTOL visualisations from a taxonomy assignment table
+keywords:
+  - taxonomy
+  - visualisation
+  - krona
+  - sankey
+  - itol
+components:
+  - krona/ktimporttext
+  - sankey_plot
+  - plot_itol
+input:
+  - reps_krona_and_metadata:
+      type: file
+      description: |
+        Taxonomy table (Krona-ready text format) joined with catalogue metadata
+        Structure: [ val(meta), path(tsv), path(metadata) ]
+output:
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

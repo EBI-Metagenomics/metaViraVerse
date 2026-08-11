@@ -1,0 +1,220 @@
+name: choose_sequences
+description: Deduplicate virus/prophage/plasmid sequences across categories by hashsum, prioritising MGnify over third-party and assembly over MAG, and filter out low-confidence and duplicate records
+keywords:
+  - deduplication
+  - viral
+  - plasmid
+  - filtering
+  - hashsum
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta_virus_fna:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'combined' ]
+    - virus_fna:
+        type: file
+        description: Virus category FASTA file
+        pattern: "*.fna"
+        ontologies: []
+    - virus_gff:
+        type: file
+        description: GFF file for the virus category
+        pattern: "*.gff"
+        ontologies: []
+    - virus_faa:
+        type: file
+        description: Protein FASTA file for the virus category
+        pattern: "*.faa"
+        ontologies: []
+  - - meta_prophage_fna:
+        type: map
+        description: Groovy Map containing sample information
+    - prophage_fna:
+        type: file
+        description: Prophage category FASTA file
+        pattern: "*.fna"
+        ontologies: []
+    - prophage_gff:
+        type: file
+        description: GFF file for the prophage category
+        pattern: "*.gff"
+        ontologies: []
+    - prophage_faa:
+        type: file
+        description: Protein FASTA file for the prophage category
+        pattern: "*.faa"
+        ontologies: []
+  - - meta_plasmid_fna:
+        type: map
+        description: Groovy Map containing sample information
+    - plasmid_fna:
+        type: file
+        description: Plasmid category FASTA file
+        pattern: "*.fna"
+        ontologies: []
+    - plasmid_gff:
+        type: file
+        description: GFF file for the plasmid category
+        pattern: "*.gff"
+        ontologies: []
+    - plasmid_faa:
+        type: file
+        description: Protein FASTA file for the plasmid category
+        pattern: "*.faa"
+        ontologies: []
+  - - meta_quality:
+        type: map
+        description: Groovy Map containing sample information
+    - quality:
+        type: file
+        description: CheckV quality_summary.tsv covering virus/prophage sequences
+        pattern: "quality_summary.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta_rna_gff:
+        type: map
+        description: Groovy Map containing sample information
+    - rna_gff:
+        type: file
+        description: Barrnap rRNA/tRNA/tmRNA predictions GFF covering virus/prophage sequences
+        pattern: "*.gff"
+        ontologies: []
+  - - meta_map:
+        type: map
+        description: Groovy Map containing sample information
+    - map_file:
+        type: file
+        description: Rename map TSV produced by rename_contigs.py (original, temporary, biome, type, definition columns)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  metadata:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_metadata.tsv":
+          type: file
+          description: Metadata for every unique (deduplicated) sequence, pass or fail
+          pattern: "*_metadata.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  filtered_metadata:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_filtered.tsv":
+          type: file
+          description: Metadata for sequences that passed filtering, across all categories
+          pattern: "*_filtered.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  excluded_metadata:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_excluded.tsv":
+          type: file
+          description: Metadata for excluded sequences with a filter_reason column (rrna, not_determined, duplicate)
+          pattern: "*_excluded.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  filtered_data:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_filtered.fna":
+          type: file
+          description: Combined filtered FASTA (all categories)
+          pattern: "*_filtered.fna"
+          ontologies: []
+      - "${meta_map.id}_filtered.gff":
+          type: file
+          description: Combined filtered GFF (all categories)
+          pattern: "*_filtered.gff"
+          ontologies: []
+      - "${meta_map.id}_filtered.faa":
+          type: file
+          description: Combined filtered protein FASTA (all categories)
+          pattern: "*_filtered.faa"
+          ontologies: []
+  virus_data:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_virus_filtered.fna":
+          type: file
+          description: Filtered virus FASTA
+          pattern: "*_virus_filtered.fna"
+          ontologies: []
+      - "${meta_map.id}_virus_filtered.gff":
+          type: file
+          description: Filtered virus GFF
+          pattern: "*_virus_filtered.gff"
+          ontologies: []
+      - "${meta_map.id}_virus_filtered.faa":
+          type: file
+          description: Filtered virus protein FASTA
+          pattern: "*_virus_filtered.faa"
+          ontologies: []
+  prophage_data:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_prophage_filtered.fna":
+          type: file
+          description: Filtered prophage FASTA
+          pattern: "*_prophage_filtered.fna"
+          ontologies: []
+      - "${meta_map.id}_prophage_filtered.gff":
+          type: file
+          description: Filtered prophage GFF
+          pattern: "*_prophage_filtered.gff"
+          ontologies: []
+      - "${meta_map.id}_prophage_filtered.faa":
+          type: file
+          description: Filtered prophage protein FASTA
+          pattern: "*_prophage_filtered.faa"
+          ontologies: []
+  plasmid_data:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_plasmid_filtered.fna":
+          type: file
+          description: Filtered plasmid FASTA
+          pattern: "*_plasmid_filtered.fna"
+          ontologies: []
+      - "${meta_map.id}_plasmid_filtered.gff":
+          type: file
+          description: Filtered plasmid GFF
+          pattern: "*_plasmid_filtered.gff"
+          ontologies: []
+      - "${meta_map.id}_plasmid_filtered.faa":
+          type: file
+          description: Filtered plasmid protein FASTA
+          pattern: "*_plasmid_filtered.faa"
+          ontologies: []
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version 2>&1 | sed "s/Python //g":
+          type: eval
+          description: The expression to obtain the version of the tool (reported via the `versions` topic channel)
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
