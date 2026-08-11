@@ -8,7 +8,7 @@ include { paramsSummaryMultiqc                  } from '../subworkflows/nf-core/
 include { softwareVersionsToYAML                } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
-include { PREPROCESSING                         } from '../subworkflows/local/preprocessing'
+include { PREPROCESSING                         } from '../subworkflows/local/preprocessing/main'
 include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
@@ -60,9 +60,9 @@ workflow METAVIRAVERSE {
     // Process viral_sequences and prophages together as "viruses"
 
     viruses = PREPROCESSING.out.viral_sequences
-        .map{ _meta, seqs -> seqs }
+        .map{ _meta, fna, gff, faa -> fna }
         .combine(PREPROCESSING.out.prophages
-        .map{ _meta, seqs -> seqs })
+        .map{ _meta, fna, gff, faa -> fna })
         .flatMap { tuple -> tuple }
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
@@ -87,7 +87,7 @@ workflow METAVIRAVERSE {
     // Process plasmids filtered from input
 
     plasmids = PREPROCESSING.out.plasmids
-       .map{ _meta, seqs -> seqs }
+       .map{ _meta, fna, gff, faa -> fna }
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
 
@@ -112,9 +112,9 @@ workflow METAVIRAVERSE {
     // Collect stats for whole catalogue into JSON
     //
     COLLECT_CATALOGUE_STATS (
-        PREPROCESSING.out.viral_sequences,
-        PREPROCESSING.out.prophages,
-        PREPROCESSING.out.plasmids,
+        PREPROCESSING.out.viral_sequences.map{ meta, fna, gff, faa -> [meta, fna] },
+        PREPROCESSING.out.prophages.map{ meta, fna, gff, faa -> [meta, fna] },
+        PREPROCESSING.out.plasmids.map{ meta, fna, gff, faa -> [meta, fna] },
         PREPROCESSING.out.metadata,
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,

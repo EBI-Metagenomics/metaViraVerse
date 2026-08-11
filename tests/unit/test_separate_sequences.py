@@ -91,6 +91,29 @@ class TestSplitGff(unittest.TestCase):
         with open(out_gff) as f:
             self.assertEqual(f.read(), "##gff-version 3\n")
 
+    def test_matches_on_column_one_even_if_id_attribute_is_stale(self):
+        # Regression test: rename_contigs.py rewrites column 1 (the seqid) to the new
+        # temporary name but does NOT rewrite the sequence-level ID= attribute (it's
+        # left as the original, un-renamed value). split_gff must key off column 1,
+        # not the attribute, or a genuinely-renamed GFF would never match kept_ids.
+        gff_with_stale_attribute = (
+            "##gff-version 3\n"
+            "seq1\tVIRify\tviral_sequence\t1\t61\t.\t.\t.\t"
+            "ID=MGYG000535629_9|viral_sequence-1:3862;checkv_quality=Low-quality\n"
+            "seq1\tProdigal:002006\tCDS\t1\t30\t.\t+\t0\tID=MGYG000535629_00028;product=hypothetical protein\n"
+        )
+        in_gff = str(Path(self.tmp.name) / "stale_attr.gff")
+        with open(in_gff, "w") as f:
+            f.write(gff_with_stale_attribute)
+
+        out_gff = str(Path(self.tmp.name) / "out.gff")
+        protein_ids = ss.split_gff(in_gff, {"seq1"}, out_gff)
+
+        self.assertEqual(protein_ids, {"MGYG000535629_00028"})
+        with open(out_gff) as f:
+            content = f.read()
+        self.assertIn("seq1\tVIRify\tviral_sequence", content)
+
 
 class TestSplitFaa(unittest.TestCase):
     def setUp(self):

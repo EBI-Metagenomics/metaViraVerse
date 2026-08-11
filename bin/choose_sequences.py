@@ -263,15 +263,20 @@ def choose_seqs(
     mapping: dict[str, dict[str, str]],
     rna_sequences: set[str],
     quality_data: dict[str, dict[str, str]],
-) -> dict[str, dict]:
+) -> tuple[dict[str, dict], list[dict]]:
     """Deduplicate sequences across virus/prophage/plasmid inputs, keeping the highest-priority source.
 
     For each unique sequence (by SHA256), the record from the source with the
     lowest ``type_priority`` value is retained -- this also decides the final
     category for that sequence when it was classified differently in more
     than one input (e.g. a prophage call in one sample vs. a free virus call
-    in another). Biome labels from all sources are merged regardless of which
-    record wins.
+    in another). Biome labels from all sources (winner and every superseded
+    duplicate) are merged into the winning entry.
+
+    Every record that loses a hash collision -- including the previous winner,
+    if a still-higher-priority record shows up later -- is kept in a separate
+    ``duplicates`` list rather than being silently dropped, so it can still be
+    reported (with reason 'duplicate') in the excluded-sequences table.
 
     Args:
         category_fastas: List of (category, fna_path) pairs, e.g.
@@ -282,9 +287,14 @@ def choose_seqs(
         quality_data: Dict of contig_id -> CheckV quality column dict.
 
     Returns:
-        Dict keyed by sequence SHA256 hash; each value is a record entry dict.
+        Tuple of (seen, duplicates):
+        - seen: dict keyed by sequence SHA256 hash; each value is the winning entry.
+        - duplicates: list of entries for every record superseded by a higher-
+          (or equal-, in a tie) priority duplicate, each with the same shape as
+          a ``seen`` entry (including its own single-source 'biomes' set).
     """
     seen: dict[str, dict] = {}
+    duplicates_by_hash: dict[str, list[dict]] = {}
 
     for category, fna_file in category_fastas:
         if not fna_file:
@@ -298,46 +308,54 @@ def choose_seqs(
             biome         = map_entry.get('biome',      'NA')
             rrna = ('Yes' if record.id in rna_sequences else 'No') if rna_sequences else 'not-provided'
 
+            new_entry = {
+                'record': record,
+                'original_name': original_name,
+                'type': source_type,
+                'definition': definition,
+                'category': category,
+                'biomes': {biome},
+                'seq_id': record.id,
+                'description': record.description,
+                'rrna': rrna,
+                'quality': quality_data.get(record.id),
+                'hash': h,
+            }
+
             if h not in seen:
-                seen[h] = {
-                    'record': record,
-                    'original_name': original_name,
-                    'type': source_type,
-                    'definition': definition,
-                    'category': category,
-                    'biomes': {biome},
-                    'seq_id': record.id,
-                    'description': record.description,
-                    'rrna': rrna,
-                    'quality': quality_data.get(record.id),
-                }
+                seen[h] = new_entry
+                duplicates_by_hash[h] = []
             else:
                 entry = seen[h]
-                # Always merge biomes, regardless of which source wins
-                entry['biomes'].add(biome)
-
                 current_priority = type_priority(entry['type'], entry['definition'])
                 new_priority = type_priority(source_type, definition)
                 if new_priority < current_priority:
-                    entry['record'] = record
-                    entry['original_name'] = original_name
-                    entry['type'] = source_type
-                    entry['definition'] = definition
-                    entry['category'] = category
-                    entry['seq_id'] = record.id
-                    entry['description'] = record.description
-                    entry['rrna'] = rrna
-                    entry['quality'] = quality_data.get(record.id)
-    return seen
+                    duplicates_by_hash[h].append(entry)
+                    seen[h] = new_entry
+                else:
+                    duplicates_by_hash[h].append(new_entry)
+
+    # Merge biomes from every contributing record (winner + its duplicates) into the winner
+    for h, entry in seen.items():
+        for dup in duplicates_by_hash[h]:
+            entry['biomes'].update(dup['biomes'])
+
+    duplicates = [dup for dups in duplicates_by_hash.values() for dup in dups]
+    return seen, duplicates
 
 
 def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str]]:
     """Parse one or more GFF3 files and index records by sequence ID.
 
+    Sequence identity is read straight from column 1 (the GFF seqid).
+    rename_contigs.py already rewrites column 1 to the same temporary name
+    used in the FASTA and the rename map for every line belonging to a
+    sequence (including its CDS lines), so no attribute parsing or pattern
+    matching is needed here.
+
     Builds two data structures:
-    - ``gff_data``: maps each sequence ID to the list of raw GFF lines that
-      belong to it (including its CDS lines, tracked via the most recently
-      seen non-CDS feature).
+    - ``gff_data``: maps each sequence ID (column 1) to the list of raw GFF
+      lines that belong to it (its own feature line plus its CDS lines).
     - ``source_map``: maps each sequence ID to the GFF source field
       (column 2) of its non-CDS feature (e.g. ``VIRify``, ``geNomad``).
 
@@ -358,17 +376,11 @@ def read_input_gff(gffs: list[str]) -> tuple[dict[str, list[str]], dict[str, str
                 parts = line.strip().split('\t')
                 if len(parts) < 9:
                     continue
-                attrs, _ = parse_attributes(parts[8])
-                if parts[2] != 'CDS':
-                    if attrs.get('ID'):
-                        attr_id = attrs['ID']
-                    else:
-                        print(f'There is no ID found for {line}')
-                    gff_data.setdefault(attr_id, [])
-
-                    if attr_id not in source_map:
-                        source_map[attr_id] = parts[1]
-                gff_data[attr_id].append(line)
+                seq_id = parts[0]
+                gff_data.setdefault(seq_id, [])
+                gff_data[seq_id].append(line)
+                if parts[2] != 'CDS' and seq_id not in source_map:
+                    source_map[seq_id] = parts[1]
                 total_lines += 1
     print(f'Total lines in input GFF: {total_lines}')
     return gff_data, source_map
@@ -398,6 +410,7 @@ def write_final_files(
     filtered_tsv: str,
     excluded_tsv: str,
     seen: dict[str, dict],
+    duplicates: list[dict],
     gff_data: dict[str, list[str]],
     source_map: dict[str, str],
     faa_records: dict[str, SeqRecord],
@@ -408,9 +421,11 @@ def write_final_files(
     Writes every unique sequence to ``metadata``, sequences that pass
     ``passes_filter`` to the combined ``filtered_fna``/``filtered_gff``/
     ``filtered_faa`` (and to their category-specific equivalents), and
-    excluded sequences with their reason to ``excluded_tsv``. Only proteins
-    belonging to kept sequences are written to the FAA outputs, so dropped
-    duplicates don't leave orphaned CDS records behind.
+    excluded sequences with their reason to ``excluded_tsv`` -- including
+    every superseded duplicate (reason 'duplicate'), so nothing that was
+    filtered out is missing from the audit trail. Only proteins belonging to
+    kept sequences are written to the FAA outputs, so dropped duplicates
+    don't leave orphaned CDS records behind.
 
     Args:
         metadata: Path for the full metadata TSV (every unique sequence).
@@ -419,7 +434,9 @@ def write_final_files(
         filtered_faa: Path for the combined filtered protein FASTA.
         filtered_tsv: Path for the combined filtered metadata TSV.
         excluded_tsv: Path for the excluded sequences TSV (with filter_reason column).
-        seen: Dict returned by ``choose_seqs``.
+        seen: Dict returned by ``choose_seqs`` (the winning entry per hash).
+        duplicates: List of superseded-duplicate entries from ``choose_seqs``,
+            written to ``excluded_tsv`` with reason 'duplicate'.
         gff_data: Dict of seq_id -> list of raw GFF lines (from ``read_input_gff``).
         source_map: Dict of seq_id -> GFF source field (from ``read_input_gff``).
         faa_records: Dict of protein_id -> SeqRecord (from ``read_faa``).
@@ -438,6 +455,29 @@ def write_final_files(
     for fh in category_gff_handles.values():
         fh.write("##gff-version 3\n")
 
+    def format_tsv_row(entry: dict) -> str:
+        biomes_str = ','.join(sorted(entry['biomes']))
+        q = entry['quality']
+        quality_values = '\t'.join(q[col] for col in QUALITY_COLUMNS) if q else '\t'.join(
+            'NA' for _ in QUALITY_COLUMNS)
+        prediction_source = source_map.get(entry['seq_id'], "NA")
+        if 'third_party' in entry['definition']:
+            prediction_source = 'third_party'
+
+        return (
+            f"{entry['seq_id']}\t"
+            f"{entry['original_name']}\t"
+            f"{entry['original_name'].replace('|', '-').replace(' ', '|')}\t"
+            f"{entry['type']}\t"
+            f"{prediction_source}\t"
+            f"{biomes_str}\t"
+            f"{len(entry['record'].seq)}\t"
+            f"{entry['rrna']}\t"
+            f"{entry['hash']}\t"
+            f"{quality_values}\t"
+            f"{entry['definition']}\n"
+        )
+
     with open(filtered_fna, 'w') as out_fna_f, \
          open(filtered_tsv, 'w') as out_tsv_f, \
          open(excluded_tsv, 'w') as out_excl, \
@@ -455,31 +495,13 @@ def write_final_files(
         metadata_file.write(header)
         out_excl.write(f"filter_reason\t{header}")
 
-        for h, entry in seen.items():
+        for entry in seen.values():
             record = entry['record']
             new_name = record.description.replace('|', '-').replace(' ', '|')
             record.id = new_name
             record.description = new_name
 
-            biomes_str = ','.join(sorted(entry['biomes']))
-            q = entry['quality']
-            quality_values = '\t'.join(q[col] for col in QUALITY_COLUMNS) if q else '\t'.join(
-                'NA' for _ in QUALITY_COLUMNS)
-            prediction_source = source_map.get(entry['seq_id'], "NA")
-
-            tsv_row = (
-                f"{entry['seq_id']}\t"
-                f"{entry['original_name']}\t"
-                f"{entry['original_name'].replace('|', '-').replace(' ', '|')}\t"
-                f"{entry['type']}\t"
-                f"{prediction_source}\t"
-                f"{biomes_str}\t"
-                f"{len(record.seq)}\t"
-                f"{entry['rrna']}\t"
-                f"{h}\t"
-                f"{quality_values}\t"
-                f"{entry['definition']}\n"
-            )
+            tsv_row = format_tsv_row(entry)
             records_total += 1
             metadata_file.write(tsv_row)
 
@@ -519,10 +541,17 @@ def write_final_files(
                 out_excl.write(f"{reason}\t{tsv_row}")
                 records_excluded += 1
 
+        # Every record that lost a hash collision is reported too, so a duplicate
+        # never just silently disappears from the audit trail.
+        for entry in duplicates:
+            out_excl.write(f"duplicate\t{format_tsv_row(entry)}")
+            records_excluded += 1
+
     for fh in (*category_fna_handles.values(), *category_gff_handles.values(), *category_faa_handles.values()):
         fh.close()
 
     print(f"Total unique sequences processed: {records_total}")
+    print(f"Duplicate records excluded: {len(duplicates)}")
     print(f"Filtered sequences written to {filtered_fna}: {records_filtered}")
     print(f"Excluded sequences written to {excluded_tsv}: {records_excluded}")
     print(f"Total written lines to filtered GFF {gff_records_written}")
@@ -556,7 +585,7 @@ def main() -> None:
     ]
     faa_records = read_faa(faa_files) if faa_files else {}
 
-    seen = choose_seqs(category_fastas, mapping, rna_sequences, quality_data)
+    seen, duplicates = choose_seqs(category_fastas, mapping, rna_sequences, quality_data)
 
     metadata     = f"{args.output_prefix}_metadata.tsv"
     filtered_fna = f"{args.output_prefix}_filtered.fna"
@@ -567,7 +596,7 @@ def main() -> None:
 
     write_final_files(
         metadata, filtered_fna, filtered_gff, filtered_faa, filtered_tsv, excluded_tsv,
-        seen, input_gff, source_map, faa_records, args.output_prefix,
+        seen, duplicates, input_gff, source_map, faa_records, args.output_prefix,
     )
     processed = [category for category, fna in category_fastas if fna]
     print(f"Categories processed: {processed}")

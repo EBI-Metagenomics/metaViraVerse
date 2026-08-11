@@ -31,7 +31,8 @@
             },
             "biome": {
                 "type": "string",
-                "description": "(Optional) Environmental biome, max 2 words (e.g. marine sediment or human gut)",
+                "description": "(Optional) Environmental biome, no spaces (e.g. marine_sediment or human_gut)",
+                "pattern": "^\\S+$",
                 "meta": ["biome"]
             },
             "study_accession": {

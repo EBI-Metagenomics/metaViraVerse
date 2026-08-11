@@ -64,7 +64,7 @@ def read_definitions(map_file: str) -> dict[str, str]:
         for row in csv.DictReader(f, delimiter='\t'):
             temporary = row['temporary']
             definition = row.get('definition') or 'NA'
-            definitions[temporary] = definition.removeprefix('third_party_')
+            definitions[temporary] = definition.replace('third_party_', '')
     return definitions
 
 
@@ -93,9 +93,11 @@ def split_fasta(fna_file: str, definitions: dict[str, str], category: str, outpu
 def split_gff(gff_file: str, kept_ids: set[str], output_gff: str) -> set[str]:
     """Write GFF records belonging to ``kept_ids`` to ``output_gff``.
 
-    CDS lines don't repeat their parent's ID, so the current sequence ID is
-    tracked from the most recently seen non-CDS feature line (same convention
-    used by rename_contigs.py/choose_sequences.py).
+    Sequence identity is read straight from column 1 (the GFF seqid).
+    rename_contigs.py already rewrites column 1 to the same temporary name
+    used in the combined FASTA and the rename map for every line belonging to
+    a sequence (including its CDS lines), so no attribute parsing or pattern
+    matching is needed here to find which sequence a line belongs to.
 
     Args:
         gff_file: Path to the combined (renamed) input GFF file.
@@ -106,8 +108,7 @@ def split_gff(gff_file: str, kept_ids: set[str], output_gff: str) -> set[str]:
         Set of CDS protein IDs (original naming) belonging to kept sequences.
     """
     protein_ids: set[str] = set()
-    current_seq_id: str | None = None
-    seqs_written = 0
+    seqs_written: set[str] = set()
     with open(gff_file) as gff_in, open(output_gff, 'w') as gff_out:
         gff_out.write("##gff-version 3\n")
         for line in gff_in:
@@ -116,11 +117,9 @@ def split_gff(gff_file: str, kept_ids: set[str], output_gff: str) -> set[str]:
             parts = line.rstrip('\n').split('\t')
             if len(parts) < 9:
                 continue
-            if parts[2] != 'CDS':
-                attrs, _ = parse_attributes(parts[8])
-                current_seq_id = attrs.get('ID')
 
-            if current_seq_id not in kept_ids:
+            seq_id = parts[0]
+            if seq_id not in kept_ids:
                 continue
 
             gff_out.write(line if line.endswith('\n') else line + '\n')
@@ -130,8 +129,8 @@ def split_gff(gff_file: str, kept_ids: set[str], output_gff: str) -> set[str]:
                 if protein_id:
                     protein_ids.add(protein_id)
             else:
-                seqs_written += 1
-    print(f"Wrote {seqs_written} sequences to {output_gff}")
+                seqs_written.add(seq_id)
+    print(f"Wrote {len(seqs_written)} sequences to {output_gff}")
     return protein_ids
 
 

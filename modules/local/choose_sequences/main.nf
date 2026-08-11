@@ -7,37 +7,22 @@ process CHOOSE_SEQUENCES {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta_virus_fna),    path(virus_fna)
-    tuple val(meta_virus_gff),    path(virus_gff)
-    tuple val(meta_virus_faa),    path(virus_faa)
-    tuple val(meta_prophage_fna), path(prophage_fna)
-    tuple val(meta_prophage_gff), path(prophage_gff)
-    tuple val(meta_prophage_faa), path(prophage_faa)
-    tuple val(meta_plasmid_fna),  path(plasmid_fna)
-    tuple val(meta_plasmid_gff),  path(plasmid_gff)
-    tuple val(meta_plasmid_faa),  path(plasmid_faa)
+    tuple val(meta_virus_fna),    path(virus_fna),    path(virus_gff),    path(virus_faa)
+    tuple val(meta_prophage_fna), path(prophage_fna), path(prophage_gff), path(prophage_faa)
+    tuple val(meta_plasmid_fna),  path(plasmid_fna),  path(plasmid_gff),  path(plasmid_faa)
     tuple val(meta_quality),      path(quality, name: "quality_summary.tsv")
     tuple val(meta_rna_gff),      path(rna_gff)
     tuple val(meta_map),          path(map_file, name: "mapping.tsv")
 
-
     output:
     tuple val(meta_map), path("${meta_map.id}_metadata.tsv"),          emit: metadata
-    tuple val(meta_map), path("${meta_map.id}_filtered.fna"),          emit: filtered_fna
-    tuple val(meta_map), path("${meta_map.id}_filtered.gff"),          emit: filtered_gff
-    tuple val(meta_map), path("${meta_map.id}_filtered.faa"),          emit: filtered_faa
     tuple val(meta_map), path("${meta_map.id}_filtered.tsv"),          emit: filtered_metadata
     tuple val(meta_map), path("${meta_map.id}_excluded.tsv"),          emit: excluded_metadata
-    tuple val(meta_map), path("${meta_map.id}_virus_filtered.fna"),    emit: virus_fna
-    tuple val(meta_map), path("${meta_map.id}_virus_filtered.gff"),    emit: virus_gff
-    tuple val(meta_map), path("${meta_map.id}_virus_filtered.faa"),    emit: virus_faa
-    tuple val(meta_map), path("${meta_map.id}_prophage_filtered.fna"), emit: prophage_fna
-    tuple val(meta_map), path("${meta_map.id}_prophage_filtered.gff"), emit: prophage_gff
-    tuple val(meta_map), path("${meta_map.id}_prophage_filtered.faa"), emit: prophage_faa
-    tuple val(meta_map), path("${meta_map.id}_plasmid_filtered.fna"),  emit: plasmid_fna
-    tuple val(meta_map), path("${meta_map.id}_plasmid_filtered.gff"),  emit: plasmid_gff
-    tuple val(meta_map), path("${meta_map.id}_plasmid_filtered.faa"),  emit: plasmid_faa
-    path "versions.yml",                                               emit: versions
+    tuple val(meta_map), path("${meta_map.id}_filtered.fna"),          path("${meta_map.id}_filtered.gff"),          path("${meta_map.id}_filtered.faa"),          emit: filtered_data
+    tuple val(meta_map), path("${meta_map.id}_virus_filtered.fna"),    path("${meta_map.id}_virus_filtered.gff"),    path("${meta_map.id}_virus_filtered.faa"),    emit: virus_data
+    tuple val(meta_map), path("${meta_map.id}_prophage_filtered.fna"), path("${meta_map.id}_prophage_filtered.gff"), path("${meta_map.id}_prophage_filtered.faa"), emit: prophage_data
+    tuple val(meta_map), path("${meta_map.id}_plasmid_filtered.fna"),  path("${meta_map.id}_plasmid_filtered.gff"),  path("${meta_map.id}_plasmid_filtered.faa"),  emit: plasmid_data
+    tuple val("${task.process}"), val('python'), eval('python --version 2>&1 | sed "s/Python //g"'), topic: versions
 
     script:
     def virus_gff_arg    = virus_gff    ? "--viruses-gff ${virus_gff}"      : ""
@@ -65,11 +50,5 @@ process CHOOSE_SEQUENCES {
         ${quality_arg} \\
         ${mapping_arg} \\
         --output-prefix ${meta_map.id}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
     """
 }
