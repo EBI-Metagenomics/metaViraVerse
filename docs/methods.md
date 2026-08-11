@@ -8,26 +8,26 @@ The pipeline accepts two independent kinds of input, which are merged during pre
 
 MGnify input format:
 
-| Column   | Required | Description                                                                                                  |
-| -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `id`     | Yes      | Unique identifier for the sample/assembly. We recommend using the ERZ accession when the MAG or assembly originates from ENA, so that results can always be traced back to the original submission. |
-| `gff`    | Yes      | GFF file describing the viral and plasmid records predicted for this sample. It may also contain CDS features for the selected regions, which are carried through the pipeline alongside the nucleotide sequences. |
-| `fna`    | Yes      | FASTA file with the nucleotide sequences for the regions listed in the GFF (i.e. the candidate viral/plasmid contigs, not the whole assembly). |
-| `faa`    | No       | FASTA file with the protein sequences translated from the CDS regions in the GFF. When supplied, it is used downstream instead of re-predicting genes. |
+| Column   | Required | Description                                                                                                                                                                                                                                                                         |
+| -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | Yes      | Unique identifier for the sample/assembly. We recommend using the ERZ accession when the MAG or assembly originates from ENA, so that results can always be traced back to the original submission.                                                                                 |
+| `fna`    | Yes      | FASTA file with the nucleotide sequences for the regions listed in the GFF (i.e. the candidate viral/plasmid contigs, not the whole assembly).                                                                                                                                      |
+| `gff`    | Yes      | GFF file describing the viral and plasmid records predicted for this sample. It may also contain CDS features for the selected regions, which are carried through the pipeline alongside the nucleotide sequences.                                                                  |
+| `faa`    | No       | FASTA file with the protein sequences translated from the CDS regions in the GFF. When supplied, it is used downstream instead of re-predicting genes.                                                                                                                              |
 | `source` | Yes      | `genome` (the sequence comes from a MAG) or `metagenome` (the sequence comes from an assembly). This label is later used to decide which copy of a duplicated sequence to keep — the same column, and the same meaning, as the third-party samplesheet's own `source` column below. |
-| `biome`  | No       | Free-text metadata describing the sequence's environmental origin (for example: marine, soil, human gut). Retained purely as metadata and merged across duplicates. |
+| `biome`  | No       | Free-text metadata describing the sequence's environmental origin (for example: marine, soil, human gut). Retained purely as metadata and merged across duplicates.                                                                                                                 |
 
 Third party input format:
 
-| Column   | Required | Description                                                                          |
-| -------- | -------- |--------------------------------------------------------------------------------------|
-| `id`     | Yes      | Unique identifier for the record.                                                    |
-| `fna`    | Yes      | FASTA file with the nucleotide sequence(s) for the chosen `type`.                     |
-| `type`   | Yes      | `virus`, `prophage`, or `plasmid`.                                                    |
-| `source` | No       | `genome` (the sequence comes from a MAG or isolate) or `metagenome` (the sequence comes from an assembly) — the same distinction MGnify's own `type` column makes, and used the same way downstream to decide which copy of a duplicated sequence to keep. |
-| `biome`  | No       | Metadata describing the sequence's environmental origin (for example: marine, soil). |
-| `study_accession`  | No       | INSDC study accession (primary or secondary) associated with the data, kept as metadata.              |
-| `sample_accession` | No       | INSDC sample accession associated with the data, kept as metadata.                                    |
+| Column             | Required | Description                                                                                                                                                                                                                                                |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`               | Yes      | Unique identifier for the record.                                                                                                                                                                                                                          |
+| `fna`              | Yes      | FASTA file with the nucleotide sequence(s) for the chosen `type`.                                                                                                                                                                                          |
+| `type`             | Yes      | `virus`, `prophage`, or `plasmid`.                                                                                                                                                                                                                         |
+| `source`           | No       | `genome` (the sequence comes from a MAG or isolate) or `metagenome` (the sequence comes from an assembly) — the same distinction MGnify's own `type` column makes, and used the same way downstream to decide which copy of a duplicated sequence to keep. |
+| `biome`            | No       | Metadata describing the sequence's environmental origin (for example: marine, soil).                                                                                                                                                                       |
+| `study_accession`  | No       | INSDC study accession (primary or secondary) associated with the data, kept as metadata.                                                                                                                                                                   |
+| `sample_accession` | No       | INSDC sample accession associated with the data, kept as metadata.                                                                                                                                                                                         |
 
 Third-party records go through their own preparation subworkflow (annotation, gene calling where needed) before being merged with the MGnify samplesheet, so that from the pre-processing stage onward both sources are treated uniformly. A run may supply only MGnify input, only third-party input, or both together.
 
@@ -76,7 +76,7 @@ To avoid keeping ribosomal/host-derived contamination in the viral catalogue, th
 The same underlying sequence is often predicted independently in more than one sample, recovered both as part of an assembly and as part of a MAG derived from that assembly, or even classified differently by different predictions (for example called a free virus in one sample and a prophage in another). This step compares sequences **across all three categories at once**, collapses duplicates into one representative record per unique sequence, removes low-confidence calls, and produces the metadata table and filtered FASTA/GFF/FAA that everything downstream is built on.
 
 - Every sequence, from every one of the three category inputs, is hashed (SHA256, on the uppercased nucleotide string). Two records that hash identically are treated as the same underlying sequence regardless of which sample, source, or even category (virus/prophage/plasmid) they were originally filed under — this is what catches a sequence that was called a prophage in one prediction and a free virus in another.
-- When a sequence appears more than once, only one copy is retained, chosen by a two-level priority: an MGnify-derived record always outranks a third-party one, and within either origin a `metagenome` (assembly) record outranks a `genome` (MAG) one. In order, that gives: MGnify+metagenome, MGnify+genome, third-party+metagenome, third-party+genome. Biome labels from every contributing source are merged and kept regardless of which record wins, and the deduplicated sequence's final category (virus/prophage/plasmid) becomes whichever category the *winning* record came from — so a sequence can end up re-classified from how it first appeared if a higher-priority duplicate placed it in a different category.
+- When a sequence appears more than once, only one copy is retained, chosen by a two-level priority: an MGnify-derived record always outranks a third-party one, and within either origin a `metagenome` (assembly) record outranks a `genome` (MAG) one. In order, that gives: MGnify+metagenome, MGnify+genome, third-party+metagenome, third-party+genome. Biome labels from every contributing source are merged and kept regardless of which record wins, and the deduplicated sequence's final category (virus/prophage/plasmid) becomes whichever category the _winning_ record came from — so a sequence can end up re-classified from how it first appeared if a higher-priority duplicate placed it in a different category.
 - Two extra pieces of information are attached to every retained sequence from the earlier steps: whether it carries an rRNA/tRNA/tmRNA annotation (from Barrnap), and its CheckV quality metrics — both apply only to virus/prophage sequences, since plasmids were never screened.
 - Filtering then removes sequences that are unlikely to be genuine viral calls:
   - Any non-plasmid sequence carrying an rRNA/tRNA/tmRNA annotation is excluded.
@@ -182,4 +182,3 @@ As an optional step (`--phammseqs`, off by default), representative proteins are
 ## Protein structures
 
 Structural prediction/annotation for representative proteins is still in development and not yet part of a released version of the pipeline; see [PR #19](https://github.com/EBI-Metagenomics/metaViraVerse/pull/19) for the current state of that work.
-

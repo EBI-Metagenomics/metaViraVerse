@@ -44,7 +44,7 @@
 >
 > Altschul SF, Gish W, Miller W, Myers EW, Lipman DJ.
 >
-> _J Mol Biol._ 1990;215(3):403-410. doi: [10.1016/S0022-2836(05)80360-2](https://doi.org/10.1016/S0022-2836(05)80360-2).
+> _J Mol Biol._ 1990;215(3):403-410. doi: [10.1016/S0022-2836(05)80360-2](<https://doi.org/10.1016/S0022-2836(05)80360-2>).
 
 ## Viruses and prophages
 
