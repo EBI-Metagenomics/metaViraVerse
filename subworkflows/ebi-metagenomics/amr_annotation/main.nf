@@ -44,13 +44,11 @@ workflow AMR_ANNOTATION {
     }
     else if (!skip_amrfinderplus && !ch_amrfinderplus_db) {
         AMRFINDERPLUS_UPDATE()
-        ch_versions = ch_versions.mix(AMRFINDERPLUS_UPDATE.out.versions.first())
         ch_amrfinderplus_db = AMRFINDERPLUS_UPDATE.out.db
     }
 
     if (!skip_amrfinderplus) {
         AMRFINDERPLUS_RUN(ch_faa, ch_amrfinderplus_db)
-        ch_versions = ch_versions.mix(AMRFINDERPLUS_RUN.out.versions.first())
         ch_amrfinderplus_results = AMRFINDERPLUS_RUN.out.report
     }
 

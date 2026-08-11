@@ -136,7 +136,6 @@ workflow PREPROCESSING {
         BARRNAP(
           ch_virus_prophage_fna.map { meta, fasta -> [meta, fasta, "bac"] }
         )
-        ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
         rna_gff = BARRNAP.out.gff
     } else {

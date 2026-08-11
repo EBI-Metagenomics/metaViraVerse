@@ -49,9 +49,9 @@ workflow CLUSTERING {
     } else {
         // Creation of a blast+ database
         BLAST_MAKEBLASTDB(
-            sequences
+            sequences,
+            'nucl'
         )
-        ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions)
 
         // Using megablast from blast+ package to perform all-vs-all blastn of sequences
         BLAST_BLASTN(
