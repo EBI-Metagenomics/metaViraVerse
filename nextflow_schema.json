@@ -324,7 +324,7 @@
                 },
                 "mobsuite_db": {
                     "type": "string",
-                    "format": "file-path",
+                    "format": "directory-path",
                     "description": "Path to database for mobsuite-typer",
                     "help_text": "You need to run mob_init step to download and prepare database. Docs: https://github.com/phac-nml/mob-suite#mob-init",
                     "fa_icon": "fas fa-folder-open"
