@@ -289,42 +289,42 @@
             "properties": {
                 "repsearch_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for repsearch step in plasquid",
                     "help_text": "You need to pre-download plaSquid/data/All_Rep.hmm file from https://github.com/mgimenez720/plaSquid repo",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "repfilter_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for repfilter step in plasquid",
                     "help_text": "You need to pre-download plaSquid/data/Arq_RIP_new.RDS file from https://github.com/mgimenez720/plaSquid repo",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "rna_inc_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for rna search step in plasquid",
                     "help_text": "You need to pre-download plaSquid/data/All_RNA_Inc.hmm file from https://github.com/mgimenez720/plaSquid repo",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "incsearch_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for incsearch step in plasquid",
                     "help_text": "You need to pre-download plaSquid/data/All_Inc.hmm file from https://github.com/mgimenez720/plaSquid repo",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "mobsearch_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for mobsearch step in plasquid",
                     "help_text": "You need to pre-download plaSquid/data/All_MOB.hmm file from https://github.com/mgimenez720/plaSquid repo",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "mobsuite_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to database for mobsuite-typer",
                     "help_text": "You need to run mob_init step to download and prepare database. Docs: https://github.com/phac-nml/mob-suite#mob-init",
                     "fa_icon": "fas fa-folder-open"
