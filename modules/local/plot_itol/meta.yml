@@ -1,0 +1,90 @@
+name: plot_itol
+description: Generate iTOL-ready tree and annotation files (Newick tree, taxonomy labels/counts, and optional type/biome binary datasets) from a taxonomy table
+keywords:
+  - itol
+  - taxonomy
+  - tree
+  - visualization
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information, including a 'tool' key
+          identifying the taxonomy source
+    - table:
+        type: file
+        description: Per-sequence taxonomy assignment table
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - metadata:
+        type: file
+        description: Sequence metadata TSV (biome, type, etc.) to annotate the tree with
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  tree_nwk:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_tree.nwk":
+          type: file
+          description: Taxonomy-derived tree in Newick format
+          pattern: "*_tree.nwk"
+          ontologies: []
+  tree_labels:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_labels.txt":
+          type: file
+          description: iTOL leaf label annotation file (optional)
+          pattern: "*_labels.txt"
+          ontologies: []
+  tree_counts:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_counts.txt":
+          type: file
+          description: Per-taxon sequence counts
+          pattern: "*_counts.txt"
+          ontologies: []
+  tree_types:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.type.binary.txt":
+          type: file
+          description: iTOL binary dataset for genome/metagenome source type (optional)
+          pattern: "*.type.binary.txt"
+          ontologies: []
+  tree_biomes:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.biomes.binary.txt":
+          type: file
+          description: iTOL binary dataset for biome (optional)
+          pattern: "*.biomes.binary.txt"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

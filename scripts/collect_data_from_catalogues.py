@@ -23,7 +23,7 @@ from Bio.SeqRecord import SeqRecord
 
 VIRAL_TYPES = ['viral_sequence', 'plasmid', 'prophage']
 MGNIFY_GENOMES_BASE_URL = "https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes"
-SAMPLESHEET_COLUMNS = ['id', 'gff', 'fna', 'faa', 'type', 'biome']
+SAMPLESHEET_COLUMNS = ['id', 'fna', 'gff', 'faa', 'source', 'biome']
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -382,7 +382,7 @@ def generate_samplesheet(catalogue_paths: list[str], output_path: str) -> str:
 
     Follows the schema in assets/schema_input.json: one row per catalogue,
     pointing at the filtered GFF/FNA/FAA files written by process_catalogue().
-    `id` is "<catalogue_name>_<version>", `type` is always "genome" (MAG
+    `id` is "<catalogue_name>_<version>", `source` is always "genome" (MAG
     catalogue data), and `biome` is the catalogue name without its version.
 
     Args:
@@ -402,10 +402,10 @@ def generate_samplesheet(catalogue_paths: list[str], output_path: str) -> str:
             sample_id = f'{catalogue_name}_{version}'
             writer.writerow({
                 'id': sample_id,
-                'gff': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.gff')),
                 'fna': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.fna')),
+                'gff': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.gff')),
                 'faa': os.path.abspath(os.path.join(output_path, f'{sample_id}_viral.faa')),
-                'type': 'genome',
+                'source': 'genome',
                 'biome': catalogue_name,
             })
 

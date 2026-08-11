@@ -1,7 +1,5 @@
 # metaViraVerse
 
-<img align="right" width="120" height="120" src="assets/logo.png">
-
 A [MGnify](https://www.ebi.ac.uk/metagenomics) Nextflow pipeline for generating a **viral catalogue**.
 
 ## Overview
@@ -44,6 +42,10 @@ Check [documentation](docs/databases.md) how to download and prepare databases.
 - For MGnify input, see the [MGnify usage guide](docs/mgnify_usage.md).
 - For third-party data, see the [third-party usage guide](docs/third_party_usage.md).
 - Process mixed data specifying both `--input` and `--third_party_input`
+
+## Methods
+
+In detail pipeline description can be found in [methods](docs/methods.md).
 
 ## Run
 

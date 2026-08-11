@@ -2,12 +2,8 @@
 include { FALINT                         } from '../../../modules/nf-core/falint/main'
 include { PYRODIGAL                      } from '../../../modules/nf-core/pyrodigal/main'
 include { GUNZIP as GUNZIP_INPUT         } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_GFF_VIRUS     } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_GFF_PLASMID   } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FAA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FAA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FNA_VIRUS     } from '../../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FNA_PLASMID   } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_GFF           } from '../../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FAA           } from '../../../modules/nf-core/gunzip/main'
 
 
 workflow THIRD_PARTY_DATA {
@@ -49,11 +45,10 @@ workflow THIRD_PARTY_DATA {
         ch_output_from_falint,
         'gff'
     )
-    plasmid_proteins = PYRODIGAL.out.faa.filter{meta, faa -> meta.type == 'plasmid'}
-    plasmid_fna      = PYRODIGAL.out.fna.filter{meta, fna -> meta.type == 'plasmid'}
 
-    //GUNZIP_FAA_PLASMID(plasmid_proteins)
-    //GUNZIP_FNA_PLASMID(plasmid_fna)
+    GUNZIP_FAA(PYRODIGAL.out.faa)
+    GUNZIP_GFF(PYRODIGAL.out.annotations)
 
-
+    emit:
+    third_party_data = ch_output_from_falint.join(GUNZIP_GFF.out.gunzip).join(GUNZIP_FAA.out.gunzip)  // [meta, fasta, gff, faa]
 }

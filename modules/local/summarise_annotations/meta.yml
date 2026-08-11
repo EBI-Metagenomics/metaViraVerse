@@ -1,0 +1,53 @@
+name: summarise_annotations
+description: Combine a concatenated HMMER hit table for one functional-annotation database with that database's descriptive metadata into a single summary TSV
+keywords:
+  - functional annotation
+  - hmmer
+  - summary
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information, keyed to one functional
+          annotation database (e.g. [ id:'pfam' ])
+    - tbl:
+        type: file
+        description: Concatenated HMMER hit table for this database, across all protein chunks
+        pattern: "*.tbl*"
+        ontologies: []
+    - metadata:
+        type: file
+        description: Descriptive metadata TSV for this HMM database (accession, description, etc.)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  summary_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_summary.tsv.gz":
+          type: file
+          description: Compressed functional-annotation summary table for this database
+          pattern: "*_summary.tsv.gz"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

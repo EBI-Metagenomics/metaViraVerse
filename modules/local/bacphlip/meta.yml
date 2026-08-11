@@ -1,0 +1,49 @@
+name: bacphlip
+description: Predict bacteriophage lifestyle (virulent/temperate) from the presence/absence of conserved protein domains
+keywords:
+  - lifestyle
+  - bacteriophage
+  - lysogeny
+tools:
+  - bacphlip:
+      description: |
+        BACPHLIP predicts bacteriophage lifestyle (virulent vs. temperate) from the
+        presence/absence pattern of a curated set of conserved protein domains,
+        using a Random Forest classifier
+      homepage: https://github.com/adamhockenberry/bacphlip
+      documentation: https://github.com/adamhockenberry/bacphlip
+      doi: "10.7717/peerj.11396"
+      licence: ["MIT"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - fasta:
+        type: file
+        description: Multi-FASTA of representative viral/prophage nucleotide sequences
+        pattern: "*.{fna,fasta}"
+        ontologies: []
+output:
+  bacphlip_table:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.bacphlip":
+          type: file
+          description: Per-sequence lifestyle prediction table (Virulent/Temperate probabilities)
+          pattern: "*.bacphlip"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

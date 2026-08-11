@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "taxonomy_subwf"
+description: Assign taxonomy to representative viral/prophage sequences using geNomad, ViPhOGs (HMM profile) and VITAP, and visualise each result
+keywords:
+  - taxonomy
+  - genomad
+  - viphogs
+  - vitap
+  - viral
+components:
+  - genomad/endtoend
+  - csvtk/concat
+  - generate_taxonomy_table
+  - vitap
+  - viphogs_annotate
+  - taxonomy_visualisation
+  - find/concatenate
+input:
+  - combined_metadata:
+      type: file
+      description: |
+        Combined catalogue metadata TSV, joined against each tool's taxonomy call
+        Structure: [ val(meta), path(tsv) ]
+  - ch_fna_chunks:
+      type: file
+      description: |
+        Chunked representative nucleotide sequences, used by geNomad and VITAP
+        Structure: [ val(meta), path(fasta) ]
+  - reps_faa:
+      type: file
+      description: |
+        Representative protein sequences, used by ViPhOGs annotation
+        Structure: [ val(meta), path(fasta) ]
+  - reps_gff:
+      type: file
+      description: |
+        Representative GFF, used by ViPhOGs annotation
+        Structure: [ val(meta), path(gff) ]
+  - skip_vitap:
+      type: boolean
+      description: Skip VITAP taxonomy assignment (`--skip_vitap`)
+  - skip_genomad:
+      type: boolean
+      description: Skip geNomad taxonomy assignment (`--skip_genomad`)
+  - skip_viphogs:
+      type: boolean
+      description: Skip ViPhOGs taxonomy assignment (`--skip_viphogs`)
+  - viphog_db:
+      type: directory
+      description: Path to the ViPhOGs HMM profile database (`--viphog_db`)
+  - additional_model_data:
+      type: file
+      description: Supplementary ViPhOGs model metadata used when scoring HMM hits
+  - ncbi_db:
+      type: directory
+      description: Path to the NCBI taxonomy database used for lineage assignment (`--ncbi_db`)
+  - factor_file:
+      type: file
+      description: Optional ViPhOGs lineage weighting factor file (`--factor_file`), or `false` to leave unset
+output:
+  - vitap_best:
+      type: file
+      description: |
+        Concatenated best-lineage VITAP predictions (empty channel if `skip_vitap`)
+        Structure: [ val(meta), path(tsv) ]
+  - genomad_taxonomy:
+      type: file
+      description: |
+        Concatenated geNomad virus-summary taxonomy table (empty channel if `skip_genomad`)
+        Structure: [ val(meta), path(tsv) ]
+  - viphogs_taxonomy:
+      type: file
+      description: |
+        ViPhOGs lineage assignment table (empty channel if `skip_viphogs`)
+        Structure: [ val(meta), path(tsv) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

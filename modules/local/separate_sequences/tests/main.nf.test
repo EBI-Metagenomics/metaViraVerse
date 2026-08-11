@@ -1,43 +1,76 @@
 nextflow_process {
 
-    name "Test Process SEPARATE_SEQUENCES viral_sequences"
+    name "Test Process SEPARATE_SEQUENCES"
     script "modules/local/separate_sequences/main.nf"
     process "SEPARATE_SEQUENCES"
 
-    test("Extract viral_sequences from FASTA") {
+    test("Extract viruses (fna+gff+faa)") {
 
         when {
             process {
                 """
-                input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
-                input[1] = 'viral_sequence'
-                input[2] = [ [id:'MAG1'], file('${moduleDir}/tests/empty.gff', checkIfExists: true) ]
+                input[0] = [ [id:'combined'], file('${moduleDir}/tests/combined.fna', checkIfExists: true) ]
+                input[1] = [ [id:'combined'], file('${moduleDir}/tests/combined.gff', checkIfExists: true) ]
+                input[2] = [ [id:'combined'], file('${moduleDir}/tests/combined.faa', checkIfExists: true) ]
+                input[3] = [ [id:'combined'], file('${moduleDir}/tests/combined_map.tsv', checkIfExists: true) ]
+                input[4] = 'virus'
                 """
             }
         }
 
         then {
             assert process.success
-            assert snapshot(process.out).match()
+            assert path(process.out.chosen_sequences[0][1]).text.contains(">seq1")
+            assert !path(process.out.chosen_sequences[0][1]).text.contains(">seq2")
+            assert path(process.out.chosen_gff[0][1]).text.contains("ID=seq1")
+            assert path(process.out.chosen_faa[0][1]).text.contains(">MGYG1_1")
+            assert !path(process.out.chosen_faa[0][1]).text.contains(">MGYG2_1")
         }
 
     }
 
-    test("Extract plasmids from FASTA") {
+    test("Extract prophages, including third_party_prophage") {
 
         when {
             process {
                 """
-                input[0] = [ [id:'MAG1'], file('${moduleDir}/tests/test.fasta', checkIfExists: true) ]
-                input[1] = 'plasmid'
-                input[2] = [ [id:'MAG1'], file('${moduleDir}/tests/empty.gff', checkIfExists: true) ]
+                input[0] = [ [id:'combined'], file('${moduleDir}/tests/combined.fna', checkIfExists: true) ]
+                input[1] = [ [id:'combined'], file('${moduleDir}/tests/combined.gff', checkIfExists: true) ]
+                input[2] = [ [id:'combined'], file('${moduleDir}/tests/combined.faa', checkIfExists: true) ]
+                input[3] = [ [id:'combined'], file('${moduleDir}/tests/combined_map.tsv', checkIfExists: true) ]
+                input[4] = 'prophage'
                 """
             }
         }
 
         then {
             assert process.success
-            assert snapshot(process.out).match()
+            // seq2's definition is 'third_party_prophage'; the 'third_party_' prefix
+            // must be stripped so it lands in the 'prophage' bucket
+            assert path(process.out.chosen_sequences[0][1]).text.contains(">seq2")
+            assert path(process.out.chosen_faa[0][1]).text.contains(">MGYG2_1")
+        }
+
+    }
+
+    test("Extract plasmids") {
+
+        when {
+            process {
+                """
+                input[0] = [ [id:'combined'], file('${moduleDir}/tests/combined.fna', checkIfExists: true) ]
+                input[1] = [ [id:'combined'], file('${moduleDir}/tests/combined.gff', checkIfExists: true) ]
+                input[2] = [ [id:'combined'], file('${moduleDir}/tests/combined.faa', checkIfExists: true) ]
+                input[3] = [ [id:'combined'], file('${moduleDir}/tests/combined_map.tsv', checkIfExists: true) ]
+                input[4] = 'plasmid'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert path(process.out.chosen_sequences[0][1]).text.contains(">seq3")
+            assert path(process.out.chosen_faa[0][1]).text.contains(">MGYG3_1")
         }
 
     }

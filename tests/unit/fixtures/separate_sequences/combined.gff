@@ -1,0 +1,10 @@
+##gff-version 3
+seq1	VIRify	viral_sequence	1	61	.	.	.	ID=seq1;checkv_quality=Low-quality
+seq1	Prodigal:002006	CDS	1	30	.	+	0	ID=seq1_00001;product=hypothetical protein
+seq1	Prodigal:002006	CDS	31	61	.	+	0	ID=seq1_00002;product=hypothetical protein
+seq2	external	prophage	1	61	.	.	.	ID=seq2
+seq2	Prodigal:002006	CDS	1	61	.	+	0	ID=seq2_00001;product=hypothetical protein
+seq3	geNomad	plasmid	1	61	.	.	.	ID=seq3;mobile_element_type=plasmid
+seq3	Prodigal:002006	CDS	1	61	.	+	0	ID=seq3_00001;product=hypothetical protein
+seq4	geNomad	prophage	1	61	.	.	.	ID=seq4;checkv_quality=Low-quality
+seq4	Prodigal:002006	CDS	1	61	.	+	0	ID=seq4_00001;product=hypothetical protein

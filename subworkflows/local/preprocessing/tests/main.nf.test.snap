@@ -1,0 +1,215 @@
+{
+    "Use genomes and metagenomes and third party inputs. Skip checkv and rrna": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined.tsv:md5,15fd5ff6ca7b36984992a78b97725192"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "prophage.fna:md5,193972a8dcf14edcc1229276e72eff25",
+                        "prophage.gff:md5,2b8aa2d58e5fa0ab8020dfe8e32ec690",
+                        "prophage.faa:md5,c9a54c7f0afa1f61c33c1a8f67b84658"
+                    ]
+                ],
+                "10": [
+                    "combined_filtered.gff:md5,f02928b1ea79d4d4e68cee22ce1e0297"
+                ],
+                "11": [
+                    "combined_filtered.faa:md5,4f9868fea59aa33034906b37ade5a679"
+                ],
+                "12": [
+                    
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "virus.fna:md5,77dfba410790822c43de803b71e792cb",
+                        "virus.gff:md5,ff88f534ff8ac0f2ae234ef4f5d7e786",
+                        "virus.faa:md5,70f8b3764cab35224d5342b9ea2de484"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "plasmid.fna:md5,df1232899aee7268d0371f850b34f410",
+                        "plasmid.gff:md5,aa82a8fed018b0b08931e92562779fcc",
+                        "plasmid.faa:md5,64e6ae80dc30b326706448085a892adc"
+                    ]
+                ],
+                "4": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_metadata.tsv:md5,fccbeb45442debc653dc2cfcc9029100"
+                    ]
+                ],
+                "5": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_filtered.tsv:md5,fccbeb45442debc653dc2cfcc9029100"
+                    ]
+                ],
+                "6": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_excluded.tsv:md5,37feb70ccd8059b337fb95d15aa5674a"
+                    ]
+                ],
+                "7": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_virus_filtered.fna:md5,77dfba410790822c43de803b71e792cb",
+                        "combined_virus_filtered.gff:md5,ff88f534ff8ac0f2ae234ef4f5d7e786",
+                        "combined_virus_filtered.faa:md5,1f15567530f591fc43b21deb223cb5c7"
+                    ]
+                ],
+                "8": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_prophage_filtered.fna:md5,193972a8dcf14edcc1229276e72eff25",
+                        "combined_prophage_filtered.gff:md5,2b8aa2d58e5fa0ab8020dfe8e32ec690",
+                        "combined_prophage_filtered.faa:md5,c9a54c7f0afa1f61c33c1a8f67b84658"
+                    ]
+                ],
+                "9": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_plasmid_filtered.fna:md5,c337daa8ffbd3ff33ecce3869c17b86a",
+                        "combined_plasmid_filtered.gff:md5,992a4abf27d3501304f0ffbb5a57ad17",
+                        "combined_plasmid_filtered.faa:md5,f19e8005f1909955cf019c6785ffc1b3"
+                    ]
+                ],
+                "combined_faa": [
+                    "combined_filtered.faa:md5,4f9868fea59aa33034906b37ade5a679"
+                ],
+                "combined_gff": [
+                    "combined_filtered.gff:md5,f02928b1ea79d4d4e68cee22ce1e0297"
+                ],
+                "excluded_qc": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_excluded.tsv:md5,37feb70ccd8059b337fb95d15aa5674a"
+                    ]
+                ],
+                "input_metadata": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_metadata.tsv:md5,fccbeb45442debc653dc2cfcc9029100"
+                    ]
+                ],
+                "mapfile": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined.tsv:md5,15fd5ff6ca7b36984992a78b97725192"
+                    ]
+                ],
+                "metadata": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_filtered.tsv:md5,fccbeb45442debc653dc2cfcc9029100"
+                    ]
+                ],
+                "plasmids": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_plasmid_filtered.fna:md5,c337daa8ffbd3ff33ecce3869c17b86a",
+                        "combined_plasmid_filtered.gff:md5,992a4abf27d3501304f0ffbb5a57ad17",
+                        "combined_plasmid_filtered.faa:md5,f19e8005f1909955cf019c6785ffc1b3"
+                    ]
+                ],
+                "prophages": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_prophage_filtered.fna:md5,193972a8dcf14edcc1229276e72eff25",
+                        "combined_prophage_filtered.gff:md5,2b8aa2d58e5fa0ab8020dfe8e32ec690",
+                        "combined_prophage_filtered.faa:md5,c9a54c7f0afa1f61c33c1a8f67b84658"
+                    ]
+                ],
+                "separated_plasmids": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "plasmid.fna:md5,df1232899aee7268d0371f850b34f410",
+                        "plasmid.gff:md5,aa82a8fed018b0b08931e92562779fcc",
+                        "plasmid.faa:md5,64e6ae80dc30b326706448085a892adc"
+                    ]
+                ],
+                "separated_prophages": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "prophage.fna:md5,193972a8dcf14edcc1229276e72eff25",
+                        "prophage.gff:md5,2b8aa2d58e5fa0ab8020dfe8e32ec690",
+                        "prophage.faa:md5,c9a54c7f0afa1f61c33c1a8f67b84658"
+                    ]
+                ],
+                "separated_viruses": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "virus.fna:md5,77dfba410790822c43de803b71e792cb",
+                        "virus.gff:md5,ff88f534ff8ac0f2ae234ef4f5d7e786",
+                        "virus.faa:md5,70f8b3764cab35224d5342b9ea2de484"
+                    ]
+                ],
+                "versions": [
+                    
+                ],
+                "viral_sequences": [
+                    [
+                        {
+                            "id": "combined"
+                        },
+                        "combined_virus_filtered.fna:md5,77dfba410790822c43de803b71e792cb",
+                        "combined_virus_filtered.gff:md5,ff88f534ff8ac0f2ae234ef4f5d7e786",
+                        "combined_virus_filtered.faa:md5,1f15567530f591fc43b21deb223cb5c7"
+                    ]
+                ]
+            }
+        ],
+        "timestamp": "2026-08-11T16:17:48.661757",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.0"
+        }
+    }
+}

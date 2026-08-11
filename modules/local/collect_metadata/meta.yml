@@ -1,0 +1,114 @@
+name: collect_metadata
+description: Assemble the final per-catalogue virus and plasmid metadata tables (clustering, taxonomy and rename-map provenance joined against the filtered sequence metadata)
+keywords:
+  - metadata
+  - viral
+  - plasmid
+  - catalogue
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta1:
+        type: map
+        description: Groovy Map containing sample information
+    - combined_meta:
+        type: file
+        description: Combined filtered sequence metadata TSV
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta2:
+        type: map
+        description: Groovy Map containing sample information
+    - viral_clusters:
+        type: file
+        description: Viral clustering TSV
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta3:
+        type: map
+        description: Groovy Map containing sample information
+    - plasmid_clusters:
+        type: file
+        description: Plasmid clustering TSV
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - additional_metadata:
+        type: file
+        description: Additional per-catalogue metadata (from `--catalogues_metadata`)
+        pattern: "*"
+        ontologies: []
+  - - meta5:
+        type: map
+        description: Groovy Map containing sample information
+    - vitap_best:
+        type: file
+        description: Best VITAP lineage per representative viral sequence
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta_viphogs:
+        type: map
+        description: Groovy Map containing sample information
+    - viphogs_taxonomy:
+        type: file
+        description: ViPhOGs per-contig taxonomic assignment table
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta_genomad:
+        type: map
+        description: Groovy Map containing sample information
+    - genomad:
+        type: file
+        description: geNomad taxonomic classification table
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - map_file:
+        type: file
+        description: Rename map TSV produced by rename_contigs.py
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  viruses_final_metadata:
+    - "viruses-all-metadata.tsv.gz":
+        type: file
+        description: Final per-virus metadata table, gzip-compressed
+        pattern: "viruses-all-metadata.tsv.gz"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  plasmids_final_metadata:
+    - "plasmids-all-metadata.tsv.gz":
+        type: file
+        description: Final per-plasmid metadata table, gzip-compressed
+        pattern: "plasmids-all-metadata.tsv.gz"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  viruses_reps_stats:
+    - "viruses-cluster-stats.tsv.gz":
+        type: file
+        description: Per-cluster statistics for representative viral sequences, gzip-compressed
+        pattern: "viruses-cluster-stats.tsv.gz"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

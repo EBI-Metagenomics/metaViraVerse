@@ -1,0 +1,70 @@
+name: build_final_gff
+description: Merge lifestyle (BACPHLIP), functional-annotation (HMMER) and AMR GFF tracks into one final annotated GFF per representative genome
+keywords:
+  - gff
+  - annotation
+  - merge
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta_input:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - input_gff:
+        type: file
+        description: Base GFF for representative sequences (from cluster extraction)
+        pattern: "*.gff"
+        ontologies: []
+  - - meta_bacphlip:
+        type: map
+        description: Groovy Map containing sample information
+    - bacphlip:
+        type: file
+        description: Concatenated BACPHLIP lifestyle predictions table
+        pattern: "*.bacphlip"
+        ontologies: []
+  - - meta_hmmer:
+        type: map
+        description: Groovy Map containing sample information
+    - hmmfile:
+        type: file
+        description: Concatenated functional-annotation (HMMER) summary tables
+        pattern: "*"
+        ontologies: []
+  - - meta_gff:
+        type: map
+        description: Groovy Map containing sample information
+    - additional_gff:
+        type: file
+        description: AMR annotation GFF track to merge in
+        pattern: "*.gff"
+        ontologies: []
+output:
+  final_gff:
+    - - meta_input:
+          type: map
+          description: Groovy Map containing sample information
+      - "*final.gff*":
+          type: file
+          description: Final annotated GFF (lifestyle + functional annotation + AMR), gzip-compressed
+          pattern: "*_final.gff.gz"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

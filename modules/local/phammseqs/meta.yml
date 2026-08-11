@@ -1,0 +1,75 @@
+name: phammseqs
+description: Cluster bacteriophage proteins into "phamilies" of related sequences using an MMseqs2-based workflow
+keywords:
+  - protein clustering
+  - phamily
+  - bacteriophage
+  - mmseqs2
+tools:
+  - phammseqs:
+      description: |
+        PhamMSeqs is an MMseqs2-based reimplementation of the Phamerator protein-phamily
+        clustering workflow used for bacteriophage comparative genomics
+      homepage: https://github.com/chg60/phammseqs
+      documentation: https://github.com/chg60/phammseqs
+      tool_dev_url: https://github.com/chg60/phammseqs
+      licence: ["MIT"]
+      identifier: ""
+  - mmseqs2:
+      description: |
+        MMseqs2 (Many-against-Many sequence searching) is a software suite for fast
+        and sensitive protein sequence searching and clustering
+      homepage: https://github.com/soedinglab/MMseqs2
+      documentation: https://github.com/soedinglab/MMseqs2/wiki
+      licence: ["GPL v3"]
+      identifier: biotools:mmseqs2
+  - clustalo:
+      description: |
+        Clustal Omega is a multiple sequence alignment program, used here to align
+        the proteins within each phamily
+      homepage: http://www.clustal.org/omega/
+      documentation: http://www.clustal.org/omega/README
+      licence: ["GPL v2"]
+      identifier: biotools:clustal_omega
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - faa:
+        type: file
+        description: Protein FASTA file for representative sequences
+        pattern: "*.faa"
+        ontologies: []
+output:
+  phams_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_phams.tsv":
+          type: file
+          description: Table assigning each protein to a phamily
+          pattern: "*_phams.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  phams_stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_phammseqs.stdout":
+          type: file
+          description: Captured stdout log from the phammseqs run
+          pattern: "*_phammseqs.stdout"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

@@ -1,0 +1,7 @@
+##gff-version 3
+barley11	VIRify	prophage	1	60	.	.	.	ID=barley11;checkv_quality=Low-quality
+barley11	Prodigal:002006	CDS	1	60	.	+	0	ID=barley11_00001;product=hypothetical protein
+barley12	external	prophage	1	5520	.	.	.	ID=barley12
+barley12	Prodigal:002006	CDS	70	702	.	+	0	ID=barley12_00001;product=hypothetical protein
+barley17	VIRify	prophage	1	5155	.	.	.	ID=barley17;checkv_quality=Low-quality
+barley17	Prodigal:002006	CDS	34	1071	.	+	0	ID=barley17_00001;product=hypothetical protein

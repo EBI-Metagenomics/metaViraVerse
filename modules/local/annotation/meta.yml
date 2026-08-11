@@ -1,0 +1,48 @@
+name: annotation
+description: Annotate viral contigs' predicted proteins with their best ViPhOG hit, using the ratio/e-value-scored HMMER table and the contigs' GFF
+keywords:
+  - viphogs
+  - viral
+  - annotation
+tools:
+  - annotation:
+      description: |
+        Local script (viral_contigs_annotation.py, from the VIRify pipeline) that
+        picks each protein's best-scoring ViPhOG hit and annotates the parent
+        contig's GFF CDS features with it
+      homepage: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      documentation: https://github.com/EBI-Metagenomics/emg-viral-pipeline
+      licence: ["Apache-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - tab:
+        type: file
+        description: Ratio/e-value-scored ViPhOG hits table (RATIO_EVALUE output)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - gff:
+        type: file
+        description: GFF file with the CDS features to annotate
+        pattern: "*.gff"
+        ontologies: []
+output:
+  annotations:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_annotation.tsv":
+          type: file
+          description: Per-contig ViPhOG annotation table
+          pattern: "*_annotation.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

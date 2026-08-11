@@ -33,17 +33,17 @@
                 "nf-core": {
                     "amrfinderplus/run": {
                         "branch": "master",
-                        "git_sha": "a621003186ea59091561005bce7ce5fd645c7f07",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["amr_annotation"]
                     },
                     "amrfinderplus/update": {
                         "branch": "master",
-                        "git_sha": "a621003186ea59091561005bce7ce5fd645c7f07",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["amr_annotation"]
                     },
                     "barrnap": {
                         "branch": "master",
-                        "git_sha": "e753770db613ce014b3c4bc94f6cba443427b726",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
                     "blast/blastn": {
@@ -54,7 +54,7 @@
                     },
                     "blast/makeblastdb": {
                         "branch": "master",
-                        "git_sha": "6330227ba2a71d39f35b0ef60e381f456489c6ee",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
                     "checkv/endtoend": {

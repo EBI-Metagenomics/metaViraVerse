@@ -1,29 +1,56 @@
 name: separate_sequences
-description: Separate sequences from FASTA file based on pattern matching
+description: Split a combined FASTA/GFF/FAA set into a virus/prophage/plasmid group, based on the 'definition' column of the rename map
 keywords:
   - fasta
+  - gff
   - filter
   - sequence
 tools:
-  - awk:
-      description: Pattern scanning and text processing language
-      documentation: https://www.gnu.org/software/gawk/manual/gawk.html
-      licence: ["GPL-3.0-or-later"]
-      identifier: ""
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
 input:
   - - meta:
         type: map
         description: |
           Groovy Map containing sample information
-          e.g. [ id:'test' ]
-    - fasta:
+          e.g. [ id:'combined' ]
+    - fna:
         type: file
-        description: Input FASTA file
-        pattern: "*.{fa,fasta}"
+        description: Combined (renamed) input FASTA file
+        pattern: "*.{fa,fasta,fna}"
         ontologies: []
-  - - pattern:
+  - - meta_gff:
+        type: map
+        description: Groovy Map containing sample information
+    - gff:
+        type: file
+        description: Combined (renamed) input GFF file
+        pattern: "*.gff"
+        ontologies: []
+  - - meta_faa:
+        type: map
+        description: Groovy Map containing sample information
+    - faa:
+        type: file
+        description: Combined protein FASTA file (original, unrenamed protein IDs)
+        pattern: "*.faa"
+        ontologies: []
+  - - meta_map:
+        type: map
+        description: Groovy Map containing sample information
+    - map_file:
+        type: file
+        description: Rename map TSV produced by rename_contigs.py (must include a 'definition' column)
+        pattern: "*.tsv"
+        ontologies: []
+  - - category:
         type: string
-        description: Regular expression pattern to match sequence headers
+        description: Category to extract, one of 'virus', 'prophage', 'plasmid'
         ontologies: []
 output:
   chosen_sequences:
@@ -31,12 +58,37 @@ output:
           type: map
           description: |
             Groovy Map containing sample information
-            e.g. [ id:'test' ]
-      - ${meta.id}_${pattern}.fa:
+            e.g. [ id:'combined' ]
+      - ${category}.fna:
           type: file
-          description: FASTA file containing sequences matching the pattern
-          pattern: "*_${pattern}.fa"
+          description: FASTA file containing sequences of this category
+          pattern: "*.fna"
           ontologies: []
+  chosen_gff:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - ${category}.gff:
+          type: file
+          description: GFF file containing records for sequences of this category
+          pattern: "*.gff"
+          ontologies: []
+  chosen_faa:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - ${category}.faa:
+          type: file
+          description: Protein FASTA file for CDS features of this category's sequences
+          pattern: "*.faa"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
 authors:
   - "@KateSakharova"
 maintainers:

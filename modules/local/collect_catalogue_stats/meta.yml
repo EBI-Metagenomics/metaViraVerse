@@ -1,0 +1,120 @@
+name: collect_catalogue_stats
+description: Collect whole-catalogue statistics (sequence counts, cluster counts, protein counts, filtering outcomes) into a single JSON summary for the catalogue website
+keywords:
+  - statistics
+  - json
+  - catalogue
+  - summary
+tools:
+  - biopython:
+      description: |
+        Biopython is a set of freely available tools for biological computation written in Python
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      licence: ["BSD-3-Clause"]
+      identifier: biotools:biopython
+input:
+  - - meta1:
+        type: map
+        description: Groovy Map containing sample information
+    - viral_seqs:
+        type: file
+        description: FASTA file with viral sequences
+        pattern: "*.{fna,fasta}"
+        ontologies: []
+  - - meta2:
+        type: map
+        description: Groovy Map containing sample information
+    - prophages:
+        type: file
+        description: FASTA file with prophage sequences
+        pattern: "*.{fna,fasta}"
+        ontologies: []
+  - - meta3:
+        type: map
+        description: Groovy Map containing sample information
+    - plasmids:
+        type: file
+        description: FASTA file with plasmid sequences
+        pattern: "*.{fna,fasta}"
+        ontologies: []
+  - - meta4:
+        type: map
+        description: Groovy Map containing sample information
+    - metadata:
+        type: file
+        description: Filtered sequence metadata TSV (includes a biomes column)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta5:
+        type: map
+        description: Groovy Map containing sample information
+    - clusters_viruses:
+        type: file
+        description: Viral clustering TSV (unique values in column 1 give the cluster count)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta6:
+        type: map
+        description: Groovy Map containing sample information
+    - clusters_plasmids:
+        type: file
+        description: Plasmid clustering TSV (unique values in column 1 give the cluster count)
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta7:
+        type: map
+        description: Groovy Map containing sample information
+    - viral_proteins:
+        type: file
+        description: FASTA file with representative viral proteins
+        pattern: "*.{faa,fasta}"
+        ontologies: []
+  - - meta8:
+        type: map
+        description: Groovy Map containing sample information
+    - plasmid_proteins:
+        type: file
+        description: FASTA file with representative plasmid proteins
+        pattern: "*.{faa,fasta}"
+        ontologies: []
+  - - meta9:
+        type: map
+        description: Groovy Map containing sample information
+    - excluded_metadata:
+        type: file
+        description: Metadata TSV for sequences excluded during deduplication/filtering
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - - meta10:
+        type: map
+        description: Groovy Map containing sample information
+    - initial_metadata:
+        type: file
+        description: Metadata TSV for the initial (pre-filtering) set of sequences
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  catalogue_json:
+    - "*.json":
+        type: file
+        description: JSON summary of catalogue statistics
+        pattern: "*.json"
+        ontologies:
+          - edam: http://edamontology.org/format_3464 # JSON
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
