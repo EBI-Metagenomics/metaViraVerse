@@ -360,7 +360,7 @@ def rename_gff(
                 protein, id_fna = define_gff_map_key(parts, third_party, id_fna)
                 count_proteins += protein
                 if id_fna in map_dir:
-                    full_line = '\t'.join([map_dir[id_fna]] + parts[1:]) + '\n'
+                    full_line = '\t'.join([map_dir[id_fna]] + parts[1:]).replace(id_fna, map_dir[id_fna]) + '\n'
                 else:
                     print(f'Warning: no {id_fna} found in mapping')
                     full_line = '\t'.join(parts) + '\n'

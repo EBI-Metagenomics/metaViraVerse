@@ -119,9 +119,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
        params.skip_genomad,
        params.skip_viphogs,
        params.viphog_db,
-       params.additional_model_data,
+       params.additional_viphog_model_data,
        params.ncbi_db,
-       params.factor_file ? params.factor_file: channel.value(false)
+       params.viphogs_factor_file ? params.viphogs_factor_file: []
     )
     ch_versions = ch_versions.mix(TAXONOMY_ASSIGNMENT.out.versions)
 

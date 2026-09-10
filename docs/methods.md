@@ -165,7 +165,7 @@ Unlike MGnify input (which always arrives with predicted proteins), third-party 
 
 ### Taxonomy assignment (Aminoacid sequence based)
 
-**ViPhOGs** (skippable with `--skip_viphogs`), a set of profile HMMs originally developed for and reused from the [VIRify](https://github.com/EBI-Metagenomics/emg-viral-pipeline) pipeline, is searched against representative predicted proteins (`--viphog_db`, with `--additional_model_data` and `--ncbi_db` supplying supporting reference data, and an optional `--factor_file` for taxon-weighting). A per-genome taxonomic assignment is derived from the pattern of ViPhOG hits along each representative genome, giving a protein-based lineage call that complements the two nucleotide-based calls (VITAP, geNomad) described above.
+**ViPhOGs** (skippable with `--skip_viphogs`), a set of profile HMMs originally developed for and reused from the [VIRify](https://github.com/EBI-Metagenomics/emg-viral-pipeline) pipeline, is searched against representative predicted proteins (`--viphog_db`, with `--additional_viphog_model_data` and `--ncbi_db` supplying supporting reference data, and an optional `--viphogs_factor_file` for taxon-weighting). A per-genome taxonomic assignment is derived from the pattern of ViPhOG hits along each representative genome, giving a protein-based lineage call that complements the two nucleotide-based calls (VITAP, geNomad) described above.
 
 ### AMR annotation
 

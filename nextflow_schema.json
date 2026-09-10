@@ -269,7 +269,7 @@
                     "type": "string",
                     "description": "the ViPhOG database, hmmpress'ed"
                 },
-                "additional_model_data": {
+                "additional_viphog_model_data": {
                     "type": "string",
                     "description": "the ViPhOG additional file from ftp://ftp.ebi.ac.uk/pub/databases/metagenomics/viral-pipeline/additional_data_vpHMMs_${params.meta_version}.tsv"
                 },
@@ -277,7 +277,7 @@
                     "type": "string",
                     "description": "the NCBI tax DB to map names"
                 },
-                "factor_file": {
+                "viphogs_factor_file": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Path to file with viral assemblies metadata, including taxon-specific factors"
