@@ -360,7 +360,14 @@ def rename_gff(
                 protein, id_fna = define_gff_map_key(parts, third_party, id_fna)
                 count_proteins += protein
                 if id_fna in map_dir:
-                    full_line = '\t'.join([map_dir[id_fna]] + parts[1:]).replace(id_fna, map_dir[id_fna]) + '\n'
+                    new_parts = [map_dir[id_fna]] + parts[1:]
+                    if not protein:
+                        # non-CDS (contig-level) record: point its ID= attribute at
+                        # the new accession too. CDS lines keep their protein ID.
+                        new_parts[8] = re.sub(
+                            r'(?<=ID=)[^;]*', map_dir[id_fna], new_parts[8], count=1
+                        )
+                    full_line = '\t'.join(new_parts) + '\n'
                 else:
                     print(f'Warning: no {id_fna} found in mapping')
                     full_line = '\t'.join(parts) + '\n'
