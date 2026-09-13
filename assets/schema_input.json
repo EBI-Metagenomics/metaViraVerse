@@ -12,7 +12,9 @@
                 "description": "For catalogue data: catalogueName_version, example, tomato-rhizosphere_1.0. For assembly data: ERZ accession",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "meta": [
+                    "id"
+                ]
             },
             "fna": {
                 "type": "string",
@@ -27,21 +29,39 @@
             "faa": {
                 "type": "string",
                 "format": "file-path",
+                "description": "Path to protein FASTA (.faa) for structure prediction. Optional \u2014 subworkflow skipped if absent.",
                 "errorMessage": "FASTA file corresponding to GFF with protein sequences"
             },
             "source": {
                 "type": "string",
-                "enum": ["genome", "metagenome"],
+                "enum": [
+                    "genome",
+                    "metagenome"
+                ],
                 "description": "Use 'genome' for MAG or isolate; use 'metagenome' for assembly",
-                "meta": ["source"]
+                "meta": [
+                    "source"
+                ]
             },
             "biome": {
                 "type": "string",
                 "description": "Environmental biome, no spaces",
                 "pattern": "^\\S+$",
-                "meta": ["biome"]
+                "meta": [
+                    "biome"
+                ]
+            },
+            "pdb_dir": {
+                "type": "string",
+                "format": "directory-path",
+                "description": "Directory of pre-computed PDB files (e.g. from nf-core/proteinfold). Optional \u2014 ESMFold runs if absent.",
+                "errorMessage": "Path to directory containing .pdb files for structural annotation"
             }
         },
-        "required": ["id", "gff", "fna", "faa"]
+        "required": [
+            "id",
+            "gff",
+            "fna"
+        ]
     }
 }
