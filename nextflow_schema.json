@@ -206,6 +206,11 @@
                 "ecod_db_cache": {
                     "type": "string",
                     "description": "Directory for caching ECOD HHM database (fetched from Zenodo record 13993145). Defaults to workDir/ecod_cache if not set."
+                },
+                "pdb_dir": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to directory of pre-computed PDB files (e.g. from nf-core/proteinfold). If provided, ESMFold is skipped."
                 }
             }
         }

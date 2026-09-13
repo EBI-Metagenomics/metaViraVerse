@@ -88,12 +88,15 @@ workflow {
             .map { meta, reads, faa -> faa ? [ meta, file(faa) ] : null }
             .filter { it != null }
 
-        PROTEIN_STRUCTURE (
-            ch_faa,
-            ch_reps_stats,          // from upstream clustering process
-            params.bfvd_db      ?: 'BFVD',
-            params.plddt_cutoff ?: 0.7
-        )
+        // Pre-computed PDBs from nf-core/proteinfold or other source
+            ch_pdbs = params.pdb_dir
+                ? Channel.fromPath("${params.pdb_dir}/*.pdb").collect().map { pdbs -> [ [id: 'precomputed'], pdbs ] }
+                : null
+
+            PROTEIN_STRUCTURE (
+                ch_faa,
+                ch_pdbs
+            )
     }
 
 }
