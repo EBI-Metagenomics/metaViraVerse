@@ -8,13 +8,32 @@ hmt = args[1]
 library(tidyverse)
 
 
-tab <- as_tibble(read.table(hmt, header=FALSE, sep = "", comment.char = '#',
-                            col.names= c("Mob_det","taccession","tlen","query_name",
-                                         "qaccession","qlen","Evalue","score","bias",
-                                         "num","of","CEvalue","iEvalue","domscore","dombias",
-                                         "hmmfrom","hmmto","alifrom","alito","envfrom",
-                                         "envto","acc", "DoT"), fill = TRUE, stringsAsFactors = FALSE))
+lines <- readLines(hmt)
+lines <- lines[!grepl("^\\s*#", lines)]
 
+tab <- do.call(rbind, lapply(lines, function(x) {
+    x <- trimws(x)
+    fields <- strsplit(x, "\\s+")[[1]]
+
+    c(
+        fields[1:22],
+        description = paste(fields[23:length(fields)], collapse = " ")
+    )
+}))
+
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+
+colnames(tab) <- c(
+    "Mob_det", "taccession", "tlen",
+    "query_name", "qaccession", "qlen",
+    "Evalue", "score", "bias",
+    "num", "of", "CEvalue", "iEvalue",
+    "domscore", "dombias",
+    "hmmfrom", "hmmto",
+    "alifrom", "alito",
+    "envfrom", "envto", "acc",
+    "DoT"
+)
 
 mbs <- c("MOBB", "MOBC", "MOBF", "MOBH", "MOBP1", "MOBP2", "MOBP3", "MOBQ", "MOBT", "MOBV", "MOBM")
 
