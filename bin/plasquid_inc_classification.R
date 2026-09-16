@@ -5,17 +5,30 @@ args = commandArgs(trailingOnly=TRUE)
 hmt = args[1]
 cmt = args[2]
 
-hmt = "inc_candidates.tsv"
-cmt = "rna_candidates.tsv"
-
 library(tidyverse)
 
-hmt <- as_tibble(read.table(hmt, header=FALSE, sep = "", comment.char = '#',
-            col.names= c("query_name","taccession","tlen","Inc_det",
-                        "qaccession","qlen","Evalue","score","bias",
-                        "num","of","CEvalue","iEvalue","domscore","dombias",
-                        "hmmfrom","hmmto","alifrom","alito","envfrom",
-                        "envto","acc"), fill = TRUE, stringsAsFactors = FALSE))
+lines <- readLines(hmt)
+lines <- lines[!grepl("^\\s*#", lines)]
+
+tab <- do.call(rbind, lapply(lines, function(x) {
+    x <- trimws(x)
+    fields <- strsplit(x, "\\s+")[[1]]
+
+    c(
+        fields[1:22],
+        description = paste(fields[23:length(fields)], collapse = " ")
+    )
+}))
+
+hmt <- as.data.frame(tab, stringsAsFactors = FALSE)
+
+colnames(hmt) <- c(
+    "query_name","taccession","tlen","Inc_det",
+    "qaccession","qlen","Evalue","score","bias",
+    "num","of","CEvalue","iEvalue","domscore","dombias",
+    "hmmfrom","hmmto","alifrom","alito","envfrom",
+    "envto","acc"
+)
 
 Incs <- c("Inc11_B", "Inc11", "Inc13_A", "Inc13_B", "Inc13_C", "Inc18", "Inc1", "Inc1_B",
           "Inc4_A", "Inc4B-9-10-14", "Inc7_A","Inc7_B","Inc8", "IncAC", "IncB-O-K-I",
