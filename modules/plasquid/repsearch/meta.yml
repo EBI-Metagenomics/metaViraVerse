@@ -35,6 +35,11 @@ input:
         pattern: "*.{faa,fasta}"
         ontologies:
           - edam: http://edamontology.org/format_1929 # FASTA
+    - protein_to_contig:
+        type: file
+        description: Protein-id-to-contig crosswalk (MAP_PROTEIN_TO_CONTIG module output)
+        pattern: "protein_to_contig.tsv"
+        ontologies: []
   - - repsearch_db:
         type: directory
         description: Path to the RIP HMM profile database (`--repsearch_db`)

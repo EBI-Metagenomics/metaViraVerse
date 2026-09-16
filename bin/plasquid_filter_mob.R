@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #
-# Usage: plasquid_filter_mob.R <mob_candidates.tsv>
+# Usage: plasquid_filter_mob.R <mob_candidates.tsv> <protein_to_contig.tsv>
 #
 # Filters MOBSEARCH's hmmsearch --domtblout hits (predicted proteins against
 # the MOB relaxase/mobilisation-protein profile database) down to the
@@ -10,10 +10,11 @@
 # contig -- one row per accepted protein hit)
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) < 1) {
-  stop("Usage: plasquid_filter_mob.R <mob_candidates.tsv>")
+if (length(args) < 2) {
+  stop("Usage: plasquid_filter_mob.R <mob_candidates.tsv> <protein_to_contig.tsv>")
 }
-domtblout_file <- args[1]
+domtblout_file      <- args[1]
+protein_contig_file <- args[2]
 
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(purrr))
@@ -26,6 +27,7 @@ source(file.path(.this_dir, "plasquid_utils.R"))
 
 hits <- read_hmmer_domtblout(domtblout_file) %>%
   rename(Mob_det = target_name)
+protein_contig_map <- read_protein_contig_map(protein_contig_file)
 
 mob_family_cutoffs <- tibble::tribble(
   ~query_name, ~min_score,
@@ -51,7 +53,7 @@ mob_table <- pmap_dfr(mob_family_cutoffs, function(query_name, min_score) {
   rename(alifrom = ali_from, alito = ali_to)
 
 if (nrow(mob_table) > 0) {
-  mob_table <- mob_table %>% mutate(contig = orf_to_contig(Mob_det))
+  mob_table <- mob_table %>% mutate(contig = protein_to_contig(Mob_det, protein_contig_map))
 }
 
 write_delim(mob_table, "mob_table.tsv", delim = "\t")

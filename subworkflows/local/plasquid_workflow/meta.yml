@@ -7,6 +7,7 @@ keywords:
   - replicon
   - mobilisation
 components:
+  - map_protein_to_contig
   - repsearch
   - rnasearch
   - incsearch
@@ -23,6 +24,14 @@ input:
       description: |
         Plasmid cluster representative protein sequences
         Structure: [ val(meta), path(fasta) ]
+  - plasmids_gff:
+      type: file
+      description: |
+        Plasmid cluster representative GFF, source of the protein-id -> (renamed)
+        contig-id crosswalk (protein ids keep their original pre-rename form; the
+        matching nucleotide contig has since been renamed, so it can't be recovered
+        from the protein id's own text)
+        Structure: [ val(meta), path(gff) ]
 output:
   - fasta:
       type: file

@@ -10,7 +10,7 @@ process MOBSEARCH {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(proteins)
+    tuple val(meta), path(proteins), path(protein_to_contig)
     path(mobsearch_db)
 
     output:
@@ -23,7 +23,7 @@ process MOBSEARCH {
     """
     hmmsearch -o log --cpu ${task.cpus} --domtblout mob_candidates.tsv ${mobsearch_db} ${proteins}
 
-    plasquid_filter_mob.R mob_candidates.tsv
+    plasquid_filter_mob.R mob_candidates.tsv ${protein_to_contig}
     plasquid_mob_extraction.R ${proteins} mob_table.tsv
 
     cat <<-END_VERSIONS > versions.yml

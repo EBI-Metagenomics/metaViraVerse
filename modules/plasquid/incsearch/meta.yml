@@ -40,6 +40,11 @@ input:
         description: RNASEARCH's cmsearch --tblout hits (RNASEARCH module output)
         pattern: "rna_candidates.tsv"
         ontologies: []
+    - protein_to_contig:
+        type: file
+        description: Protein-id-to-contig crosswalk (MAP_PROTEIN_TO_CONTIG module output)
+        pattern: "protein_to_contig.tsv"
+        ontologies: []
   - - incsearch_db:
         type: directory
         description: Path to the Inc-associated protein HMM profile database (`--incsearch_db`)

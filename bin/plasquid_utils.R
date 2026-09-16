@@ -126,10 +126,33 @@ read_whitespace_table <- function(path, col_names, comment = "#") {
   tab
 }
 
-#' Contig/sequence id from an ORF/feature id such as "contig123_4" -> "contig123".
-#' Vectorised equivalent of the `strsplit(x, "_")[[1]][1]` loops previously
-#' repeated across several plasquid_*.R scripts.
+#' Contig/sequence id from a *nucleotide/RNA* hit id, e.g. a cmsearch target
+#' name that already *is* the (possibly renamed) contig id. NOT safe for
+#' protein/ORF ids -- see `protein_to_contig()` below.
 orf_to_contig <- function(x) sub("_.*", "", x)
+
+#' Read the (protein_id, contig) crosswalk produced by the
+#' MAP_PROTEIN_TO_CONTIG module (derived from the representative GFF).
+read_protein_contig_map <- function(path) {
+  read_tsv(path, show_col_types = FALSE)
+}
+
+#' Resolve protein/ORF hit ids to their parent contig id via an explicit
+#' crosswalk (see `read_protein_contig_map()`), instead of string-stripping
+#' the id itself.
+#'
+#' This pipeline's protein FASTA/domtblout ids keep their original
+#' (pre-rename) form, e.g. "MGYG000517684_26|plasmid-1:6000_1", while the
+#' matching nucleotide contig has since been renamed to a short accession,
+#' e.g. "seq15" -- the two no longer share a prefix, so
+#' `sub("_.*", "", protein_id)` (i.e. `orf_to_contig()`) cannot recover it;
+#' it silently returns a wrong/unmatched id, which downstream turns into
+#' dropped rows or a hard crash indexing the real assembly by that id.
+#'
+#' Ids with no entry in the map resolve to NA rather than a guess.
+protein_to_contig <- function(protein_ids, map) {
+  map$contig[match(protein_ids, map$protein_id)]
+}
 
 #' First whitespace-delimited token of a FASTA header/description, i.e. the
 #' sequence id Biostrings would use. Vectorised equivalent of the

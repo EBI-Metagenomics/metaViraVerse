@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 #
-# Usage: plasquid_inc_classification.R <inc_candidates.tsv> <rna_candidates.tsv>
+# Usage: plasquid_inc_classification.R <inc_candidates.tsv> <rna_candidates.tsv> \
+#          <protein_to_contig.tsv>
 #
 # Classifies plasmid incompatibility (Inc) groups from two independent
 # searches: hmmsearch hits of predicted proteins against Inc-associated
@@ -12,11 +13,12 @@
 # Output: classification_table.tsv (Inc_det, query_name, score, tlen, contig)
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) < 2) {
-  stop("Usage: plasquid_inc_classification.R <inc_candidates.tsv> <rna_candidates.tsv>")
+if (length(args) < 3) {
+  stop("Usage: plasquid_inc_classification.R <inc_candidates.tsv> <rna_candidates.tsv> <protein_to_contig.tsv>")
 }
-domtblout_file <- args[1]
-cmsearch_file  <- args[2]
+domtblout_file      <- args[1]
+cmsearch_file       <- args[2]
+protein_contig_file <- args[3]
 
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(purrr))
@@ -33,6 +35,7 @@ source(file.path(.this_dir, "plasquid_utils.R"))
 
 protein_hits <- read_hmmer_domtblout(domtblout_file) %>%
   rename(Inc_det = query_name)
+protein_contig_map <- read_protein_contig_map(protein_contig_file)
 
 protein_cutoffs <- tibble::tribble(
   ~Inc_det,             ~min_score,
@@ -74,7 +77,7 @@ protein_cutoffs <- tibble::tribble(
 protein_based <- pmap_dfr(protein_cutoffs, function(Inc_det, min_score) {
   protein_hits %>%
     filter(.data$Inc_det == .env$Inc_det, score >= .env$min_score) %>%
-    transmute(Inc_det, tlen, query_name = target_name, score, contig = orf_to_contig(target_name))
+    transmute(Inc_det, tlen, query_name = target_name, score, contig = protein_to_contig(target_name, protein_contig_map))
 })
 
 # ------------------------------------------------------------

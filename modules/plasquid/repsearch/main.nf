@@ -11,7 +11,7 @@ process REPSEARCH {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(proteins)
+    tuple val(meta), path(proteins), path(protein_to_contig)
     path(repsearch_db)
     path(repfilter_db)
 
@@ -25,7 +25,7 @@ process REPSEARCH {
     hmmsearch --cut_ga --cpu ${task.cpus} -o log --domtblout prots_vs_rep.tsv ${repsearch_db} ${proteins}
 
     plasquid_dom_arch.R prots_vs_rep.tsv
-    plasquid_filter_rip.R single_dom_rip.tsv domain_architecture.RDS ${repfilter_db}
+    plasquid_filter_rip.R single_dom_rip.tsv domain_architecture.RDS ${repfilter_db} ${protein_to_contig}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

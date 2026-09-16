@@ -12,7 +12,7 @@ process INCSEARCH {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(proteins), path(rna_candidates)
+    tuple val(meta), path(proteins), path(rna_candidates), path(protein_to_contig)
     path(incsearch_db)
 
     output:
@@ -25,7 +25,7 @@ process INCSEARCH {
     """
     hmmsearch -o log --cpu ${task.cpus} --domtblout inc_candidates.tsv ${incsearch_db} ${proteins}
 
-    plasquid_inc_classification.R inc_candidates.tsv ${rna_candidates}
+    plasquid_inc_classification.R inc_candidates.tsv ${rna_candidates} ${protein_to_contig}
     plasquid_filter_classification.R classification_table.tsv
 
     cat <<-END_VERSIONS > versions.yml

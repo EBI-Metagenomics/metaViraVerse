@@ -76,7 +76,8 @@ workflow PROCESS_PLASMIDS {
 
     PLASQUID_WORKFLOW(
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed
+        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
+        EXTRACT_CLUSTER_FILES.out.reps_gff
     )
     ch_versions = ch_versions.mix(PLASQUID_WORKFLOW.out.versions)
 

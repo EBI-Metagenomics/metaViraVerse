@@ -29,6 +29,19 @@ contigs <- orf_to_contig(names(assembly)) # sequence id -> its parent contig id
 
 report <- read_delim(plasmid_report_file, delim = "\t", col_types = cols(contig_length = "c"))
 
+# Guard against a Contig with no matching sequence in the assembly (should not
+# happen in normal operation, since both come from the same representative set,
+# but a plain match()-based index would otherwise hard-crash the whole run on an
+# NA subscript instead of just dropping the offending row).
+found <- report$Contig %in% contigs
+if (any(!found)) {
+  warning(
+    "Dropping ", sum(!found), " row(s) with no matching sequence in ", assembly_file, ": ",
+    paste(unique(report$Contig[!found]), collapse = ", ")
+  )
+  report <- report[found, ]
+}
+
 plasmid_seqs <- assembly[match(report$Contig, contigs)]
 names(plasmid_seqs) <- report$Contig
 writeXStringSet(plasmid_seqs, "result.fasta")
