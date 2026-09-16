@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: incsearch
+description: Classify plasmid incompatibility (Inc) groups from hmmsearch protein hits and RNASEARCH's cmsearch RNA hits, resolving known cross-reactive Inc-family pairs
+keywords:
+  - plasmid
+  - plasquid
+  - incompatibility
+  - hmmer
+tools:
+  - incsearch:
+      description: |
+        Local scripts (plasquid_inc_classification.R, plasquid_filter_classification.R)
+        that apply the plasquid tool's curated per-Inc-family score cutoffs to protein
+        and RNA hits, and drop calls known to cross-react with another Inc family
+        (IncFII/IncZ, Col/Inc13)
+      homepage: https://github.com/mgimenez720/plaSquid
+      documentation: https://github.com/mgimenez720/plaSquid
+      licence: []
+      identifier: ""
+  - hmmer:
+      description: Biosequence analysis using profile hidden Markov models
+      homepage: http://hmmer.org/
+      documentation: http://hmmer.org/documentation.html
+      licence: ["BSD"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - proteins:
+        type: file
+        description: Plasmid cluster representative protein sequences
+        pattern: "*.{faa,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+    - rna_candidates:
+        type: file
+        description: RNASEARCH's cmsearch --tblout hits (RNASEARCH module output)
+        pattern: "rna_candidates.tsv"
+        ontologies: []
+  - - incsearch_db:
+        type: directory
+        description: Path to the Inc-associated protein HMM profile database (`--incsearch_db`)
+        pattern: "*"
+        ontologies: []
+output:
+  inc_candidates:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "inc_candidates.tsv":
+          type: file
+          description: Raw hmmsearch --domtblout hits of proteins against the Inc database
+          pattern: "inc_candidates.tsv"
+          ontologies: []
+  inc_classification:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "classification_table.tsv":
+          type: file
+          description: Combined protein- and RNA-based Inc-group calls passing score cutoffs, before cross-reactivity filtering
+          pattern: "classification_table.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  filt_classification:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "filtered_classif.tsv":
+          type: file
+          description: Inc-group calls after dropping cross-reactive secondary calls
+          pattern: "filtered_classif.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

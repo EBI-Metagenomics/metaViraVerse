@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: extract_plasmids_data
+description: Combine REPSEARCH/INCSEARCH/MOBSEARCH's plasmid-evidence tables into one per-contig report and extract the reported contigs' and RIPs' sequences
+keywords:
+  - plasmid
+  - plasquid
+  - replicon
+  - mobilisation
+  - incompatibility
+tools:
+  - extract_plasmids_data:
+      description: |
+        Local scripts (plasquid_retrieve_rip_plasmids.R, plasquid_rip_extraction.R,
+        plasquid_repsearch_sum.R) that join REPSEARCH/INCSEARCH/MOBSEARCH's
+        independent per-contig calls into one report and pull out the
+        corresponding nucleotide/protein sequences
+      homepage: https://github.com/mgimenez720/plaSquid
+      documentation: https://github.com/mgimenez720/plaSquid
+      licence: []
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - filt_classification:
+        type: file
+        description: INCSEARCH's filtered Inc-group classification table
+        pattern: "filtered_classif.tsv"
+        ontologies: []
+    - mob_table:
+        type: file
+        description: MOBSEARCH's accepted MOB hits table
+        pattern: "mob_table.tsv"
+        ontologies: []
+    - rep_domains:
+        type: file
+        description: REPSEARCH's accepted RIP calls table
+        pattern: "rep_domains.tsv"
+        ontologies: []
+    - fna:
+        type: file
+        description: Plasmid cluster representative nucleotide sequences
+        pattern: "*.{fna,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+    - faa:
+        type: file
+        description: Plasmid cluster representative protein sequences
+        pattern: "*.{faa,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+output:
+  fasta:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "plasmids_contigs.fasta":
+          type: file
+          description: Nucleotide sequences of every contig with at least one plasmid-evidence hit
+          pattern: "plasmids_contigs.fasta"
+          ontologies:
+            - edam: http://edamontology.org/format_1929 # FASTA
+  report:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "plasmid_report.tsv":
+          type: file
+          description: Per-contig RIP_domain/MOB_group/Inc_group/contig_length report
+          pattern: "plasmid_report.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  rip_seqs_faa:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "rip_seqs.faa":
+          type: file
+          description: Protein sequences of every accepted RIP call
+          pattern: "rip_seqs.faa"
+          ontologies:
+            - edam: http://edamontology.org/format_1929 # FASTA
+  repsearch_result:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "result.tsv":
+          type: file
+          description: plasmid_report.tsv with published column names (Contig, RIP_domain, MOB_group, Rep_type, contig_length)
+          pattern: "result.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  repsearch_fasta:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "result.fasta":
+          type: file
+          description: Nucleotide sequences named to match result.tsv's Contig column
+          pattern: "result.fasta"
+          ontologies:
+            - edam: http://edamontology.org/format_1929 # FASTA
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
