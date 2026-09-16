@@ -78,6 +78,7 @@ workflow PROCESS_PLASMIDS {
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
         EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed
     )
+    ch_versions = ch_versions.mix(PLASQUID_WORKFLOW.out.versions)
 
     MOBSUITE_TYPER(
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,

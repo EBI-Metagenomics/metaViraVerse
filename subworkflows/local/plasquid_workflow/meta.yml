@@ -24,9 +24,26 @@ input:
         Plasmid cluster representative protein sequences
         Structure: [ val(meta), path(fasta) ]
 output:
-  # This subworkflow has no `emit:` block -- EXTRACT_PLASMIDS_DATA publishes the combined
-  # plasquid feature table directly via its own publishDir; nothing is passed on to the caller.
-  []
+  - fasta:
+      type: file
+      description: |
+        Nucleotide sequences of every contig with at least one plasmid-evidence hit
+        Structure: [ val(meta), path(fasta) ]
+  - report:
+      type: file
+      description: |
+        Per-contig RIP_domain/MOB_group/Inc_group/contig_length report
+        Structure: [ val(meta), path(tsv) ]
+  - rip_seqs:
+      type: file
+      description: |
+        Protein sequences of every accepted replication initiator protein (RIP) call
+        Structure: [ val(meta), path(fasta) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
 authors:
   - "@KateSakharova"
 maintainers:

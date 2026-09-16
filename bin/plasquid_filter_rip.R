@@ -1,177 +1,107 @@
 #!/usr/bin/env Rscript
-
-    args = commandArgs(trailingOnly=TRUE)
-
-    mdt = args[1]  #multi_domain_tab
-    sdt = args[2]  #single_domain_tab
-    rds = args[3]  #RIP_candidates_Arch_list
-    arq = args[4]  #RIP_Arch_list
-
-    library(tidyverse)
-
-    #Read data
-    tbm <- read.table(mdt, header=TRUE, sep = "\t")
-    tbs <- read.table(sdt, header=TRUE, sep = " ")
-    lsr <- readRDS(rds)
-    ar1 <- readRDS(arq)
-
-    #Filter single domain RIP candidates
-
-    #Filtering single-domain RIPs by bit-score.
-
-    lsds  <- c("IncFII_repA","RepA_C", "RepA_N", "RepC", "Replicase", "Rop",
-               "RPA", "RP-C", "TrfA", "Bac_RepA_C", "RepB-RCR_reg", "RP-C_C")
-
-    lsdvs <- c(10.0, 45, 38, 76, 76, 77.1, 67.8, 45, 87, 30, 24, 34)
-
-    names(lsdvs) <- lsds
-
-    sd1 <- character(0)
-    dmn <- character(0)
-
-    for (x in 1:length(lsds)) {
-
-      lsd   <- lsds[x]
-
-      s_dom <- subset.data.frame(tbs, tbs$queryname == lsd)
-      s_dom$score <- as.numeric(as.character(s_dom$score))
-
-      if ( nrow(s_dom) == 0) {
-
-        next
-
-        } else {
-
-
-        tsh   <- s_dom[(s_dom$score > as.numeric(lsdvs[lsd])) ,]
-        hit   <- as.vector(tsh$RIP)
-        dum   <- rep(lsd, length(hit))
-
-        sd1 <- c(sd1,hit)
-        dmn <- c(dmn, dum)
-      }
-
-    }
-
-    c1t <- character(0)
-
-    if (length(sd1) > 0) {
-
-    for(i in 1:length(sd1)){
-
-      ht <- sd1[i]
-      cn <- strsplit(ht, split = "_")[[1]][1]
-      c1t <- c(c1t, cn)
-
-    }
-
-    ssp <- tibble("Rep_type" = dmn,
-                  "contig"   = c1t,
-                  "Rep_ORF"  = sd1)
-
-    } else {
-
-    ssp <- tibble("Rep_type" = NA,
-                  "contig"   = NA,
-                  "Rep_ORF"  = NA)
-
-    }
-
-    # Filtering single-domain RIPs by bit-score and length.
-
-    Sdm <- c("PriCT_1","Rep_1","Rep_2","Rep_3","RepL","Rep_trans")
-
-    sdom        <- subset.data.frame(tbs, tbs$queryname == "PriCT_1")
-    PriCT_1     <- sdom[(sdom$score > 49 & sdom$tlen < 500 & sdom$tlen > 420) ,]
-    PriCT_1_sdl <- as.vector(PriCT_1$RIP)
-    rpr         <- rep("PriCT_1", length(PriCT_1_sdl))
-
-    sdom      <- subset.data.frame(tbs, tbs$queryname ==  "Rep_1")
-    Rep_1A    <- sdom[(sdom$score > 37 & sdom$tlen > 130) ,]
-    Rep_1B    <- sdom[(sdom$score > 27 & sdom$tlen < 130) ,]
-    Rep_1     <- rbind(Rep_1A, Rep_1B)
-    Rep_1_sdl <- as.vector(Rep_1$RIP)
-    rp1       <- rep("Rep_1", length(Rep_1_sdl))
-
-
-    sdom      <- subset.data.frame(tbs, tbs$queryname ==  "Rep_3")
-    rep3      <- sdom[(sdom$score > 45),]
-    Rep_3_sdl <- as.vector(rep3$RIP)
-    rp3       <- rep("Rep_3", length(Rep_3_sdl))
-
-    sdom      <- subset.data.frame(tbs, tbs$queryname == "RepL")
-    RepL      <- sdom[(sdom$score > 85 & sdom$tlen > 90) ,]
-    RepL_sdl  <- as.vector(RepL$RIP)
-    rpl       <- rep("RepL", length(RepL_sdl))
-
-    sdom          <- subset.data.frame(tbs, tbs$queryname == "Rep_trans")
-    Rep_trans     <- sdom[(sdom$score > 27 & sdom$tlen < 130) ,]
-    Rep_trans_sdl <- as.vector(Rep_trans$RIP)
-    rpt           <- rep("Rep_trans", length(Rep_trans_sdl))
-
-
-    hts <- c(PriCT_1_sdl,  Rep_1_sdl, Rep_3_sdl, RepL_sdl, Rep_trans_sdl)
-    sdo <- c(rpr, rp1, rp3, rpl, rpt)
-
-    gtc <- character(0)
-
-    if (length(hts) > 0 ) {
-
-    for (i in 1:length(hts)){
-
-      tih <- hts[i]
-      itc <- strsplit(tih, split = "_")[[1]][1]
-
-      gtc <- c(gtc, itc)
-
-    }
-
-    sop <- tibble("Rep_type"  = sdo,
-                  "contig"    = gtc,
-                  "Rep_ORF"   = hts)
-
-    } else {
-
-    sop <- tibble("Rep_type"  = NA,
-                  "contig"    = NA,
-                  "Rep_ORF"   = NA)
-
-    }
-
-    # Multi-domain RIP candidate filtering
-
-    idx <- which(lsr %in% ar1)
-    htm <- as.character(tbm[idx,])
-
-    cnn <- character(0)
-
-    if (length(htm > 0)) {
-
-    for (i in 1:length(htm)){
-
-      hti <- htm[i]
-      ctg <- strsplit(hti, split = "_")[[1]][1]
-      cnn <- c(cnn, ctg)
-
-    }
-
-      nmm <- length(htm)
-      cda <- rep("Conserved Domain Arch", nmm)
-
-      mop <- tibble("Rep_type" = cda,
-                    "contig"  = cnn,
-                    "Rep_ORF" = htm)
-
-    } else {
-
-      mop <- tibble("Rep_type" = NA,
-                    "contig"   = NA,
-                    "Rep_ORF"  = NA)
-
-
-    }
-
-
-   ftb <-  rbind(ssp, sop, mop)
-
-   write_delim(ftb, "rep_domains.tsv", delim = "\t")
+#
+# Usage: plasquid_filter_rip.R <single_dom_rip.tsv> <domain_architecture.RDS> \
+#          <repfilter_db.RDS>
+#
+# Second stage of REPSEARCH: takes plasquid_dom_arch.R's per-RIP domain
+# calls and applies curated, domain-specific bit-score (and, for some
+# domains, length) cutoffs to decide which candidates are real replication
+# initiator proteins (RIPs). Three independent lines of evidence are
+# combined: single-domain RIPs passing a per-Pfam-domain score cutoff,
+# single-domain RIPs passing a stricter score+length rule for domains known
+# to need one, and multi-domain RIPs whose resolved domain architecture
+# matches a curated reference architecture list (repfilter_db).
+#
+# Output: rep_domains.tsv (Rep_type, contig, Rep_ORF -- one row per accepted RIP)
+
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 3) {
+  stop("Usage: plasquid_filter_rip.R <single_dom_rip.tsv> <domain_architecture.RDS> <repfilter_db.RDS>")
+}
+single_dom_file   <- args[1]
+architecture_file <- args[2]
+repfilter_db_file <- args[3]
+
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(readr))
+.this_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else "."
+})
+source(file.path(.this_dir, "plasquid_utils.R"))
+
+single_dom    <- read_tsv(single_dom_file, show_col_types = FALSE)
+architectures <- readRDS(architecture_file)     # named list: multi-domain RIP id -> resolved architecture
+reference_architectures <- readRDS(repfilter_db_file) # curated list of architectures accepted as real RIPs
+
+empty_hits <- function() tibble(Rep_type = character(0), contig = character(0), Rep_ORF = character(0))
+
+# ------------------------------------------------------------
+# Single-domain RIPs, filtered by a fixed bit-score cutoff per Pfam domain
+# ------------------------------------------------------------
+
+single_domain_cutoffs <- tibble::tribble(
+  ~queryname,       ~min_score,
+  "IncFII_repA",     10.0,
+  "RepA_C",           45,
+  "RepA_N",           38,
+  "RepC",             76,
+  "Replicase",        76,
+  "Rop",              77.1,
+  "RPA",              67.8,
+  "RP-C",             45,
+  "TrfA",             87,
+  "Bac_RepA_C",       30,
+  "RepB-RCR_reg",     24,
+  "RP-C_C",           34
+)
+
+fixed_cutoff_hits <- pmap_dfr(single_domain_cutoffs, function(queryname, min_score) {
+  single_dom %>%
+    filter(queryname == .env$queryname, score > .env$min_score) %>%
+    transmute(Rep_type = .env$queryname, contig = orf_to_contig(RIP), Rep_ORF = RIP)
+})
+
+# ------------------------------------------------------------
+# Single-domain RIPs needing a score+length rule instead of score alone
+# ------------------------------------------------------------
+
+length_gated_cutoffs <- tibble::tribble(
+  ~queryname,   ~min_score, ~min_tlen, ~max_tlen,
+  "PriCT_1",    49,         420,       500,
+  "Rep_1",      37,         130,       Inf,
+  "Rep_1",      27,         -Inf,      130,
+  "Rep_3",      45,         -Inf,      Inf,
+  "RepL",       85,         90,        Inf,
+  "Rep_trans",  27,         -Inf,      130
+)
+
+length_gated_hits <- pmap_dfr(length_gated_cutoffs, function(queryname, min_score, min_tlen, max_tlen) {
+  single_dom %>%
+    filter(queryname == .env$queryname, score > .env$min_score, tlen > .env$min_tlen, tlen < .env$max_tlen) %>%
+    transmute(Rep_type = .env$queryname, contig = orf_to_contig(RIP), Rep_ORF = RIP)
+})
+
+# ------------------------------------------------------------
+# Multi-domain RIPs whose resolved architecture matches the reference list
+# ------------------------------------------------------------
+
+matched_architectures <- architectures[architectures %in% reference_architectures]
+multi_domain_hits <- if (length(matched_architectures) > 0) {
+  rip_ids <- names(matched_architectures)
+  tibble(
+    Rep_type = "Conserved Domain Arch",
+    contig   = orf_to_contig(rip_ids),
+    Rep_ORF  = rip_ids
+  )
+} else {
+  empty_hits()
+}
+
+# ------------------------------------------------------------
+# Output
+# ------------------------------------------------------------
+
+rep_domains <- bind_rows(fixed_cutoff_hits, length_gated_hits, multi_domain_hits)
+write_delim(rep_domains, "rep_domains.tsv", delim = "\t")

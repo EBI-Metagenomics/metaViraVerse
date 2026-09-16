@@ -1,81 +1,57 @@
 #!/usr/bin/env Rscript
+#
+# Usage: plasquid_filter_mob.R <mob_candidates.tsv>
+#
+# Filters MOBSEARCH's hmmsearch --domtblout hits (predicted proteins against
+# the MOB relaxase/mobilisation-protein profile database) down to the
+# proteins that pass a curated, MOB-family-specific bit-score cutoff.
+#
+# Output: mob_table.tsv (Mob_det, tlen, query_name, score, alifrom, alito,
+# contig -- one row per accepted protein hit)
 
-args = commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 1) {
+  stop("Usage: plasquid_filter_mob.R <mob_candidates.tsv>")
+}
+domtblout_file <- args[1]
 
-hmt = args[1]
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(readr))
+.this_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else "."
+})
+source(file.path(.this_dir, "plasquid_utils.R"))
 
+hits <- read_hmmer_domtblout(domtblout_file) %>%
+  rename(Mob_det = target_name)
 
-library(tidyverse)
-
-
-lines <- readLines(hmt)
-lines <- lines[!grepl("^\\s*#", lines)]
-
-tab <- do.call(rbind, lapply(lines, function(x) {
-    x <- trimws(x)
-    fields <- strsplit(x, "\\s+")[[1]]
-
-    c(
-        fields[1:22],
-        description = paste(fields[23:length(fields)], collapse = " ")
-    )
-}))
-
-tab <- as.data.frame(tab, stringsAsFactors = FALSE)
-
-colnames(tab) <- c(
-    "Mob_det", "taccession", "tlen",
-    "query_name", "qaccession", "qlen",
-    "Evalue", "score", "bias",
-    "num", "of", "CEvalue", "iEvalue",
-    "domscore", "dombias",
-    "hmmfrom", "hmmto",
-    "alifrom", "alito",
-    "envfrom", "envto", "acc",
-    "DoT"
+mob_family_cutoffs <- tibble::tribble(
+  ~query_name, ~min_score,
+  "MOBB",       92.7,
+  "MOBC",       96.6,
+  "MOBF",      332.2,
+  "MOBH",       81.1,
+  "MOBP1",      74.5,
+  "MOBP2",     480,
+  "MOBP3",     105,
+  "MOBQ",       61,
+  "MOBT",      115.9,
+  "MOBV",       68,
+  "MOBM",      584
 )
 
-mbs <- c("MOBB", "MOBC", "MOBF", "MOBH", "MOBP1", "MOBP2", "MOBP3", "MOBQ", "MOBT", "MOBV", "MOBM")
+mob_table <- pmap_dfr(mob_family_cutoffs, function(query_name, min_score) {
+  hits %>%
+    filter(.data$query_name == .env$query_name, score >= .env$min_score) %>%
+    distinct(Mob_det, query_name, .keep_all = TRUE) %>%
+    select(Mob_det, tlen, query_name, score, ali_from, ali_to)
+}) %>%
+  rename(alifrom = ali_from, alito = ali_to)
 
-smb <- c(92.7, 96.6, 332.2, 81.1, 74.5, 480, 105, 61, 115.9, 68, 584)
-
-tbf <- tibble(Mob_det    = character(0),
-              tlen       = integer(length = 0L),
-              query_name = character(0),
-              score      = numeric(),
-              alifrom    = integer(length = 0L),
-              alito      = integer(length = 0L))
-
-
-for (i in 1:length(mbs)) {
-
-  mb <- mbs[i]
-  sc <- smb[i]
-
-  tbi <- subset.data.frame(tab, tab$query_name == mb, select = c(Mob_det, tlen, query_name, score, alifrom, alito))
-
-  tbh <- subset.data.frame(tbi, tbi$score >= sc)
-
-  tbu <- distinct(tbh, Mob_det, query_name, .keep_all = TRUE)
-
-  tbf <- rbind(tbf, tbu)
-
+if (nrow(mob_table) > 0) {
+  mob_table <- mob_table %>% mutate(contig = orf_to_contig(Mob_det))
 }
 
-if (nrow(tbf)>0) {
-
- cn <- character(0)
-
- for (i in 1:length(tbf$Mob_det)){
-
-  pri <- tbf$Mob_det[i]
-  cnt <- strsplit(pri, split = "_")[[1]][1]
-
-  cn <- c(cn, cnt)
-
- }
-
- tbf$contig <- cn
-
-}
- write_delim(tbf, "mob_table.tsv", delim = "\t")
+write_delim(mob_table, "mob_table.tsv", delim = "\t")

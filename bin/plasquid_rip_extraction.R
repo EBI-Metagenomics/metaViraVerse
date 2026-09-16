@@ -1,71 +1,52 @@
 #!/usr/bin/env Rscript
+#
+# Usage: plasquid_rip_extraction.R <proteins.faa> <filtered_classif.tsv> <rep_domains.tsv>
+#
+# Pulls out the protein sequences accepted as replication initiator proteins
+# (RIPs) by either line of evidence -- REPSEARCH's domain-based calls
+# (rep_domains.tsv) or INCSEARCH's Inc-group classification of the same ORF
+# (filtered_classif.tsv, restricted to protein-based rows: RNA/whole-contig
+# rows never carry an ORF id, so their query_name has no "_" in it) -- and
+# renames each "<Rep_ORF>#<Rep_type>" (merging repeat calls for the same ORF
+# with "#" too, e.g. two REPSEARCH domain calls for the same protein).
+#
+# Output: rip_seqs.faa
 
-args = commandArgs(trailingOnly=TRUE)
-
-prt = args[1] #"prots.faa"
-inc = args[2] #"Filtered_Classif.tsv"
-dom = args[3] #"Rep_domains.tsv"
-
-
-library("Biostrings")
-library("tidyverse")
-
-orf <- readAAStringSet(prt)
-nrf <- names(orf)
-
-nms <- character(0)
-
-for(i in 1:length(nrf)) {
-
-  nri <- nrf[i]
-
-  nm <- strsplit(nri, split = " ")[[1]][1]
-
-  nms <- c(nms, nm)
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 3) {
+  stop("Usage: plasquid_rip_extraction.R <proteins.faa> <filtered_classif.tsv> <rep_domains.tsv>")
 }
+proteins_file      <- args[1]
+inc_classif_file   <- args[2]
+rep_domains_file   <- args[3]
 
-tbi  <- read_delim(inc, delim = "\t")
-idd  <- grep("_", tbi$query_name)
-rpi  <- tbi$query_name[idd]
-tbi1 <- tbi[idd,]
+suppressPackageStartupMessages(library(Biostrings))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(readr))
+.this_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else "."
+})
+source(file.path(.this_dir, "plasquid_utils.R"))
 
+proteins <- readAAStringSet(proteins_file)
+names(proteins) <- fasta_id(names(proteins))
 
-tbd <- read_delim(dom, delim = "\t")
-idx <- which(!is.na(tbd$Rep_ORF))
-rpo <- tbd$Rep_ORF[idx]
+inc_classif <- read_tsv(inc_classif_file, show_col_types = FALSE) %>%
+  filter(grepl("_", query_name)) %>% # protein-based rows only (RNA/contig rows have no ORF id)
+  transmute(contig, Rep_ORF = query_name, Rep_type = Inc_det)
 
-tbi2 <- tbi1[,c("contig","query_name","Inc_det")]
-tbd1 <- tbd[,c("contig","Rep_ORF","Rep_type")]
+rep_domains <- read_tsv(rep_domains_file, show_col_types = FALSE) %>%
+  transmute(contig, Rep_ORF, Rep_type)
 
-colnames(tbi2) <- colnames(tbd1)
+rip_calls <- bind_rows(rep_domains, inc_classif) %>%
+  filter(!is.na(contig)) %>%
+  arrange(contig, Rep_ORF) %>%
+  group_by(Rep_ORF) %>%
+  summarise(across(everything(), ~ paste(.x, collapse = "#")), .groups = "drop")
 
-tbs <- rbind(tbd1, tbi2)
+rip_seqs <- proteins[names(proteins) %in% rip_calls$Rep_ORF]
+rip_calls <- rip_calls[match(names(rip_seqs), rip_calls$Rep_ORF), ]
+names(rip_seqs) <- paste(rip_calls$Rep_ORF, rip_calls$Rep_type, sep = "#")
 
-tbb <- tbs[which(!is.na(tbs$contig)),]
-
-tbf <-tbb[order(tbb$contig, tbb$Rep_ORF),]
-
-rip <- unique(tbf$Rep_ORF)
-idf <- which(nms %in% rip)
-rep <- orf[idf]
-
-
-tbf1 <- tbf %>% group_by_at(vars(Rep_ORF)) %>%
-         summarize_all(paste, collapse="#")
-
-nmf <- character(0)
-
-for(i in 1:length(tbf1$Rep_ORF)){
-
-  rpi <- tbf1$Rep_ORF[i]
-  rti <- tbf1$Rep_type[i]
-
-  nmi <- paste(rpi,rti, sep ="#")
-
-  nmf <- c(nmf, nmi)
-
-}
-
-names(rep) <- nmf
-
-writeXStringSet(rep, "rip_seqs.faa")
+writeXStringSet(rip_seqs, "rip_seqs.faa")
