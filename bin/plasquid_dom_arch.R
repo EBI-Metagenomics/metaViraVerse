@@ -1,177 +1,287 @@
 #!/usr/bin/env Rscript
 
- args = commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
- teb = args[1]
+if (length(args) < 1) {
+  stop("Usage: Rscript script.R <domtblout_file>")
+}
 
+teb <- args[1]
 
- library(tidyverse)
-
-
- tab <- read.table(teb,
-                  header = FALSE,
-                  sep = "",
-                  blank.lines.skip = TRUE,
-                  skipNul = TRUE,
-                  col.names= c("RIP","taccession","tlen","queryname", "qaccession","qlen","Evalue",
-                              "score","bias","num","of","cEvalue","iEvalue", "domscore","dombias",
-                              "hmmfrom","hmmto","alifrom","alito","from_env","to_env","env"))
-
-  tib <- as_tibble(tab)
-
-  tsd <- tibble('RIP'        = character(),
-                'tlen'       = character(),
-                'queryname'  = character(),
-                'qaccession' = character(),
-                'qlen'       = numeric(),
-                'Evalue'     = numeric(),
-                'score'      = numeric(),
-                'hmmfrom'    = numeric(),
-                'hmmto'      = numeric(),
-                'alifrom'    = numeric(),
-                'alito'      = numeric())
-
-  RIP <- unique(tib$RIP)
-
-  #Name of RIPs in list l1
-  nl1 <- character(0)
-  l1 <- list()
-  x <- 0
-
-  for (i in 1:length(RIP)) {
-
-    ri <- as.character(RIP[i])
-
-    idx <- which(tib$RIP == ri)
-    tab1 <- tib[idx,]
-    nls <- nrow(tab1)
+library(tidyverse)
 
 
-    if (nls > 1) {
+# ------------------------------------------------------------
+# Read HMMER --domtblout
+# ------------------------------------------------------------
 
-      nls <- c(nls, RIP)
+# HMMER domtblout has 22 fixed fields followed by an optional
+# free-text description. We only need the first 22 fields.
+#
+# Reading line-by-line avoids problems caused by spaces in the
+# description field.
 
-      x <- x + 1
+lines <- readLines(teb, warn = FALSE)
 
+# Remove comments and empty lines
+lines <- lines[
+  !grepl("^\\s*#", lines) &
+  nzchar(trimws(lines))
+]
 
-      e1 <- tab1[1,]$alito
-      s2 <- tab1[2,]$alifrom
+if (length(lines) == 0) {
+  stop("No data found in: ", teb)
+}
 
-      if (is.na(s2)==TRUE){
-        dom1a <- as.character(tab1[1,4])
-        dom1  <- as.vector(c(dom1a,"no_2nd_domain"))
-      } else {
-        if (e1<s2){
-          dom1a <- as.character(tab1[1,4])
-          dom1  <- as.vector(c(dom1a, "not_over"))
-        } else {
-          bs1 <- as.numeric(tab1[1,]$score)
-          bs2 <- as.numeric(tab1[2,]$score)
-          if (bs1<bs2){
-            dom1a <- as.character(tab1[2,]$queryname)
-            dom1  <- as.vector(c(dom1a,"overlapped"))
-          } else {
-            dom1a <- as.character(tab1[1,]$queryname)
-            dom1  <- as.vector(c(dom1a,"overlapped"))
-          }
-        }
-      }
+# Split on whitespace
+fields <- strsplit(trimws(lines), "\\s+")
 
+# Keep only the first 22 fields
+fields <- lapply(fields, function(x) {
+  if (length(x) < 22) {
+    stop(
+      "Malformed domtblout line: expected at least 22 fields, got ",
+      length(x)
+    )
+  }
+  x[1:22]
+})
 
+tab <- as.data.frame(
+  do.call(rbind, fields),
+  stringsAsFactors = FALSE
+)
 
-      e2 <- tab1[2,]$alito
-      s3 <- tab1[3,]$alifrom
-
-      if (is.na(s3)==TRUE){
-        dom2a <- as.character(tab1[2,]$queryname)
-        dom2  <- as.vector(c(dom2a,"no_3rd_domain"))
-      } else {
-        if (e2<s3){
-          dom2a <- as.character(tab1[2,]$queryname)
-          dom2  <- as.vector(c(dom2a, "not_over"))
-        } else {
-          bs2 <- as.numeric(tab1[2,]$score)
-          bs3 <- as.numeric(tab1[3,]$score)
-          if (bs2<bs3){
-            dom2a <- as.character(tab1[3,]$queryname)
-            dom2  <- as.vector(c(dom2a,"overlapped"))
-          } else {
-            dom2a <- as.character(tab1[2,]$queryname)
-            dom2  <- as.vector(c(dom2a,"overlapped"))
-          }
-        }
-      }
-
-      e3 <- tab1[3,]$alito
-      s4 <- tab1[4,]$alifrom
-
-      if (is.na(s4)==TRUE){
-        dom3a <- as.character(tab1[3,]$queryname)
-        dom3  <- as.vector(c(dom3a,"no_4th_domain"))
-      } else {
-        if (e3<s4){
-          dom3a <- as.character(tab1[3,]$queryname)
-          dom3  <- as.vector(c(dom3a, "not_over"))
-        } else {
-          bs3 <- as.numeric(tab1[3,]$score)
-          bs4 <- as.numeric(tab1[4,]$score)
-          if (bs3<bs4){
-            dom3a <- as.character(tab1[4,]$queryname)
-            dom3  <- as.vector(c(dom3a,"overlapped"))
-          } else {
-            dom3a <- as.character(tab1[3,]$queryname)
-            dom3  <- as.vector(c(dom3a,"overlapped"))
-          }
-        }
-      }
+colnames(tab) <- c(
+  "RIP",
+  "taccession",
+  "tlen",
+  "queryname",
+  "qaccession",
+  "qlen",
+  "Evalue",
+  "score",
+  "bias",
+  "num",
+  "of",
+  "cEvalue",
+  "iEvalue",
+  "domscore",
+  "dombias",
+  "hmmfrom",
+  "hmmto",
+  "alifrom",
+  "alito",
+  "from_env",
+  "to_env",
+  "acc"
+)
 
 
-      e4 <- tab1[4,]$alito
-      s5 <- tab1[5,]$alifrom
+# ------------------------------------------------------------
+# Convert relevant columns to appropriate types
+# ------------------------------------------------------------
 
-      if (is.na(s5)==TRUE){
-        dom4a <- as.character(tab1[4,]$queryname)
-        dom4  <- as.vector(c(dom4a,"no_5th_domain"))
-      } else {
-        if (e4<s5){
-          dom4a <- as.character(tab1[4,]$queryname)
-          dom4  <- as.vector(c(dom4a, "not_over"))
-        } else {
-          bs4 <- as.numeric(tab1[4,]$score)
-          bs5 <- as.numeric(tab1[5,]$score)
-          if (bs4<bs5){
-            dom4a <- as.character(tab1[5,]$queryname)
-            dom4  <- as.vector(c(dom4a,"overlapped"))
-          } else {
-            dom4a <- as.character(tab1[4,]$queryname)
-            dom4  <- as.vector(c(dom4a,"overlapped"))
-          }
-        }
-      }
+tib <- as_tibble(tab) %>%
+  mutate(
+    tlen     = as.numeric(tlen),
+    qlen     = as.numeric(qlen),
+    Evalue   = as.numeric(Evalue),
+    score    = as.numeric(score),
+    bias     = as.numeric(bias),
+    num      = as.integer(num),
+    of       = as.integer(of),
+    cEvalue  = as.numeric(cEvalue),
+    iEvalue  = as.numeric(iEvalue),
+    domscore = as.numeric(domscore),
+    dombias  = as.numeric(dombias),
+    hmmfrom  = as.integer(hmmfrom),
+    hmmto    = as.integer(hmmto),
+    alifrom  = as.integer(alifrom),
+    alito    = as.integer(alito),
+    from_env = as.integer(from_env),
+    to_env   = as.integer(to_env),
+    acc      = as.numeric(acc)
+  )
 
 
-      Arq <- as.vector(c(dom1,dom2,dom3,dom4))
-      Arq <- Arq[!is.na(Arq)]
+# ------------------------------------------------------------
+# Single-domain output
+# ------------------------------------------------------------
 
-      l1[[x]] <- Arq
-      nl1 <- c(nl1, as.character(ri))
+single_dom <- tib %>%
+  filter(num == 1, of == 1) %>%
+  transmute(
+    RIP,
+    tlen,
+    queryname,
+    qaccession,
+    qlen,
+    Evalue,
+    score,
+    hmmfrom,
+    hmmto,
+    alifrom,
+    alito
+  )
 
+
+# ------------------------------------------------------------
+# Function to resolve overlapping domains
+# ------------------------------------------------------------
+
+resolve_architecture <- function(df) {
+
+  # Sort by alignment start
+  df <- df %>%
+    arrange(alifrom, alito)
+
+  n <- nrow(df)
+
+  if (n == 1) {
+    return(
+      c(
+        as.character(df$queryname[1]),
+        "single_domain"
+      )
+    )
+  }
+
+  architecture <- character(0)
+
+  i <- 1
+
+  while (i <= n) {
+
+    # Current domain
+    current <- df[i, ]
+
+    # If this is the final domain
+    if (i == n) {
+
+      architecture <- c(
+        architecture,
+        as.character(current$queryname)
+      )
+
+      break
+    }
+
+    # Next domain
+    next_domain <- df[i + 1, ]
+
+    # Determine whether domains overlap
+    #
+    # Current domain ends after next domain starts
+    overlap <- current$alito >= next_domain$alifrom
+
+    if (!overlap) {
+
+      # No overlap
+      architecture <- c(
+        architecture,
+        as.character(current$queryname),
+        "not_over"
+      )
+
+      i <- i + 1
 
     } else {
 
-      slc <-  c(1, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19)
+      # Overlap: retain domain with higher score
+      if (current$score >= next_domain$score) {
 
-      stb <- tab1[1,slc]
+        architecture <- c(
+          architecture,
+          as.character(current$queryname),
+          "overlapped"
+        )
 
-      tsd <- rbind(tsd, stb)
+      } else {
 
+        architecture <- c(
+          architecture,
+          as.character(next_domain$queryname),
+          "overlapped"
+        )
+      }
 
+      # Skip both overlapping domains
+      i <- i + 2
     }
-
   }
 
+  architecture
+}
 
-  saveRDS(l1, "domain_architecture.RDS")
-  nl2 <- as.tibble(nl1)
-  write_delim(nl2, "multi_dom_rip.tsv")
-  write_delim(tsd, "single_dom_rip.tsv")
+
+# ------------------------------------------------------------
+# Process each RIP
+# ------------------------------------------------------------
+
+RIP <- unique(tib$RIP)
+
+l1 <- vector("list", length(RIP))
+names(l1) <- RIP
+
+multi_dom_rip <- character(0)
+
+for (i in seq_along(RIP)) {
+
+  ri <- RIP[i]
+
+  tab1 <- tib %>%
+    filter(RIP == ri) %>%
+    arrange(alifrom, alito)
+
+  n_domains <- nrow(tab1)
+
+  # ----------------------------------------------------------
+  # Single domain
+  # ----------------------------------------------------------
+
+  if (n_domains == 1) {
+
+    next
+  }
+
+  # ----------------------------------------------------------
+  # Multiple domains
+  # ----------------------------------------------------------
+
+  multi_dom_rip <- c(
+    multi_dom_rip,
+    as.character(ri)
+  )
+
+  l1[[ri]] <- resolve_architecture(tab1)
+}
+
+
+# ------------------------------------------------------------
+# Remove empty entries
+# ------------------------------------------------------------
+
+l1 <- l1[names(l1) %in% multi_dom_rip]
+
+
+# ------------------------------------------------------------
+# Output
+# ------------------------------------------------------------
+
+saveRDS(
+  l1,
+  "domain_architecture.RDS"
+)
+
+write_delim(
+  tibble(RIP = multi_dom_rip),
+  "multi_dom_rip.tsv",
+  delim = "\t"
+)
+
+write_delim(
+  single_dom,
+  "single_dom_rip.tsv",
+  delim = "\t"
+)
