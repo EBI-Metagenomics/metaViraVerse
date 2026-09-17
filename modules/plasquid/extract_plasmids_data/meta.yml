@@ -71,6 +71,19 @@ output:
           pattern: "plasmid_report.tsv"
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
+  protein_report:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "protein_report.tsv":
+          type: file
+          description: |
+            Per-protein counterpart to plasmid_report.tsv (Contig, Protein,
+            RIP_domain, MOB_group, Inc_group) -- one row per protein with at
+            least one hit from REPSEARCH, MOBSEARCH or INCSEARCH
+          pattern: "protein_report.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
   rip_seqs_faa:
     - - meta:
           type: map
@@ -81,6 +94,21 @@ output:
           pattern: "rip_seqs.faa"
           ontologies:
             - edam: http://edamontology.org/format_1929 # FASTA
+  mobility_stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "mobility_stats.json":
+          type: file
+          description: |
+            Contig counts/percentages per mobility class (conjugative,
+            mobilizable, non_mobilizable). plaSquid detects the MOB relaxase
+            gene only, not MPF/T4SS conjugation machinery, so "conjugative"
+            stays at 0 unless independent MPF evidence is supplied -- see
+            plasquid_rip_extraction.R's header comment
+          pattern: "mobility_stats.json"
+          ontologies:
+            - edam: http://edamontology.org/format_3464 # JSON
   versions:
     - "versions.yml":
         type: file

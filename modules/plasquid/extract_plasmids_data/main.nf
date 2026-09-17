@@ -15,13 +15,20 @@ process EXTRACT_PLASMIDS_DATA {
     output:
     tuple val(meta), path("plasmids_contigs.fasta"), emit: fasta
     tuple val(meta), path("plasmid_report.tsv"),     emit: report
+    tuple val(meta), path("protein_report.tsv"),     emit: protein_report
     tuple val(meta), path("rip_seqs.faa"),           emit: rip_seqs_faa
+    tuple val(meta), path("mobility_stats.json"),    emit: mobility_stats
     path "versions.yml",                             emit: versions
 
     script:
     """
+    # Output: plasmids_contigs.fasta, plasmid_report.tsv
     plasquid_retrieve_rip_plasmids.R ${filt_classification} ${rep_domains} ${mob_table} ${fna}
-    plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains}
+
+    # Output: rip_seqs.faa, protein_report.tsv, mobility_stats.json
+    # (no MPF/T4SS evidence source exists in this pipeline yet -- see plasquid_rip_extraction.R's
+    # header comment -- so mobility_stats.json's "conjugative" bucket stays at 0 for now)
+    plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains} ${mob_table}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
