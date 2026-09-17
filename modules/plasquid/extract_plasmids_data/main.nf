@@ -1,9 +1,8 @@
 process EXTRACT_PLASMIDS_DATA {
     /*
      * Combine REPSEARCH/INCSEARCH/MOBSEARCH's independent plasmid-evidence tables
-     * into one per-contig report, extract the reported contigs' own sequences and
-     * the protein sequences behind each RIP call, and produce the final plasmid
-     * report + representative sequences.
+     * into one per-contig report, and extract the reported contigs' own sequences and
+     * the protein sequences behind each RIP call.
     */
 
     label 'process_medium'
@@ -17,15 +16,12 @@ process EXTRACT_PLASMIDS_DATA {
     tuple val(meta), path("plasmids_contigs.fasta"), emit: fasta
     tuple val(meta), path("plasmid_report.tsv"),     emit: report
     tuple val(meta), path("rip_seqs.faa"),           emit: rip_seqs_faa
-    tuple val(meta), path("result.tsv"),             emit: repsearch_result
-    tuple val(meta), path("result.fasta"),           emit: repsearch_fasta
     path "versions.yml",                             emit: versions
 
     script:
     """
     plasquid_retrieve_rip_plasmids.R ${filt_classification} ${rep_domains} ${mob_table} ${fna}
     plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains}
-    plasquid_repsearch_sum.R plasmid_report.tsv ${fna}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

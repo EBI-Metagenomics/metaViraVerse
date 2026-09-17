@@ -108,11 +108,13 @@ Representative plasmid sequences are typed with [MOB-suite's `mob_typer`](https:
 
 [plaSquid](https://github.com/mgimenez720/plaSquid) is run to complement MOB-suite with additional plasmid-specific gene detection. The original plaSquid pipeline was re-written and re-integrated into ViraVerse as individual Nextflow modules, covering the replicon search, plasmid-associated RNA search, incompatibility-group search and relaxase/mobilisation search modes (`repsearch`, `rnasearch`, `incsearch` and `mobsearch`).
 
-- `repsearch` screens the predicted proteins against a replicon domain database (`--repsearch_db`, filtered with `--repfilter_db`) to detect replication-initiation genes characteristic of plasmids.
-- `rnasearch` screens the nucleotide sequence itself (`--rna_inc_db`) for plasmid-associated RNA features (for example RNAs involved in copy-number control).
-- `incsearch` combines the protein search results with the RNA search candidates to classify plasmids into incompatibility groups (`--incsearch_db`).
-- `mobsearch` screens the predicted proteins for mobilisation/relaxase genes (`--mobsearch_db`).
-- The results of all four searches are finally combined into a single per-plasmid classification table, giving a second, complementary line of evidence to the MOB-suite predictions above.
+Each search targets a different molecular hallmark of a plasmid, detected via HMM (protein) or covariance-model (RNA) profile matching against curated, family-specific score cutoffs:
+
+- **RIP** (Replication Initiator Protein) — the protein a plasmid uses to initiate its own replication, independently of the host chromosome; finding one is the strongest single signal that a contig is a genuine plasmid rather than a chromosomal fragment. Detected by `repsearch`, which screens the predicted proteins against a replicon domain database (`--repsearch_db`, filtered with `--repfilter_db`).
+- **Inc** (incompatibility group) — the plasmid's replicon-control lineage (e.g. IncF, IncN, IncX, Col-type). Two plasmids sharing an Inc group cannot stably coexist in the same cell, which is why Inc typing has long been used to classify plasmids and is commonly associated with particular host ranges and cargo genes (e.g. AMR determinants). Two independent lines of evidence feed this call: `rnasearch` screens the nucleotide sequence (`--rna_inc_db`) for Inc-associated regulatory RNAs (some Inc families control copy number via RNA rather than protein), and `incsearch` screens the predicted proteins for Inc-associated genes (`--incsearch_db`), combining both with the RNA search candidates and resolving known cross-reactive Inc-family pairs.
+- **MOB** (mobilisation/relaxase gene) — the enzyme that nicks the plasmid at its origin of transfer and pilots it through a conjugation pore into another cell. Its presence indicates the plasmid is potentially conjugative or mobilisable, which is how AMR genes commonly spread between bacteria. Detected by `mobsearch`, which screens the predicted proteins for relaxase genes (`--mobsearch_db`).
+
+The results of all four searches are finally combined into a single per-plasmid classification table (RIP domain, MOB group, Inc group), giving a second, complementary line of evidence to the MOB-suite predictions above.
 
 ## Sequences processing: Viruses
 

@@ -8,6 +8,7 @@ include { EXTRACT_CLUSTER_FILES                   } from '../extract_cluster_fil
 include { INDEX_RESULTS                           } from '../index_results/main'
 include { PLASQUID_WORKFLOW                       } from '../plasquid_workflow/main'
 include { MOBSUITE_TYPER                          } from '../../../modules/nf-core/mobsuite/typer/main'
+include { AMR_ANNOTATION                          } from '../../ebi-metagenomics/amr_annotation'
 
 
 /*
@@ -89,12 +90,29 @@ workflow PROCESS_PLASMIDS {
         true
     )
 
+    //
+    // -------- Antimicrobial resistence detection
+    //
+    AMR_ANNOTATION (
+        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
+        params.amrfinderplus_db,
+        params.deeparg_db,
+        params.deeparg_db_version,
+        params.deeparg_model,
+        params.deeparg_tool_version,
+        params.rgi_db,
+        false,
+        false,
+        false
+    )
+
     emit:
 
     clustering_tsv = CLUSTERING.out.clusters_tsv  // [meta, tsv]
     reps_tsv       = EXTRACT_CLUSTER_FILES.out.reps_list
     reps_seqs      = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed      // compressed
     reps_proteins  = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
+    reps_gff       = EXTRACT_CLUSTER_FILES.out.reps_gff
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
