@@ -2,7 +2,7 @@
 """
 Add plasmid-evidence attributes to a representative GFF.
 
-Two independent evidence sources, each added to a different record level:
+Three independent evidence sources:
 
 --table (plaSquid's protein_report.tsv: Contig, Protein, RIP_domain,
 MOB_group, Inc_group -- one row per protein with at least one plaSquid hit,
@@ -24,7 +24,18 @@ columns are added as comma-joined `mob_suite_biomarker` and
 record(s), the same record level BacPhlip/taxonomy attributes use elsewhere
 in this pipeline (see build_final_gff.py) for whole-contig facts.
 
-In both cases, existing attributes on a record are never overwritten, and
+--amr-gff (AMRINTEGRATOR's integrated_<prefix>.gff): built by augmenting
+--gff itself with AMRfinderPlus/RGI/DeepARG hits, so it shares --gff's `ID=`
+values and only contains the plasmids/proteins that actually got an AMR
+hit -- a subset, not the full representative set. Rather than hardcoding
+which of its attribute keys are "AMR fields", this script computes them:
+any column-9 key that appears anywhere in --amr-gff but nowhere in --gff is,
+by construction, something AMRINTEGRATOR added -- i.e. AMR-specific -- and
+gets carried over to the matching --gff record (any feature type, matched
+by `ID=`); keys already present in --gff (ID, product, locus_tag, etc.) are
+never re-added, so only genuinely new, AMR-related fields are picked up.
+
+In all cases, existing attributes on a record are never overwritten, and
 records with no matching evidence pass through completely unchanged.
 """
 
@@ -117,6 +128,52 @@ def load_biomarker_report(path: str) -> dict[str, dict[str, str]]:
     }
 
 
+def load_gff_attribute_keys(path: str) -> set[str]:
+    """Return the set of every column-9 attribute key used anywhere in a GFF."""
+    keys: set[str] = set()
+    with open_file(path) as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if len(cols) < 9:
+                continue
+            attrs, _ = parse_attributes(cols[8])
+            keys.update(attrs.keys())
+    return keys
+
+
+def load_amr_gff(path: str, base_attr_keys: set[str]) -> dict[str, dict[str, str]]:
+    """Return record_id -> {new_attr_key: value, ...} for AMRINTEGRATOR's output.
+
+    ``record_id`` is a record's `ID=` attribute -- AMRINTEGRATOR augments the
+    same GFF passed in via --gff rather than renumbering it, so its `ID=`
+    values match directly, unlike the plaSquid/MOB-suite sources above.
+
+    Only attribute keys absent from ``base_attr_keys`` (i.e. --gff's own
+    schema) are kept per record: these are exactly the fields AMRINTEGRATOR
+    itself introduced (AMR gene name, tool, coordinates, etc.), so nothing
+    AMR-unrelated (ID, product, locus_tag, ...) gets carried over even though
+    this GFF repeats every field on every record.
+    """
+    result: dict[str, dict[str, str]] = {}
+    with open_file(path) as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            cols = line.rstrip("\n").split("\t")
+            if len(cols) < 9:
+                continue
+            attrs, _ = parse_attributes(cols[8])
+            record_id = attrs.get("ID", "").strip()
+            if not record_id:
+                continue
+            new_attrs = {k: v for k, v in attrs.items() if k not in base_attr_keys}
+            if new_attrs:
+                result[record_id] = new_attrs
+    return result
+
+
 def apply_evidence(attrs: dict[str, str], evidence: dict[str, str] | None) -> bool:
     """Add ``evidence``'s keys to ``attrs`` in place, skipping any already present.
 
@@ -136,14 +193,16 @@ def annotate_gff(
     input_gff: str,
     protein_report: dict[str, dict[str, str]],
     biomarker_report: dict[str, dict[str, str]],
+    amr_report: dict[str, dict[str, str]],
     out,
-) -> tuple[int, int]:
-    """Write ``input_gff`` to ``out`` with both evidence sources added.
+) -> tuple[int, int, int]:
+    """Write ``input_gff`` to ``out`` with all three evidence sources added.
 
-    Returns (cds_records_annotated, contig_records_annotated).
+    Returns (cds_records_annotated, contig_records_annotated, amr_records_annotated).
     """
     cds_annotated = 0
     contig_annotated = 0
+    amr_annotated = 0
 
     with open_file(input_gff) as f:
         for line in f:
@@ -159,29 +218,35 @@ def annotate_gff(
                 continue
 
             attrs, order = parse_attributes(cols[8])
+            record_id = attrs.get("ID", "").strip()
+            modified = False
 
             if cols[2] == "CDS":
-                evidence = protein_report.get(attrs.get("ID", "").strip())
-                modified = apply_evidence(attrs, evidence)
-                if modified:
+                if apply_evidence(attrs, protein_report.get(record_id)):
+                    modified = True
                     cds_annotated += 1
             else:
-                evidence = biomarker_report.get(cols[0])
-                modified = apply_evidence(attrs, evidence)
-                if modified:
+                if apply_evidence(attrs, biomarker_report.get(cols[0])):
+                    modified = True
                     contig_annotated += 1
+
+            # AMR evidence applies to any feature type -- keyed by ID=, which
+            # AMRINTEGRATOR's output shares directly with this GFF.
+            if apply_evidence(attrs, amr_report.get(record_id)):
+                modified = True
+                amr_annotated += 1
 
             if modified:
                 cols[8] = attrs_to_str(attrs, order)
 
             out.write("\t".join(cols) + "\n")
 
-    return cds_annotated, contig_annotated
+    return cds_annotated, contig_annotated, amr_annotated
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Add plaSquid and MOB-suite plasmid-evidence attributes to a representative GFF.",
+        description="Add plaSquid, MOB-suite and AMR plasmid-evidence attributes to a representative GFF.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -191,6 +256,8 @@ def parse_args():
                         help="plaSquid protein_report.tsv (Contig, Protein, RIP_domain, MOB_group, Inc_group).")
     parser.add_argument("-b", "--biomarker-report", default=None,
                         help="MOB-suite plasmids_biomarker_report.txt (optional).")
+    parser.add_argument("-a", "--amr-gff", default=None,
+                        help="AMRINTEGRATOR's integrated_<prefix>.gff (optional).")
     parser.add_argument("-o", "--output", default="plasquid_annotated.gff",
                         help="Output GFF file (default: plasquid_annotated.gff).")
     return parser.parse_args()
@@ -205,11 +272,21 @@ def main():
     biomarker_report = load_biomarker_report(args.biomarker_report) if args.biomarker_report else {}
     print(f"Contigs with MOB-suite biomarker evidence loaded: {len(biomarker_report)}", file=sys.stderr)
 
-    with open(args.output, "w") as out:
-        cds_annotated, contig_annotated = annotate_gff(args.gff, protein_report, biomarker_report, out)
+    if args.amr_gff:
+        base_attr_keys = load_gff_attribute_keys(args.gff)
+        amr_report = load_amr_gff(args.amr_gff, base_attr_keys)
+    else:
+        amr_report = {}
+    print(f"Records with AMR evidence loaded: {len(amr_report)}", file=sys.stderr)
 
-    print(f"CDS records annotated: {cds_annotated}", file=sys.stderr)
-    print(f"Contig records annotated: {contig_annotated}", file=sys.stderr)
+    with open(args.output, "w") as out:
+        cds_annotated, contig_annotated, amr_annotated = annotate_gff(
+            args.gff, protein_report, biomarker_report, amr_report, out
+        )
+
+    print(f"CDS records annotated (plaSquid): {cds_annotated}", file=sys.stderr)
+    print(f"Contig records annotated (MOB-suite): {contig_annotated}", file=sys.stderr)
+    print(f"Records annotated (AMR): {amr_annotated}", file=sys.stderr)
     print(f"Output written to: {args.output}", file=sys.stderr)
 
 

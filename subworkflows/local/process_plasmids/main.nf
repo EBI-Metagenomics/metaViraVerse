@@ -92,23 +92,6 @@ workflow PROCESS_PLASMIDS {
     )
 
     //
-    // ----------- Add plaSquid RIP/MOB/Inc and MOB-suite biomarker evidence to the representative GFF -----------
-    //
-    // MOBSUITE_TYPER.out.biomarker_report is `optional: true` -- join with
-    // remainder so a missing/never-emitted report doesn't stall the process,
-    // falling back to `[]` (no file), which the script treats as "no biomarker
-    // evidence supplied" via its own --biomarker-report ? ... : "" check.
-    ANNOTATE_PLASMID_GFF(
-        EXTRACT_CLUSTER_FILES.out.reps_gff
-            .join(PLASQUID_WORKFLOW.out.protein_report)
-            .join(MOBSUITE_TYPER.out.biomarker_report, remainder: true)
-            .map { meta, gff, protein_report, biomarker_report ->
-                tuple(meta, gff, protein_report, biomarker_report ?: [])
-            }
-    )
-    ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
-
-    //
     // -------- Antimicrobial resistence detection
     //
     AMR_ANNOTATION (
@@ -124,6 +107,25 @@ workflow PROCESS_PLASMIDS {
         false
     )
 
+    //
+    // ----------- Add plaSquid RIP/MOB/Inc, MOB-suite biomarker and AMR evidence to the representative GFF -----------
+    //
+    // MOBSUITE_TYPER.out.biomarker_report and AMR_ANNOTATION.out.gff (via
+    // AMRINTEGRATOR) are both `optional: true` -- join with remainder so a
+    // missing/never-emitted file doesn't stall the process, falling back to
+    // `[]` (no file), which the script treats as "no evidence supplied" via
+    // its own --biomarker-report/--amr-gff ? ... : "" checks.
+    ANNOTATE_PLASMID_GFF(
+        EXTRACT_CLUSTER_FILES.out.reps_gff
+            .join(PLASQUID_WORKFLOW.out.protein_report)
+            .join(MOBSUITE_TYPER.out.biomarker_report, remainder: true)
+            .join(AMR_ANNOTATION.out.gff, remainder: true)
+            .map { meta, gff, protein_report, biomarker_report, amr_gff ->
+                tuple(meta, gff, protein_report, biomarker_report ?: [], amr_gff ?: [])
+            }
+    )
+    ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
+
     emit:
 
     clustering_tsv        = CLUSTERING.out.clusters_tsv  // [meta, tsv]
@@ -131,7 +133,7 @@ workflow PROCESS_PLASMIDS {
     reps_seqs             = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed      // compressed
     reps_proteins         = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
     reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
-    reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + RIP_domain/MOB_group/Inc_group attributes
+    reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
     versions              = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
