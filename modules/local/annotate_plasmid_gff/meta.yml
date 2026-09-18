@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: annotate_plasmid_gff
+description: Add plaSquid (per-protein) and MOB-suite (per-contig) plasmid-evidence attributes to a representative GFF
+keywords:
+  - plasmid
+  - plasquid
+  - mobsuite
+  - gff
+  - annotation
+tools:
+  - annotate_plasmid_gff:
+      description: |
+        Local script (annotate_plasmid_gff.py) that adds two independent
+        evidence sources to a representative GFF: PLASQUID_WORKFLOW's
+        protein_report.tsv (RIP_domain, MOB_group, Inc_group; non-missing
+        columns added to matching CDS records via `ID=`), and MOB-suite's
+        plasmids_biomarker_report.txt (biomarker categories and reference
+        biomarker ids comma-joined into mob_suite_biomarker and
+        mobsuite_identifier, added to matching sequence-level records via its
+        `sseqid` column, which is the plasmid/contig identifier). Existing
+        attributes are never overwritten
+      homepage: ""
+      documentation: ""
+      licence: []
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - gff:
+        type: file
+        description: Representative GFF (EXTRACT_CLUSTER_FILES.out.reps_gff)
+        pattern: "*.gff"
+        ontologies:
+          - edam: http://edamontology.org/format_1975 # GFF3
+    - protein_report:
+        type: file
+        description: PLASQUID_WORKFLOW's per-protein evidence table (Contig, Protein, RIP_domain, MOB_group, Inc_group)
+        pattern: "protein_report.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - biomarker_report:
+        type: file
+        description: |
+          MOB-suite's plasmids_biomarker_report.txt (mob_typer
+          --biomarker_report_file), or `[]` to skip this evidence source
+        pattern: "*_biomarker_report.txt"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  gff:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta.id}_plasquid_annotated.gff":
+          type: file
+          description: Representative GFF with plaSquid/MOB-suite attributes added to matching records
+          pattern: "*_plasquid_annotated.gff"
+          ontologies:
+            - edam: http://edamontology.org/format_1975 # GFF3
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
