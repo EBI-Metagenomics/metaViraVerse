@@ -1,168 +1,80 @@
 #!/usr/bin/env Rscript
-
-#Rscript Retrieve_RIP_plasmids.R Filtered_classif.tsv Rep_domains.tsv Mob_table.tsv assembly.fa
-
- args = commandArgs(trailingOnly=TRUE)
-
- tbr = args[1]
- tbd = args[2]
- tbm = args[3]
- asm = args[4]
-
- library(tidyverse)
- library(Biostrings)
-
- #Load data
-
- rps <- read_delim(tbr, delim="\t")
- rpd <- na.omit(read_delim(tbd, delim = "\t"))
- mbs <- read_delim(tbm, delim="\t")
- mtg <- readDNAStringSet(asm)
-
-
-
- #Collect contigs
-
- rpc <- rps$contig
- rdc <- rpd$contig
- mbc <- mbs$contig
-
-
- cnts <- unique(c(rpc, rdc, mbc))
-
- #Extract plasmidic contigs
-
- nms <- sub(" .*", "", names(mtg))
- ctg <- sub("_.*", "", nms)
-
- names(mtg) <- nms
-
- idx <- which(ctg %in% cnts)
-
- hit <- mtg[idx]
- hct <- ctg[idx]
-
-
- #Parsing output tables
-
- if ( nrow(rpd) > 0 ) {
-
- names(rpd) <- c("Rep_domain", "contig", "Rep_domain_ORF")
- rpd1 <- rpd %>%
-         group_by(contig) %>%
-         summarise_all(funs(paste(., collapse = ',')))
- }
-
- if ( nrow(rps) > 0 ) {
-
- names(rps) <- c("Rep_type", "Rep_ORF", "Rep_score", "Rep_length", "contig")
- rps1 <- rps %>%
-         group_by(contig) %>%
-         summarise_all(funs(paste(., collapse = ',')))
-
- }
-
- if ( nrow(mbs) > 0 ) {
-
- names(mbs) <- c("Mob_ORF", "Mob_len", "MOB_group", "MOB_score", "alifrom", "alito", "contig")
- mbs1 <- mbs %>%
-         group_by(contig) %>%
-         summarise_all(funs(paste(., collapse = ',')))
-
- }
-
-
-
-
- if ( length(mbc)>0 & length(rpc)>0 & length(rdc)>0 ) {
-
- mtb  <- full_join(rpd1, rps1, by = "contig")
- mtb1 <- full_join(mtb, mbs1, by = "contig")
-
- ftb2 <- mtb1[,c(c("contig","Rep_domain","MOB_group","Rep_type"))]
- colnames(ftb2)<- c("Contig", "RIP_domain", "MOB_group", "Inc_group")
-
- } else if ( length(mbc)== 0 & length(rpc)>0 & length(rdc)>0 ) {
-
- mtb1  <- full_join(rpd1, rps1, by = "contig")
-
- ftb2 <- mtb1[,c(c("contig","Rep_domain","Rep_type"))]
- colnames(ftb2)<-  c("Contig", "RIP_domain", "Inc_group")
-
- ftb2$MOB_group <- rep(NA, length(ftb2$Contig))
-
- } else if ( length(mbc) > 0 & length(rpc)==0 & length(rdc)>0 ) {
-
- mtb1  <- full_join(rpd1, mbs1, by = "contig")
-
- ftb2 <- mtb1[,c(c("contig","Rep_domain","MOB_group"))]
- colnames(ftb2)<-  c("Contig", "RIP_domain", "MOB_group")
- ftb2$Inc_group <- rep(NA, length(ftb2$Contig))
-
- } else if ( length(mbc) > 0 & length(rpc)>0 & length(rdc)==0 ) {
-
- mtb1  <- full_join(rps1, mbs1, by = "contig")
-
- ftb2 <- mtb1[,c(c("contig","MOB_group","Rep_type"))]
- colnames(ftb2)<-  c("Contig", "MOB_group", "Inc_group")
- ftb2$RIP_domain <- rep(NA, length(ftb2$Contig))
-
- } else if ( length(mbc)==0 & length(rpc)==0 & length(rdc)>0 ) {
-
- ftb2 <- rpd1[,c(c("contig","Rep_domain"))]
- colnames(ftb2)<-  c("Contig", "RIP_domain")
- ftb2$Inc_group <- rep(NA, length(ftb2$Contig))
- ftb2$MOB_group <- rep(NA, length(ftb2$Contig))
-
- } else if ( length(mbc)==0 & length(rpc)>0 & length(rdc)==0 ) {
-
- ftb2 <- rps1[,c(c("contig","Rep_type"))]
- colnames(ftb2)<-  c("Contig", "Inc_group")
- ftb2$RIP_domain <- rep(NA, length(ftb2$Contig))
- ftb2$MOB_group <- rep(NA, length(ftb2$Contig))
-
- } else if ( length(mbc)>0 & length(rpc)==0 & length(rdc)==0 ) {
-
- ftb2 <- mbs1[,c(c("contig","MOB_group"))]
- colnames(ftb2)<-  c("Contig", "MOB_group")
- ftb2$RIP_domain <- rep(NA, length(ftb2$Contig))
- ftb2$Inc_group <- rep(NA, length(ftb2$Contig))
-
- } else {
-
-    ftb2 <- tibble("Contig" = NA,
-                   "RIP_domain" = NA,
-                   "MOB_group" = NA,
-                   "Inc_group" = NA
-                   )
-
- }
-
-
- fct <- ftb2$Contig
- len <- character(0)
-
- for (i in 1:length(fct)){
-
-     ct <- fct[i]
-     idx <- which(hct == ct)
-     cnl <- width(hit[idx])
-
-     len <- c(len, paste(cnl, collapse = ','))
-
- }
-
- if(all(is.na(fct))) {
-
- ftb2$contig_length <- NA
-
- } else {
-
- ftb2$contig_length <- len
-
- }
-
- #Writing final results
-
- writeXStringSet(hit, "plasmids_contigs.fasta")
- write_delim(ftb2, "plasmid_report.tsv", delim = "\t")
+#
+# Usage: plasquid_retrieve_rip_plasmids.R <filtered_classif.tsv> <rep_domains.tsv> \
+#          <mob_table.tsv> <assembly.fna>
+#
+# Combines the three independent plasmid-evidence tables -- INCSEARCH's
+# Inc-group classification, REPSEARCH's replicon (RIP) domain calls, and
+# MOBSEARCH's mobilisation-gene calls -- into one per-contig report, and
+# extracts the nucleotide sequence of every contig with at least one hit
+# from any of the three.
+#
+# Output: plasmids_contigs.fasta, plasmid_report.tsv (Contig, RIP_domain,
+# MOB_group, Inc_group, contig_length)
+
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 4) {
+  stop("Usage: plasquid_retrieve_rip_plasmids.R <filtered_classif.tsv> <rep_domains.tsv> <mob_table.tsv> <assembly.fna>")
+}
+inc_classif_file <- args[1]
+rep_domains_file <- args[2]
+mob_table_file   <- args[3]
+assembly_file    <- args[4]
+
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(Biostrings))
+.this_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else "."
+})
+source(file.path(.this_dir, "plasquid_utils.R"))
+
+inc_classif <- read_tsv(inc_classif_file, show_col_types = FALSE)
+rep_domains <- na.omit(read_tsv(rep_domains_file, show_col_types = FALSE))
+mob_table   <- read_tsv(mob_table_file, show_col_types = FALSE)
+assembly    <- readDNAStringSet(assembly_file)
+
+# ------------------------------------------------------------
+# One row per contig per evidence source, its hits' family/domain names
+# comma-joined (a contig can carry more than one Rep/Inc/MOB call).
+# ------------------------------------------------------------
+
+per_contig_label <- function(tab, label_col, out_name) {
+  if (nrow(tab) == 0) return(tibble(contig = character(0), "{out_name}" := character(0)))
+  tab %>%
+    group_by(contig) %>%
+    summarise("{out_name}" := paste(.data[[label_col]], collapse = ","), .groups = "drop")
+}
+
+rip_domain <- per_contig_label(rep_domains, "Rep_type",   "RIP_domain")
+mob_group  <- per_contig_label(mob_table,   "query_name", "MOB_group")
+inc_group  <- per_contig_label(inc_classif, "Inc_det",    "Inc_group")
+
+report <- purrr::reduce(list(rip_domain, mob_group, inc_group), full_join, by = "contig") %>%
+  dplyr::rename(Contig = contig)
+
+# ------------------------------------------------------------
+# Pull out each reported contig's nucleotide sequence and length
+# ------------------------------------------------------------
+
+seq_id     <- fasta_id(names(assembly))
+seq_contig <- orf_to_contig(seq_id)
+names(assembly) <- seq_id
+
+plasmid_seqs <- assembly[seq_contig %in% report$Contig]
+plasmid_contigs <- orf_to_contig(names(plasmid_seqs))
+
+report <- report %>%
+  mutate(contig_length = purrr::map_chr(Contig, function(ct) {
+    lens <- width(plasmid_seqs)[plasmid_contigs == ct]
+    if (length(lens) == 0) NA_character_ else paste(lens, collapse = ",")
+  }))
+
+# ------------------------------------------------------------
+# Output
+# ------------------------------------------------------------
+
+writeXStringSet(plasmid_seqs, "plasmids_contigs.fasta")
+write_delim(report, "plasmid_report.tsv", delim = "\t")

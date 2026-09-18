@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: repsearch
+description: Identify plasmid replication initiator proteins (RIPs) by hmmsearch against the RIP profile database, followed by domain-architecture resolution and curated per-domain score cutoffs
+keywords:
+  - plasmid
+  - plasquid
+  - replicon
+  - hmmer
+tools:
+  - repsearch:
+      description: |
+        Local scripts (plasquid_dom_arch.R, plasquid_filter_rip.R) that resolve
+        each candidate RIP's single-/multi-domain architecture from hmmsearch
+        --domtblout hits and apply the plasquid tool's curated per-domain
+        bit-score (and, for multi-domain hits, architecture) cutoffs
+      homepage: https://github.com/mgimenez720/plaSquid
+      documentation: https://github.com/mgimenez720/plaSquid
+      licence: []
+      identifier: ""
+  - hmmer:
+      description: Biosequence analysis using profile hidden Markov models
+      homepage: http://hmmer.org/
+      documentation: http://hmmer.org/documentation.html
+      licence: ["BSD"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - proteins:
+        type: file
+        description: Plasmid cluster representative protein sequences
+        pattern: "*.{faa,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+    - protein_to_contig:
+        type: file
+        description: Protein-id-to-contig crosswalk (MAP_PROTEIN_TO_CONTIG module output)
+        pattern: "protein_to_contig.tsv"
+        ontologies: []
+  - - repsearch_db:
+        type: directory
+        description: Path to the RIP HMM profile database (`--repsearch_db`)
+        pattern: "*"
+        ontologies: []
+  - - repfilter_db:
+        type: file
+        description: RDS file of curated reference domain architectures accepted as real RIPs (`--repfilter_db`)
+        pattern: "*.RDS"
+        ontologies: []
+output:
+  prots_vs_rep:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "prots_vs_rep.tsv":
+          type: file
+          description: Raw hmmsearch --domtblout hits of proteins against the RIP database
+          pattern: "prots_vs_rep.tsv"
+          ontologies: []
+  rep_domains:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "rep_domains.tsv":
+          type: file
+          description: Accepted RIPs (Rep_type, contig, Rep_ORF) after score/architecture filtering
+          pattern: "rep_domains.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

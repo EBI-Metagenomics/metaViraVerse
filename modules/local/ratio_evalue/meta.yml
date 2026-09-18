@@ -29,7 +29,7 @@ input:
           - edam: http://edamontology.org/format_3475 # TSV
   - - model_metadata:
         type: file
-        description: ViPhOG model metadata (additional_model_data)
+        description: ViPhOG model metadata (additional_viphog_model_data)
         pattern: "*"
         ontologies: []
 output:

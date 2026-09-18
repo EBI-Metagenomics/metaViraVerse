@@ -7,6 +7,7 @@ keywords:
   - replicon
   - mobilisation
 components:
+  - map_protein_to_contig
   - repsearch
   - rnasearch
   - incsearch
@@ -23,10 +24,49 @@ input:
       description: |
         Plasmid cluster representative protein sequences
         Structure: [ val(meta), path(fasta) ]
+  - plasmids_gff:
+      type: file
+      description: |
+        Plasmid cluster representative GFF, source of the protein-id -> (renamed)
+        contig-id crosswalk (protein ids keep their original pre-rename form; the
+        matching nucleotide contig has since been renamed, so it can't be recovered
+        from the protein id's own text)
+        Structure: [ val(meta), path(gff) ]
 output:
-  # This subworkflow has no `emit:` block -- EXTRACT_PLASMIDS_DATA publishes the combined
-  # plasquid feature table directly via its own publishDir; nothing is passed on to the caller.
-  []
+  - fasta:
+      type: file
+      description: |
+        Nucleotide sequences of every contig with at least one plasmid-evidence hit
+        Structure: [ val(meta), path(fasta) ]
+  - report:
+      type: file
+      description: |
+        Per-contig RIP_domain/MOB_group/Inc_group/contig_length report
+        Structure: [ val(meta), path(tsv) ]
+  - protein_report:
+      type: file
+      description: |
+        Per-protein counterpart to report (Contig, Protein, RIP_domain, MOB_group,
+        Inc_group) -- one row per protein with at least one hit from REPSEARCH,
+        MOBSEARCH or INCSEARCH
+        Structure: [ val(meta), path(tsv) ]
+  - rip_seqs:
+      type: file
+      description: |
+        Protein sequences of every accepted replication initiator protein (RIP) call
+        Structure: [ val(meta), path(fasta) ]
+  - mobility_stats:
+      type: file
+      description: |
+        Contig counts/percentages per mobility class (conjugative, mobilizable,
+        non_mobilizable). No MPF/T4SS-detection step exists in this pipeline yet,
+        so "conjugative" stays at 0 unless independent MPF evidence is supplied
+        Structure: [ val(meta), path(json) ]
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+        Structure: [ path(versions.yml) ]
 authors:
   - "@KateSakharova"
 maintainers:

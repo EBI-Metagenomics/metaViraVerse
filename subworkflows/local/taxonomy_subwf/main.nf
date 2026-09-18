@@ -36,9 +36,9 @@ workflow TAXONOMY_ASSIGNMENT {
     skip_genomad
     skip_viphogs
     viphog_db
-    additional_model_data
+    additional_viphog_model_data
     ncbi_db
-    factor_file
+    viphogs_factor_file
 
     main:
 
@@ -88,9 +88,9 @@ workflow TAXONOMY_ASSIGNMENT {
             reps_faa,
             reps_gff,
             viphog_db,
-            additional_model_data,
+            additional_viphog_model_data,
             ncbi_db,
-            factor_file
+            viphogs_factor_file
         )
 
         TAX_VIPHOGS (

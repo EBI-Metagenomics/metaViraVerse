@@ -26,16 +26,16 @@ workflow PREPROCESSING {
     // It will also rename ID in attributes column in GFF
     // That step is running with --combine option and it will return one renamed FASTA and GFF
 
-    ch_fna       = input.map { meta, fna, gff, faa -> fna }.collect()
-    ch_gff       = input.map { meta, fna, gff, faa -> gff }.collect()
-    ch_sources   = input.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect()
-    ch_biomes    = input.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect()
+    ch_fna       = input.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
+    ch_gff       = input.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
+    ch_sources   = input.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
+    ch_biomes    = input.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
 
-    ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect()
-    ch_gff_tp    = ch_third_party_data.map { meta, fna, gff, faa -> gff }.collect()
-    ch_types_tp  = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.type]) }.collect()
-    ch_biomes_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect()
-    ch_source_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect()
+    ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
+    ch_gff_tp    = ch_third_party_data.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
+    ch_types_tp  = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.type]) }.collect().ifEmpty([])
+    ch_biomes_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
+    ch_source_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
 
     // Raw pool of protein sequences (original, unrenamed protein IDs) from both sources,
     // used later to pull out just the proteins that survive separation + deduplication

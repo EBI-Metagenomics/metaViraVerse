@@ -1,177 +1,121 @@
 #!/usr/bin/env Rscript
+#
+# Usage: plasquid_dom_arch.R <domtblout_file>
+#
+# First stage of REPSEARCH's replicon-domain-architecture analysis: reads the
+# hmmsearch --domtblout hits of predicted proteins against the RIP
+# (replication initiator protein) profile database, and for each candidate
+# RIP works out whether it hit a single domain or several. For multi-domain
+# hits, overlapping domains are resolved by keeping the higher-scoring one at
+# each position, producing an ordered domain "architecture" per RIP that
+# `plasquid_filter_rip.R` later matches against a reference architecture list.
+#
+# Output: multi_dom_rip.tsv, single_dom_rip.tsv (feeds plasquid_filter_rip.R),
+# domain_architecture.RDS (a named list of RIP -> architecture, also consumed
+# by plasquid_filter_rip.R).
 
- args = commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 1) {
+  stop("Usage: plasquid_dom_arch.R <domtblout_file>")
+}
+domtblout_file <- args[1]
 
- teb = args[1]
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(readr))
+.this_dir <- local({
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]))) else "."
+})
+source(file.path(.this_dir, "plasquid_utils.R"))
 
+# ------------------------------------------------------------
+# Read hmmsearch --domtblout (empty input -> zero-row tibble, not an error:
+# finding no RIP domains at all in a batch is a valid outcome, not a failure)
+# ------------------------------------------------------------
 
- library(tidyverse)
+tib <- read_hmmer_domtblout(domtblout_file) %>%
+  rename(
+    RIP        = target_name,
+    queryname  = query_name,
+    qaccession = query_accession,
+    num        = dom_num,
+    of         = dom_of,
+    Evalue     = evalue,
+    hmmfrom    = hmm_from,
+    hmmto      = hmm_to,
+    alifrom    = ali_from,
+    alito      = ali_to
+  )
 
+# ------------------------------------------------------------
+# Single-domain output: RIPs with exactly one domain hit
+# ------------------------------------------------------------
 
- tab <- read.table(teb,
-                  header = FALSE,
-                  sep = "",
-                  blank.lines.skip = TRUE,
-                  skipNul = TRUE,
-                  col.names= c("RIP","taccession","tlen","queryname", "qaccession","qlen","Evalue",
-                              "score","bias","num","of","cEvalue","iEvalue", "domscore","dombias",
-                              "hmmfrom","hmmto","alifrom","alito","from_env","to_env","env"))
+single_dom <- tib %>%
+  filter(num == 1, of == 1) %>%
+  transmute(RIP, tlen, queryname, qaccession, qlen, Evalue, score, hmmfrom, hmmto, alifrom, alito)
 
-  tib <- as_tibble(tab)
+# ------------------------------------------------------------
+# Resolve a multi-domain RIP's architecture: order domains by alignment
+# start, and where two domains overlap keep only the higher-scoring one.
+# ------------------------------------------------------------
 
-  tsd <- tibble('RIP'        = character(),
-                'tlen'       = character(),
-                'queryname'  = character(),
-                'qaccession' = character(),
-                'qlen'       = numeric(),
-                'Evalue'     = numeric(),
-                'score'      = numeric(),
-                'hmmfrom'    = numeric(),
-                'hmmto'      = numeric(),
-                'alifrom'    = numeric(),
-                'alito'      = numeric())
+resolve_architecture <- function(df) {
+  df <- df %>% arrange(alifrom, alito)
+  n <- nrow(df)
 
-  RIP <- unique(tib$RIP)
-
-  #Name of RIPs in list l1
-  nl1 <- character(0)
-  l1 <- list()
-  x <- 0
-
-  for (i in 1:length(RIP)) {
-
-    ri <- as.character(RIP[i])
-
-    idx <- which(tib$RIP == ri)
-    tab1 <- tib[idx,]
-    nls <- nrow(tab1)
-
-
-    if (nls > 1) {
-
-      nls <- c(nls, RIP)
-
-      x <- x + 1
-
-
-      e1 <- tab1[1,]$alito
-      s2 <- tab1[2,]$alifrom
-
-      if (is.na(s2)==TRUE){
-        dom1a <- as.character(tab1[1,4])
-        dom1  <- as.vector(c(dom1a,"no_2nd_domain"))
-      } else {
-        if (e1<s2){
-          dom1a <- as.character(tab1[1,4])
-          dom1  <- as.vector(c(dom1a, "not_over"))
-        } else {
-          bs1 <- as.numeric(tab1[1,]$score)
-          bs2 <- as.numeric(tab1[2,]$score)
-          if (bs1<bs2){
-            dom1a <- as.character(tab1[2,]$queryname)
-            dom1  <- as.vector(c(dom1a,"overlapped"))
-          } else {
-            dom1a <- as.character(tab1[1,]$queryname)
-            dom1  <- as.vector(c(dom1a,"overlapped"))
-          }
-        }
-      }
-
-
-
-      e2 <- tab1[2,]$alito
-      s3 <- tab1[3,]$alifrom
-
-      if (is.na(s3)==TRUE){
-        dom2a <- as.character(tab1[2,]$queryname)
-        dom2  <- as.vector(c(dom2a,"no_3rd_domain"))
-      } else {
-        if (e2<s3){
-          dom2a <- as.character(tab1[2,]$queryname)
-          dom2  <- as.vector(c(dom2a, "not_over"))
-        } else {
-          bs2 <- as.numeric(tab1[2,]$score)
-          bs3 <- as.numeric(tab1[3,]$score)
-          if (bs2<bs3){
-            dom2a <- as.character(tab1[3,]$queryname)
-            dom2  <- as.vector(c(dom2a,"overlapped"))
-          } else {
-            dom2a <- as.character(tab1[2,]$queryname)
-            dom2  <- as.vector(c(dom2a,"overlapped"))
-          }
-        }
-      }
-
-      e3 <- tab1[3,]$alito
-      s4 <- tab1[4,]$alifrom
-
-      if (is.na(s4)==TRUE){
-        dom3a <- as.character(tab1[3,]$queryname)
-        dom3  <- as.vector(c(dom3a,"no_4th_domain"))
-      } else {
-        if (e3<s4){
-          dom3a <- as.character(tab1[3,]$queryname)
-          dom3  <- as.vector(c(dom3a, "not_over"))
-        } else {
-          bs3 <- as.numeric(tab1[3,]$score)
-          bs4 <- as.numeric(tab1[4,]$score)
-          if (bs3<bs4){
-            dom3a <- as.character(tab1[4,]$queryname)
-            dom3  <- as.vector(c(dom3a,"overlapped"))
-          } else {
-            dom3a <- as.character(tab1[3,]$queryname)
-            dom3  <- as.vector(c(dom3a,"overlapped"))
-          }
-        }
-      }
-
-
-      e4 <- tab1[4,]$alito
-      s5 <- tab1[5,]$alifrom
-
-      if (is.na(s5)==TRUE){
-        dom4a <- as.character(tab1[4,]$queryname)
-        dom4  <- as.vector(c(dom4a,"no_5th_domain"))
-      } else {
-        if (e4<s5){
-          dom4a <- as.character(tab1[4,]$queryname)
-          dom4  <- as.vector(c(dom4a, "not_over"))
-        } else {
-          bs4 <- as.numeric(tab1[4,]$score)
-          bs5 <- as.numeric(tab1[5,]$score)
-          if (bs4<bs5){
-            dom4a <- as.character(tab1[5,]$queryname)
-            dom4  <- as.vector(c(dom4a,"overlapped"))
-          } else {
-            dom4a <- as.character(tab1[4,]$queryname)
-            dom4  <- as.vector(c(dom4a,"overlapped"))
-          }
-        }
-      }
-
-
-      Arq <- as.vector(c(dom1,dom2,dom3,dom4))
-      Arq <- Arq[!is.na(Arq)]
-
-      l1[[x]] <- Arq
-      nl1 <- c(nl1, as.character(ri))
-
-
-    } else {
-
-      slc <-  c(1, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19)
-
-      stb <- tab1[1,slc]
-
-      tsd <- rbind(tsd, stb)
-
-
-    }
-
+  if (n == 1) {
+    return(c(as.character(df$queryname[1]), "single_domain"))
   }
 
+  architecture <- character(0)
+  i <- 1
+  while (i <= n) {
+    current <- df[i, ]
 
-  saveRDS(l1, "domain_architecture.RDS")
-  nl2 <- as.tibble(nl1)
-  write_delim(nl2, "multi_dom_rip.tsv")
-  write_delim(tsd, "single_dom_rip.tsv")
+    if (i == n) {
+      architecture <- c(architecture, as.character(current$queryname))
+      break
+    }
+
+    next_domain <- df[i + 1, ]
+    overlap <- current$alito >= next_domain$alifrom
+
+    if (!overlap) {
+      architecture <- c(architecture, as.character(current$queryname), "not_over")
+      i <- i + 1
+    } else {
+      winner <- if (current$score >= next_domain$score) current else next_domain
+      architecture <- c(architecture, as.character(winner$queryname), "overlapped")
+      i <- i + 2 # skip both overlapping domains
+    }
+  }
+
+  architecture
+}
+
+# ------------------------------------------------------------
+# Process each RIP with more than one domain hit
+# ------------------------------------------------------------
+
+rip_ids <- unique(tib$RIP)
+architectures <- vector("list", length(rip_ids))
+names(architectures) <- rip_ids
+multi_dom_rip <- character(0)
+
+for (ri in rip_ids) {
+  tab1 <- tib %>% filter(RIP == ri) %>% arrange(alifrom, alito)
+  if (nrow(tab1) <= 1) next
+
+  multi_dom_rip <- c(multi_dom_rip, as.character(ri))
+  architectures[[ri]] <- resolve_architecture(tab1)
+}
+architectures <- architectures[names(architectures) %in% multi_dom_rip]
+
+# ------------------------------------------------------------
+# Output (always written, even when no RIP hits were found at all)
+# ------------------------------------------------------------
+
+saveRDS(architectures, "domain_architecture.RDS")
+write_delim(tibble(RIP = multi_dom_rip), "multi_dom_rip.tsv", delim = "\t")
+write_delim(single_dom, "single_dom_rip.tsv", delim = "\t")
