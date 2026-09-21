@@ -49,12 +49,22 @@ workflow HOST_DETECTION {
         ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
 
         CONCATENATE_IPHOP_GENOME (
-            IPHOP_PREDICT.out.iphop_genome.groupTuple(),
+            IPHOP_PREDICT.out.iphop_genome
+               .map { meta, files ->
+                    def new_meta = meta + [id: "${meta.id}_genome"]
+                    [new_meta, files]
+                }
+                .groupTuple(),
             1
         )
 
         CONCATENATE_IPHOP_GENUS (
-            IPHOP_PREDICT.out.iphop_genus.groupTuple(),
+            IPHOP_PREDICT.out.iphop_genus
+                .map { meta, files ->
+                        def new_meta = meta + [id: "${meta.id}_genus"]
+                        [new_meta, files]
+                    }
+                    .groupTuple(),
             1
         )
 

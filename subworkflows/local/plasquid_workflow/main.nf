@@ -74,10 +74,11 @@ workflow PLASQUID_WORKFLOW {
     ch_versions = ch_versions.mix(EXTRACT_PLASMIDS_DATA.out.versions)
 
     emit:
-    fasta          = EXTRACT_PLASMIDS_DATA.out.fasta           // combined plasmid contig sequences
-    report         = EXTRACT_PLASMIDS_DATA.out.report           // per-contig RIP/MOB/Inc-group report
-    protein_report = EXTRACT_PLASMIDS_DATA.out.protein_report   // per-protein RIP/MOB/Inc-group report
-    rip_seqs       = EXTRACT_PLASMIDS_DATA.out.rip_seqs_faa      // RIP protein sequences
-    mobility_stats = EXTRACT_PLASMIDS_DATA.out.mobility_stats   // conjugative/mobilizable/non_mobilizable counts (JSON)
-    versions       = ch_versions
+    fasta                  = EXTRACT_PLASMIDS_DATA.out.fasta                   // combined plasmid contig sequences
+    report                 = EXTRACT_PLASMIDS_DATA.out.report                   // per-contig RIP/MOB/Inc-group report
+    protein_report         = EXTRACT_PLASMIDS_DATA.out.protein_report           // per-protein RIP/MOB/Inc-group report
+    rip_seqs               = EXTRACT_PLASMIDS_DATA.out.rip_seqs_faa              // RIP protein sequences
+    mobility_classification = EXTRACT_PLASMIDS_DATA.out.mobility_classification // per-contig conjugative/mobilizable/non_mobilizable
+    mobility_stats         = EXTRACT_PLASMIDS_DATA.out.mobility_stats           // summary counts (JSON), conjugative always 0 (no MPF evidence here)
+    versions               = ch_versions
 }

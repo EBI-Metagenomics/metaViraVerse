@@ -10,6 +10,7 @@ include { PLASQUID_WORKFLOW                       } from '../plasquid_workflow/m
 include { MOBSUITE_TYPER                          } from '../../../modules/nf-core/mobsuite/typer/main'
 include { AMR_ANNOTATION                          } from '../../ebi-metagenomics/amr_annotation'
 include { ANNOTATE_PLASMID_GFF                    } from '../../../modules/local/annotate_plasmid_gff'
+include { UPDATE_MOBILITY_STATS                   } from '../../../modules/local/update_mobility_stats'
 
 
 /*
@@ -126,6 +127,23 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
 
+    //
+    // ----------- Populate the "conjugative" mobility class from MOB-suite's MPF evidence -----------
+    //
+    // plaSquid's own mobility_stats.json can never place a contig in "conjugative"
+    // (its MOBSEARCH detects the relaxase gene only, not MPF/T4SS machinery); MOB-suite's
+    // biomarker report supplies exactly that missing MPF evidence. Same `optional: true`
+    // remainder-join safety as above.
+    UPDATE_MOBILITY_STATS(
+        PLASQUID_WORKFLOW.out.mobility_classification
+            .join(PLASQUID_WORKFLOW.out.mobility_stats)
+            .join(MOBSUITE_TYPER.out.biomarker_report, remainder: true)
+            .map { meta, classification, mobility_json, biomarker_report ->
+                tuple(meta, classification, mobility_json, biomarker_report ?: [])
+            }
+    )
+    ch_versions = ch_versions.mix(UPDATE_MOBILITY_STATS.out.versions)
+
     emit:
 
     clustering_tsv        = CLUSTERING.out.clusters_tsv  // [meta, tsv]
@@ -134,6 +152,7 @@ workflow PROCESS_PLASMIDS {
     reps_proteins         = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
     reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
     reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
+    mobility_stats        = UPDATE_MOBILITY_STATS.out.mobility_stats            // conjugative/mobilizable/non_mobilizable counts, MPF-complete
     versions              = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

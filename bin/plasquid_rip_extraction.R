@@ -24,8 +24,9 @@
 #     hits of the same kind on one protein are comma-joined.
 #
 #  3. Classifies every contig with plasquid evidence into the standard
-#     three-tier plasmid mobility scheme and writes summary counts to
-#     mobility_stats.json:
+#     three-tier plasmid mobility scheme and writes both the per-contig
+#     classification (mobility_classification.tsv: contig, category) and
+#     summary counts (mobility_stats.json):
 #       - conjugative:     has a relaxase (MOB) AND mating-pair-formation
 #                           (MPF) / T4SS conjugation-machinery evidence
 #       - mobilizable:     has a relaxase (MOB) but no MPF evidence
@@ -36,12 +37,12 @@
 #     alone; a genuinely conjugative plasmid is reported as "mobilizable"
 #     instead. The optional [mpf_contigs.tsv] argument (a one-column
 #     `contig` TSV of MPF-positive contigs) lets a future caller supply that
-#     missing evidence -- no current caller of this script does. MOB-suite's
-#     `mob_typer` already reports this same three-tier classification
-#     directly on the same representative contigs and is not MPF-blind; see
-#     its output for a complete call today.
+#     missing evidence -- update_mobility_stats.py (bin/) is exactly that
+#     caller, deriving MPF-positive contigs from MOB-suite's biomarker
+#     report and recomputing mobility_stats.json downstream (see
+#     modules/local/update_mobility_stats).
 #
-# Output: rip_seqs.faa, protein_report.tsv, mobility_stats.json
+# Output: rip_seqs.faa, protein_report.tsv, mobility_classification.tsv, mobility_stats.json
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 4) {
@@ -198,4 +199,5 @@ mpf_contigs <- if (!is.na(mpf_contigs_file) && file.exists(mpf_contigs_file)) {
 }
 
 mobility <- classify_mobility(rep_domains, inc_classif, mob_table, mpf_contigs)
+write_delim(mobility %>% select(contig, category), "mobility_classification.tsv", delim = "\t")
 write_mobility_stats_json(mobility, mpf_data_available = length(mpf_contigs) > 0, "mobility_stats.json")

@@ -13,21 +13,23 @@ process EXTRACT_PLASMIDS_DATA {
     tuple val(meta), path(filt_classification), path(mob_table), path(rep_domains), path(fna), path(faa)
 
     output:
-    tuple val(meta), path("plasmids_contigs.fasta"), emit: fasta
-    tuple val(meta), path("plasmid_report.tsv"),     emit: report
-    tuple val(meta), path("protein_report.tsv"),     emit: protein_report
-    tuple val(meta), path("rip_seqs.faa"),           emit: rip_seqs_faa
-    tuple val(meta), path("mobility_stats.json"),    emit: mobility_stats
-    path "versions.yml",                             emit: versions
+    tuple val(meta), path("plasmids_contigs.fasta"),        emit: fasta
+    tuple val(meta), path("plasmid_report.tsv"),            emit: report
+    tuple val(meta), path("protein_report.tsv"),            emit: protein_report
+    tuple val(meta), path("rip_seqs.faa"),                  emit: rip_seqs_faa
+    tuple val(meta), path("mobility_classification.tsv"),   emit: mobility_classification
+    tuple val(meta), path("mobility_stats.json"),           emit: mobility_stats
+    path "versions.yml",                                    emit: versions
 
     script:
     """
     # Output: plasmids_contigs.fasta, plasmid_report.tsv
     plasquid_retrieve_rip_plasmids.R ${filt_classification} ${rep_domains} ${mob_table} ${fna}
 
-    # Output: rip_seqs.faa, protein_report.tsv, mobility_stats.json
+    # Output: rip_seqs.faa, protein_report.tsv, mobility_classification.tsv, mobility_stats.json
     # (no MPF/T4SS evidence source exists in this pipeline yet -- see plasquid_rip_extraction.R's
-    # header comment -- so mobility_stats.json's "conjugative" bucket stays at 0 for now)
+    # header comment -- so mobility_stats.json's "conjugative" bucket stays at 0 for now; the
+    # UPDATE_MOBILITY_STATS process downstream fills it in from MOB-suite's biomarker evidence)
     plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains} ${mob_table}
 
     cat <<-END_VERSIONS > versions.yml
