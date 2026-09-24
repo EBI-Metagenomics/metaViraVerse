@@ -7,6 +7,7 @@ to ensure all links in the Sankey diagram are properly connected.
 """
 
 import argparse
+import gzip
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -74,6 +75,72 @@ def parse_taxonomy(taxonomy_str, standard_levels=None, lineage_reverted=False):
     return filled_taxonomy
 
 
+def open_text(path):
+    """Open a plain or gzip-compressed text file (detected by magic bytes) for reading."""
+    with open(path, 'rb') as fh:
+        is_gzip = fh.read(2) == b'\x1f\x8b'
+    if is_gzip:
+        return gzip.open(path, 'rt')
+    return open(path, 'r')
+
+
+OTHER_LABEL = "Other"
+OTHER_KEY = "__other__"
+
+
+def truncate_to_stop_level(taxonomy_list_with_counts, levels, stop_level):
+    """
+    Cut every taxonomy path after the requested stop level.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples
+        levels: Ordered list of taxonomic level names
+        stop_level: Level name to stop at (inclusive)
+
+    Returns:
+        List of (count, truncated_taxonomy_path) tuples
+    """
+    depth = levels.index(stop_level) + 1
+    return [(count, path[:depth]) for count, path in taxonomy_list_with_counts]
+
+
+def apply_top_hits(taxonomy_list_with_counts, top_hits):
+    """
+    Keep only the top N taxa (by count) at each level; merge the rest into one shared
+    "Other" node (the same node for every level). Paths merged into "Other" stop there.
+
+    Levels are processed top-down, so ranking at a level only considers paths whose
+    ancestors all made it into the top N.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples
+        top_hits: Number of taxa to keep per level
+
+    Returns:
+        List of (count, taxonomy_path) tuples, where collapsed paths end with the
+        OTHER_KEY marker
+    """
+    paths = [(count, list(path)) for count, path in taxonomy_list_with_counts]
+    collapsed = [False] * len(paths)
+    max_depth = max((len(path) for _, path in paths), default=0)
+
+    for depth in range(max_depth):
+        prefix_counts = defaultdict(int)
+        for i, (count, path) in enumerate(paths):
+            if not collapsed[i] and len(path) > depth:
+                prefix_counts[tuple(path[:depth + 1])] += count
+
+        ranked = sorted(prefix_counts.items(), key=lambda item: (-item[1], item[0]))
+        keep = {prefix for prefix, _ in ranked[:top_hits]}
+
+        for i, (count, path) in enumerate(paths):
+            if not collapsed[i] and len(path) > depth and tuple(path[:depth + 1]) not in keep:
+                paths[i] = (count, path[:depth] + [OTHER_KEY])
+                collapsed[i] = True
+
+    return paths
+
+
 def build_sankey_data(taxonomy_list_with_counts):
     """
     Build Sankey diagram data from list of taxonomy paths with counts.
@@ -108,12 +175,18 @@ def build_sankey_data(taxonomy_list_with_counts):
 
         for level, taxon in enumerate(taxonomy_path):
             current_path_parts.append(taxon)
-            # Node key includes full path to make it unique
-            node_key = "|".join(current_path_parts)
+            if taxon == OTHER_KEY:
+                # A single "Other" node shared by all levels and parents
+                node_key = OTHER_KEY
+                label = OTHER_LABEL
+            else:
+                # Node key includes full path to make it unique
+                node_key = "|".join(current_path_parts)
+                label = taxon
 
             # Add node
             node_keys.add(node_key)
-            node_key_to_label[node_key] = taxon
+            node_key_to_label[node_key] = label
 
             # Add edge from previous level to current level
             edge_counts[(prev_key, node_key)] += count
@@ -196,7 +269,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
 
     taxonomy_data = []
 
-    with open(tsv_file, 'r') as f:
+    with open_text(tsv_file) as f:
         # Peek at first line to detect format
         first_line = f.readline().strip()
         if not first_line:  # File is completely empty
@@ -268,7 +341,7 @@ def read_gff_taxonomy(gff_file):
     """
     taxonomy_data = []
 
-    with open(gff_file, 'r') as f:
+    with open_text(gff_file) as f:
         for line in f:
             if line.startswith('#') or not line.strip():
                 continue
@@ -309,6 +382,9 @@ Examples:
   # Specify custom taxonomy levels
   %(prog)s --input stats.tsv --output sankey.html --levels domain phylum class order family genus
 
+  # Plot down to family only, keeping the 10 most abundant taxa per level (rest -> Other)
+  %(prog)s --input stats.tsv --output sankey.html --stop-level family --top-hits 10
+
 Standard viral taxonomy levels (default):
   realm, kingdom, phylum, class, order, family, subfamily, genus, species
 
@@ -322,7 +398,7 @@ TSV Format Support:
         '--input',
         type=Path,
         required=True,
-        help='Input file (TSV with taxonomy column, Krona format, or GFF)'
+        help='Input file (TSV with taxonomy column, Krona format, or GFF); may be gzip-compressed'
     )
 
     parser.add_argument(
@@ -353,6 +429,19 @@ TSV Format Support:
     )
 
     parser.add_argument(
+        '--stop-level',
+        default=None,
+        help='Deepest taxonomic level to plot; must be one of --levels (default: plot all levels)'
+    )
+
+    parser.add_argument(
+        '--top-hits',
+        type=int,
+        default=None,
+        help='Keep only the N most abundant taxa at each level; the rest are merged into "Other" (default: keep all)'
+    )
+
+    parser.add_argument(
         '--title',
         default='Viral Taxonomy Sankey Diagram',
         help='Plot title'
@@ -366,6 +455,14 @@ TSV Format Support:
     )
 
     args = parser.parse_args()
+
+    # --levels is user-configurable, so the valid --stop-level choices are validated here
+    if args.stop_level is not None and args.stop_level not in args.levels:
+        parser.error(f"argument --stop-level: invalid choice: '{args.stop_level}' "
+                     f"(choose from {', '.join(args.levels)})")
+
+    if args.top_hits is not None and args.top_hits < 1:
+        parser.error("argument --top-hits: must be a positive integer")
 
     # Validate input file
     if not args.input.exists():
@@ -397,6 +494,16 @@ TSV Format Support:
             taxonomy_paths_with_counts.append((count, path))
 
     print(f"Processed {len(taxonomy_paths_with_counts)} valid taxonomy paths")
+
+    if args.stop_level is not None:
+        print(f"Truncating taxonomy paths at level: {args.stop_level}")
+        taxonomy_paths_with_counts = truncate_to_stop_level(
+            taxonomy_paths_with_counts, args.levels, args.stop_level
+        )
+
+    if args.top_hits is not None:
+        print(f"Keeping top {args.top_hits} taxa per level, merging the rest into '{OTHER_LABEL}'")
+        taxonomy_paths_with_counts = apply_top_hits(taxonomy_paths_with_counts, args.top_hits)
 
     # Build Sankey data
     print("Building Sankey diagram data...")

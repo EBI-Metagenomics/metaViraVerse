@@ -15,6 +15,7 @@ include { THIRD_PARTY_DATA                      } from '../subworkflows/local/th
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
+include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/sankey_plot/main'
 
 include { PIGZ_COMPRESS as COMPRESS_PLASMIDS    } from '../modules/nf-core/pigz/compress/main'
 include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
@@ -140,6 +141,11 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 
+
+    // Plot Sankey for hosts
+    SANKEY_PLASMIDS_HOST (
+        COLLECT_METADATA.out.plasmids_final_metadata
+    )
 
     //
     // Collate and save software versions

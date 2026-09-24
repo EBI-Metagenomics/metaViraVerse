@@ -3,14 +3,20 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { CLUSTERING                              } from '../clustering/main'
-include { EXTRACT_CLUSTER_FILES                   } from '../extract_cluster_files/main'
-include { INDEX_RESULTS                           } from '../index_results/main'
-include { PLASQUID_WORKFLOW                       } from '../plasquid_workflow/main'
-include { MOBSUITE_TYPER                          } from '../../../modules/nf-core/mobsuite/typer/main'
-include { AMR_ANNOTATION                          } from '../../ebi-metagenomics/amr_annotation'
-include { ANNOTATE_PLASMID_GFF                    } from '../../../modules/local/annotate_plasmid_gff'
-include { UPDATE_MOBILITY_STATS                   } from '../../../modules/local/update_mobility_stats'
+include { CLUSTERING                                                } from '../clustering/main'
+include { EXTRACT_CLUSTER_FILES                                     } from '../extract_cluster_files/main'
+include { INDEX_RESULTS                                             } from '../index_results/main'
+include { PLASQUID_WORKFLOW                                         } from '../plasquid_workflow/main'
+
+include { AMR_ANNOTATION                                            } from '../../ebi-metagenomics/amr_annotation'
+
+include { MOBSUITE_TYPER                                            } from '../../../modules/nf-core/mobsuite/typer/main'
+include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
+include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_BIOMARKER_REPORT } from '../../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_MGE_REPORT       } from '../../../modules/nf-core/find/concatenate'
+
+include { ANNOTATE_PLASMID_GFF                                      } from '../../../modules/local/annotate_plasmid_gff'
+include { UPDATE_MOBILITY_STATS                                     } from '../../../modules/local/update_mobility_stats'
 
 
 /*
@@ -84,12 +90,30 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(PLASQUID_WORKFLOW.out.versions)
 
-    MOBSUITE_TYPER(
+    CHUNK_FNA (
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+        [],                                        // length: (disabled) max number of nucleotides per chunk
+        params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
+    )
+    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
+    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+
+    MOBSUITE_TYPER(
+        ch_fna_chunks,
         params.mobsuite_db,
         [], [], [], [], [], [], [],
         true,
         true
+    )
+
+    CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
+        MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
+        1
+    )
+
+    CONCATENATE_MOBSUITE_MGE_REPORT (
+        MOBSUITE_TYPER.out.mge_report.groupTuple(),
+        1
     )
 
     //
