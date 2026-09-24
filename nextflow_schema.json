@@ -64,6 +64,12 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
+                },
+                "publish_all": {
+                    "type": "boolean",
+                    "description": "Publish outputs for intermediate steps",
+                    "help_text": "Specify if you want to publish valuable steps results in output folder",
+                    "default": false
                 }
             },
             "anyOf": [
