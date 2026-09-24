@@ -9,19 +9,19 @@ process COLLECT_METADATA {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta1), path(combined_meta)
-    tuple val(meta2), path(viral_clusters)
-    tuple val(meta3), path(plasmid_clusters)
+    tuple val(meta_combined), path(combined_meta)
+    tuple val(meta_viral), path(viral_clusters)
+    tuple val(meta_plasmid), path(plasmid_clusters)
     path(additional_metadata)
-    tuple val(meta5), path(vitap_best)
+    tuple val(meta_vitap), path(vitap_best)
     tuple val(meta_viphogs), path(viphogs_taxonomy)
     tuple val(meta_genomad), path(genomad)
     path(map_file)
 
     output:
-    path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
-    path("plasmids-all-metadata.tsv.gz"),      emit: plasmids_final_metadata
-    path("viruses-cluster-stats.tsv.gz"),      emit: viruses_reps_stats
+    tuple val(meta_viral), path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
+    tuple val(meta_plasmid), path("plasmids-all-metadata.tsv.gz"),    emit: plasmids_final_metadata
+    tuple val(meta_plasmid), path("viruses-cluster-stats.tsv.gz"),    emit: viruses_reps_stats
     path "versions.yml",                       emit: versions
 
     script:
