@@ -204,6 +204,20 @@ output:
           description: Filtered plasmid protein FASTA
           pattern: "*_plasmid_filtered.faa"
           ontologies: []
+  stats:
+    - - meta_map:
+          type: map
+          description: Groovy Map containing sample information
+      - "${meta_map.id}_stats.json":
+          type: file
+          description: |
+            Per-category sequence and protein counts (number_of_viral_sequences,
+            number_of_viral_sequence_proteins, number_of_prophages,
+            number_of_prophage_proteins, number_of_plasmids,
+            number_of_plasmid_proteins), tallied from what was written to each
+            category's filtered FNA/FAA
+          pattern: "*_stats.json"
+          ontologies: []
   versions:
     - - ${task.process}:
           type: string

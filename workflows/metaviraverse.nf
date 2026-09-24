@@ -112,14 +112,10 @@ workflow METAVIRAVERSE {
     // Collect stats for whole catalogue into JSON
     //
     COLLECT_CATALOGUE_STATS (
-        PREPROCESSING.out.viral_sequences.map{ meta, fna, gff, faa -> [meta, fna] },
-        PREPROCESSING.out.prophages.map{ meta, fna, gff, faa -> [meta, fna] },
-        PREPROCESSING.out.plasmids.map{ meta, fna, gff, faa -> [meta, fna] },
+        PREPROCESSING.out.stats_json,
         PREPROCESSING.out.metadata,
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
-        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
-        PROCESS_PLASMIDS.out.reps_proteins,
         PREPROCESSING.out.excluded_qc,
         PREPROCESSING.out.input_metadata
     )
