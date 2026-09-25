@@ -11,6 +11,7 @@ include { PLASQUID_WORKFLOW                                         } from '../p
 include { AMR_ANNOTATION                                            } from '../../ebi-metagenomics/amr_annotation'
 
 include { MOBSUITE_TYPER                                            } from '../../../modules/nf-core/mobsuite/typer/main'
+include { MOBSUITE_RECON                                            } from '../../../modules/nf-core/mobsuite/recon/main'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_BIOMARKER_REPORT } from '../../../modules/nf-core/find/concatenate'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_MGE_REPORT       } from '../../../modules/nf-core/find/concatenate'
@@ -94,10 +95,14 @@ workflow PROCESS_PLASMIDS {
     CHUNK_FNA (
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
+        params.nucleotide_fasta_chunksize,   // size: max number of sequences per chunk
     )
     ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+
+    MOBSUITE_RECON (
+        ch_fna_chunks
+    )
 
     MOBSUITE_TYPER(
         ch_fna_chunks,
@@ -107,20 +112,20 @@ workflow PROCESS_PLASMIDS {
         true
     )
     MOBSUITE_TYPER.out.biomarker_report.view()
-    CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
-        MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
-        1
-    )
+    //CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
+    //    MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
+    //    1
+    //)
 
-    CONCATENATE_MOBSUITE_MGE_REPORT (
-        MOBSUITE_TYPER.out.mge_report.groupTuple(),
-        1
-    )
+    //CONCATENATE_MOBSUITE_MGE_REPORT (
+    //    MOBSUITE_TYPER.out.mge_report.groupTuple(),
+    //    1
+    //)
 
-    CONCATENATE_MOBSUITE_REPORT (
-        MOBSUITE_TYPER.out.report.groupTuple(),
-        1
-    )
+    //CONCATENATE_MOBSUITE_REPORT (
+    //    MOBSUITE_TYPER.out.report.groupTuple(),
+    //    1
+    //)
 
     //
     // -------- Antimicrobial resistence detection
