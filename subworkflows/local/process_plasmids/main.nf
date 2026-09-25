@@ -14,6 +14,7 @@ include { MOBSUITE_TYPER                                            } from '../.
 include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_BIOMARKER_REPORT } from '../../../modules/nf-core/find/concatenate'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_MGE_REPORT       } from '../../../modules/nf-core/find/concatenate'
+include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_REPORT           } from '../../../modules/nf-core/find/concatenate'
 
 include { ANNOTATE_PLASMID_GFF                                      } from '../../../modules/local/annotate_plasmid_gff'
 include { UPDATE_MOBILITY_STATS                                     } from '../../../modules/local/update_mobility_stats'
@@ -105,7 +106,7 @@ workflow PROCESS_PLASMIDS {
         true,
         true
     )
-
+    MOBSUITE_TYPER.out.biomarker_report.view()
     CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
         MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
         1
@@ -113,6 +114,11 @@ workflow PROCESS_PLASMIDS {
 
     CONCATENATE_MOBSUITE_MGE_REPORT (
         MOBSUITE_TYPER.out.mge_report.groupTuple(),
+        1
+    )
+
+    CONCATENATE_MOBSUITE_REPORT (
+        MOBSUITE_TYPER.out.report.groupTuple(),
         1
     )
 
