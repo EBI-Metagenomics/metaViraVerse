@@ -9,7 +9,7 @@ process COLLECT_HOST_INFO {
     input:
     tuple val(meta_predictions), path(predictions)
     tuple val(meta_spacers), path(spacers_metadata)
-    typle val(meta_map), path(mapping_file)
+    path(mapping_file)
     path(metadata)
 
     output:
