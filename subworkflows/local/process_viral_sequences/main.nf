@@ -86,7 +86,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     HOST_DETECTION (
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        params.catalogues_metadata
+        params.custom_genomes_metadata,
+        mapfile
     )
     ch_versions = ch_versions.mix(HOST_DETECTION.out.versions)
 

@@ -250,17 +250,18 @@ def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey
     print(f"Sankey plot saved to: {output_file}")
 
 
-def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
+def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
     """
-    Read taxonomy data from TSV file.
+    Read taxonomy data from TSV (or CSV) file.
 
     Supports two formats:
-    1. Standard TSV with header and taxonomy column
+    1. Standard TSV/CSV with header and taxonomy column
     2. Krona format: count\trank1\trank2\t... (no header)
 
     Args:
-        tsv_file: Path to TSV file
-        taxonomy_column: Name of the taxonomy column (for standard TSV)
+        tsv_file: Path to TSV/CSV file
+        taxonomy_column: Name of the taxonomy column (for standard TSV/CSV)
+        delimiter: Field separator: '\t' for TSV, ',' for CSV
 
     Returns:
         List of (count, taxonomy_string) tuples
@@ -278,7 +279,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
         f.seek(0)
 
         # Check if it's Krona format (first column is a number)
-        first_parts = first_line.split('\t')
+        first_parts = first_line.split(delimiter)
         is_krona_format = False
         if first_parts:
             try:
@@ -291,7 +292,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
             # Krona format: count\trank1\trank2\t...
             print("Detected Krona format (count\ttaxonomy_ranks)")
             for line in f:
-                parts = line.strip().split('\t')
+                parts = line.strip().split(delimiter)
                 if not parts or not parts[0].strip():
                     continue
 
@@ -313,11 +314,11 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
 
         else:
             # Standard TSV format with header
-            print(f"Detected standard TSV format with header")
-            reader = csv.DictReader(f, delimiter='\t')
+            print(f"Detected standard {'CSV' if delimiter == ',' else 'TSV'} format with header")
+            reader = csv.DictReader(f, delimiter=delimiter)
 
             if taxonomy_column not in reader.fieldnames:
-                print(f"Error: Column '{taxonomy_column}' not found in TSV file.", file=sys.stderr)
+                print(f"Error: Column '{taxonomy_column}' not found in input file.", file=sys.stderr)
                 print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
                 sys.exit(1)
 
@@ -376,6 +377,9 @@ Examples:
   # From Krona format file (count\\ttaxonomy_ranks)
   %(prog)s --input krona.txt --output taxonomy_sankey.html
 
+  # From CSV file
+  %(prog)s --input stats.csv --input-format csv --output taxonomy_sankey.html
+
   # From GFF file directly
   %(prog)s --input viral.gff --input-format gff --output taxonomy_sankey.html
 
@@ -388,8 +392,8 @@ Examples:
 Standard viral taxonomy levels (default):
   realm, kingdom, phylum, class, order, family, subfamily, genus, species
 
-TSV Format Support:
-  1. Standard TSV with header: taxonomy column contains semicolon-separated ranks
+TSV/CSV Format Support (--input-format tsv or csv):
+  1. Standard TSV/CSV with header: taxonomy column contains semicolon-separated ranks
   2. Krona format (auto-detected): count\\trank1\\trank2\\trank3\\t... (no header)
         """
     )
@@ -410,9 +414,9 @@ TSV Format Support:
 
     parser.add_argument(
         '--input-format',
-        choices=['tsv', 'gff'],
+        choices=['tsv', 'csv', 'gff'],
         default='tsv',
-        help='Input file format: tsv (auto-detects Krona format) or gff (default: tsv)'
+        help='Input file format: tsv or csv (both auto-detect Krona format) or gff (default: tsv)'
     )
 
     parser.add_argument(
@@ -473,6 +477,8 @@ TSV Format Support:
     print(f"Reading taxonomy data from {args.input}...")
     if args.input_format == 'tsv':
         taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column)
+    elif args.input_format == 'csv':
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',')
     else:
         taxonomy_data = read_gff_taxonomy(args.input)
 

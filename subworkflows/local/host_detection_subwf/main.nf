@@ -14,7 +14,10 @@ include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB     } from '../../../modu
 include { SPACEPHARER_CREATEDB as SPACEPHARER_CREATEDB_REV } from '../../../modules/local/spacepharer/createdb'
 include { SPACEPHARER_EASYPREDICT                          } from '../../../modules/local/spacepharer/easy_predict'
 include { CHANGE_SPACE_TO_UNDERSCORE                       } from '../../../modules/local/change_space_to_underscore'
-
+include { SANKEY_PLOT as SANKEY_IPHOP_GENUS_HOST           } from '../../../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_IPHOP_GENOME_HOST          } from '../../../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_IPHOP_GENUS_HOST_REDUCED   } from '../../../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_IPHOP_GENOME_HOST_REDUCED  } from '../../../modules/local/sankey_plot/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -26,6 +29,7 @@ workflow HOST_DETECTION {
     take:
     fna
     metadata
+    mapfile
 
     main:
 
@@ -70,6 +74,21 @@ workflow HOST_DETECTION {
 
         iphop_host_genome   = CONCATENATE_IPHOP_GENOME.out.file_out
         iphop_host_genus    = CONCATENATE_IPHOP_GENUS.out.file_out
+
+        // Plot Sankey for hosts reduced to genus and top 20 hits for website
+        SANKEY_IPHOP_GENUS_HOST_REDUCED (
+            iphop_host_genus
+        )
+        SANKEY_IPHOP_GENOME_HOST_REDUCED (
+            iphop_host_genome
+        )
+        // Plot Sankey for hosts
+        SANKEY_IPHOP_GENUS_HOST (
+            iphop_host_genus
+        )
+        SANKEY_IPHOP_GENOME_HOST (
+            iphop_host_genome
+        )
     }
 
     if (params.predict_host_from_custom_spacers) {
@@ -99,6 +118,7 @@ workflow HOST_DETECTION {
         COLLECT_HOST_INFO (
            SPACEPHARER_EASYPREDICT.out.predictions,
            channel.of(params.custom_spacers_metadata).map{tsv -> [[id:'spacers'], tsv]},
+           mapfile,
            metadata
         )
         ch_versions = ch_versions.mix(COLLECT_HOST_INFO.out.versions)

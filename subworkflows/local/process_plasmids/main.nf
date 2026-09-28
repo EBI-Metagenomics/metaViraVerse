@@ -11,7 +11,6 @@ include { PLASQUID_WORKFLOW                                         } from '../p
 include { AMR_ANNOTATION                                            } from '../../ebi-metagenomics/amr_annotation'
 
 include { MOBSUITE_TYPER                                            } from '../../../modules/nf-core/mobsuite/typer/main'
-include { MOBSUITE_RECON                                            } from '../../../modules/nf-core/mobsuite/recon/main'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_BIOMARKER_REPORT } from '../../../modules/nf-core/find/concatenate'
 include { FIND_CONCATENATE as CONCATENATE_MOBSUITE_MGE_REPORT       } from '../../../modules/nf-core/find/concatenate'
@@ -99,10 +98,6 @@ workflow PROCESS_PLASMIDS {
     )
     ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
-
-    MOBSUITE_RECON (
-        ch_fna_chunks
-    )
 
     MOBSUITE_TYPER(
         ch_fna_chunks,

@@ -176,6 +176,13 @@
                     "help_text": "Unique custom spaces metadata (Columns: crispr_id, name, parent)",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "custom_genomes_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with metadata of MGnify genomes that were used to make custom spacers DB",
+                    "help_text": "Concatenated genomes-all-metadata.txt for all MGnify catalogues",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "nucleotide_fasta_chunksize_iphop": {
                     "default": 5000,
                     "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
