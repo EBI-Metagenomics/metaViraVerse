@@ -178,5 +178,7 @@ workflow PREPROCESSING {
 
     combined_faa        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> faa }
 
+    stats_json          = CHOOSE_SEQUENCES.out.stats
+
     versions            = ch_versions                        // channel: [ path(versions.yml) ]
 }

@@ -22,6 +22,7 @@ process CHOOSE_SEQUENCES {
     tuple val(meta_map), path("${meta_map.id}_virus_filtered.fna"),    path("${meta_map.id}_virus_filtered.gff"),    path("${meta_map.id}_virus_filtered.faa"),    emit: virus_data
     tuple val(meta_map), path("${meta_map.id}_prophage_filtered.fna"), path("${meta_map.id}_prophage_filtered.gff"), path("${meta_map.id}_prophage_filtered.faa"), emit: prophage_data
     tuple val(meta_map), path("${meta_map.id}_plasmid_filtered.fna"),  path("${meta_map.id}_plasmid_filtered.gff"),  path("${meta_map.id}_plasmid_filtered.faa"),  emit: plasmid_data
+    tuple val(meta_map), path("${meta_map.id}_stats.json"),            emit: stats
     tuple val("${task.process}"), val('python'), eval('python --version 2>&1 | sed "s/Python //g"'), topic: versions
 
     script:

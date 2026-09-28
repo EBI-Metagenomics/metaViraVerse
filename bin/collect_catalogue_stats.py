@@ -4,22 +4,25 @@ Collect catalogue statistics and write them to a JSON file.
 
 Inputs
 ------
---viral-sequences   FASTA  → number of sequences (> headers)
---plasmids          FASTA  → number of sequences
---prophages         FASTA  → number of sequences
+--initial-json      JSON   → choose_sequences.py's per-category stats.json:
+                             number_of_viral_sequences, number_of_viral_sequence_proteins,
+                             number_of_prophages, number_of_prophage_proteins,
+                             number_of_plasmids, number_of_plasmid_proteins
 --clusters-viruses  TSV    → number of viral clusters (unique values in column 1)
 --clusters-plasmids TSV    → number of plasmid clusters (unique values in column 1)
---proteins-viruses  FASTA  → number of protein records (non-comment lines)
---proteins-plasmids FASTA  → number of protein records
 --initial-metadata TSV     → metadata table for initial set of sequences, pre-filtered
 --metadata          TSV    → metadata table including "biomes" column, filtered
 --excluded-metadata TSV    → metadata of excluded poor quality records
 
-All input files may be plain text or gzip-compressed.
+All TSV input files may be plain text or gzip-compressed.
 
 Output
 ------
-JSON file with keys matching the stat names above.
+JSON file with keys matching the stat names above. viral_sequences/plasmids/
+prophages and total_proteins_viruses/total_proteins_plasmids are taken
+straight from --initial-json (the viral_sequences and prophage protein
+counts are summed into total_proteins_viruses, matching the combined
+"viruses" grouping used everywhere else in this stats file).
 """
 
 import argparse
@@ -34,16 +37,6 @@ def open_file(path):
     if path.endswith(".gz"):
         return gzip.open(path, "rt")
     return open(path)
-
-
-def count_fasta_sequences(path):
-    """Count sequences in a FASTA file (number of header lines starting with '>')."""
-    count = 0
-    with open_file(path) as f:
-        for line in f:
-            if line.startswith(">"):
-                count += 1
-    return count
 
 
 def count_unique_biomes(path, col="biomes"):
@@ -93,12 +86,8 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--viral-sequences", required=True,
-                        help="FASTA file of viral sequences (plain or .gz).")
-    parser.add_argument("--plasmids", required=True,
-                        help="FASTA file of plasmids (plain or .gz).")
-    parser.add_argument("--prophages", required=True,
-                        help="FASTA file of prophages (plain or .gz).")
+    parser.add_argument("--initial-json", required=True,
+                        help="choose_sequences.py's per-category stats.json.")
     parser.add_argument("--metadata", required=True,
                         help="TSV file with a 'biomes' column (plain or .gz).")
     parser.add_argument("--initial-metadata", required=True,
@@ -109,10 +98,6 @@ def parse_args():
                         help="TSV with cluster IDs in column 1 (plain or .gz).")
     parser.add_argument("--clusters-plasmids", required=True,
                         help="TSV with cluster IDs in column 1 (plain or .gz).")
-    parser.add_argument("--proteins-viruses", required=True,
-                        help="FAA file of viral proteins (plain or .gz).")
-    parser.add_argument("--proteins-plasmids", required=True,
-                        help="FAA file of plasmid proteins (plain or .gz).")
     parser.add_argument("-o", "--output", required=True,
                         help="Output JSON file path.")
     return parser.parse_args()
@@ -121,21 +106,23 @@ def parse_args():
 def main():
     args = parse_args()
 
-    viral_seqs_count = count_fasta_sequences(args.viral_sequences)
-    plasmids_count = count_fasta_sequences(args.plasmids)
-    prophages_count = count_fasta_sequences(args.prophages)
+    with open(args.initial_json) as f:
+        initial_stats = json.load(f)
+
     stats = {
         "total_sequences": count_tsv_lines(args.initial_metadata),
         "unique_sequences": count_tsv_lines(args.metadata),
         "qc_excluded_sequences": count_tsv_lines(args.excluded_metadata),
-        "viral_sequences": viral_seqs_count,
-        "plasmids":        plasmids_count,
-        "prophages":       prophages_count,
+        "viral_sequences": initial_stats["number_of_viral_sequences"],
+        "plasmids":        initial_stats["number_of_plasmids"],
+        "prophages":       initial_stats["number_of_prophages"],
         "number_of_biomes":   count_unique_biomes(args.metadata),
         "viral_clusters": count_clusters(args.clusters_viruses) - 1,
         "plasmid_clusters": count_clusters(args.clusters_plasmids) - 1,
-        "total_proteins_viruses":  count_fasta_sequences(args.proteins_viruses),
-        "total_proteins_plasmids": count_fasta_sequences(args.proteins_plasmids),
+        "total_proteins_viruses": (
+            initial_stats["number_of_viral_sequence_proteins"] + initial_stats["number_of_prophage_proteins"]
+        ),
+        "total_proteins_plasmids": initial_stats["number_of_plasmid_proteins"],
     }
 
     with open(args.output, "w") as f:

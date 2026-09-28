@@ -19,7 +19,9 @@ so that dropped duplicates don't leave orphaned annotations behind.
 
 Input:  Up to three (fna, gff, faa) triples -- one per category.
 Output: Per-category and combined deduplicated/filtered FNA, GFF and FAA
-        files, plus a metadata TSV.
+        files, a metadata TSV, and a stats JSON (sequence and protein counts
+        per category, tallied from what was actually written to each
+        category's filtered FNA/FAA).
 
 Usage:
     choose_sequences.py \
@@ -36,6 +38,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import json
 
 from utils import parse_attributes
 
@@ -45,6 +48,15 @@ from Bio.SeqRecord import SeqRecord
 
 CATEGORIES = ('virus', 'prophage', 'plasmid')
 PLURALS = {'virus': 'viruses', 'prophage': 'prophages', 'plasmid': 'plasmids'}
+
+# Noun used to build this script's per-category stats.json keys: singular
+# before "_proteins" (e.g. "viral_sequence_proteins"), pluralised with a
+# trailing 's' for the sequence count (e.g. "viral_sequences"). Distinct from
+# PLURALS above, which names the --viruses/--prophages/--plasmids CLI flags
+# and matches this repo's wider "viral_sequence" terminology (see
+# collect_data_from_catalogues_marine.py's VIRAL_TYPES) rather than this
+# script's internal 'virus' category name.
+CATEGORY_NOUN = {'virus': 'viral_sequence', 'prophage': 'prophage', 'plasmid': 'plasmid'}
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -427,6 +439,14 @@ def write_final_files(
     kept sequences are written to the FAA outputs, so dropped duplicates
     don't leave orphaned CDS records behind.
 
+    Also writes ``{output_prefix}_stats.json``, with one sequence-count and
+    one protein-count key per category (e.g. ``number_of_viral_sequences``/
+    ``number_of_viral_sequence_proteins``, and the equivalent
+    ``number_of_prophages``/``number_of_prophage_proteins`` and
+    ``number_of_plasmids``/``number_of_plasmid_proteins`` pairs -- see
+    CATEGORY_NOUN). Each count is tallied while writing the corresponding
+    category FNA/FAA record above, not by re-reading those files afterward.
+
     Args:
         metadata: Path for the full metadata TSV (every unique sequence).
         filtered_fna: Path for the combined filtered FASTA (all categories).
@@ -448,6 +468,8 @@ def write_final_files(
     gff_records_written = 0
     faa_records_written = 0
     gff_found = 0
+    category_seq_counts = {c: 0 for c in CATEGORIES}
+    category_protein_counts = {c: 0 for c in CATEGORIES}
 
     category_fna_handles = {c: open(f"{output_prefix}_{c}_filtered.fna", 'w') for c in CATEGORIES}
     category_gff_handles = {c: open(f"{output_prefix}_{c}_filtered.gff", 'w') for c in CATEGORIES}
@@ -512,6 +534,7 @@ def write_final_files(
                 # fasta: combined + category-specific
                 SeqIO.write([record], out_fna_f, "fasta")
                 SeqIO.write([record], category_fna_handles[category], "fasta")
+                category_seq_counts[category] += 1
 
                 # metadata tsv
                 out_tsv_f.write(tsv_row)
@@ -535,6 +558,7 @@ def write_final_files(
                                 SeqIO.write([protein_record], filt_faa, "fasta")
                                 SeqIO.write([protein_record], category_faa_handles[category], "fasta")
                                 faa_records_written += 1
+                                category_protein_counts[category] += 1
                 else:
                     print(f"{entry['seq_id']} has no GFF records")
             else:
@@ -549,6 +573,16 @@ def write_final_files(
 
     for fh in (*category_fna_handles.values(), *category_gff_handles.values(), *category_faa_handles.values()):
         fh.close()
+
+    stats = {}
+    for c in CATEGORIES:
+        noun = CATEGORY_NOUN[c]
+        stats[f"number_of_{noun}s"] = category_seq_counts[c]
+        stats[f"number_of_{noun}_proteins"] = category_protein_counts[c]
+    stats_json = f"{output_prefix}_stats.json"
+    with open(stats_json, 'w') as f:
+        json.dump(stats, f, indent=2)
+    print(f"Per-category stats written to {stats_json}: {stats}")
 
     print(f"Total unique sequences processed: {records_total}")
     print(f"Duplicate records excluded: {len(duplicates)}")
