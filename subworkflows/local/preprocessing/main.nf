@@ -165,34 +165,25 @@ workflow PREPROCESSING {
     COMPRESS_VIRAL_SEQ_FILES (
         CHOOSE_SEQUENCES.out.virus_data
         .map { meta, fna, gff, faa ->
-            [
-                [meta, gff],
-                [meta, fna],
-                [meta, faa]
-            ]
+            [meta, [fna, gff, faa]]
         }
+        .transpose()
     )
 
     COMPRESS_PLASMIDS_FILES (
         CHOOSE_SEQUENCES.out.plasmid_data
         .map { meta, fna, gff, faa ->
-            [
-                [meta, gff],
-                [meta, fna],
-                [meta, faa]
-            ]
+            [meta, [fna, gff, faa]]
         }
+        .transpose()
     )
 
     COMPRESS_PROPHAGES_FILES (
         CHOOSE_SEQUENCES.out.prophage_data
         .map { meta, fna, gff, faa ->
-            [
-                [meta, gff],
-                [meta, fna],
-                [meta, faa]
-            ]
+            [meta, [fna, gff, faa]]
         }
+        .transpose()
     )
 
     emit:
