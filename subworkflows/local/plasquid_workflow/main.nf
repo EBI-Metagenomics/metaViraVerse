@@ -79,6 +79,6 @@ workflow PLASQUID_WORKFLOW {
     protein_report         = EXTRACT_PLASMIDS_DATA.out.protein_report           // per-protein RIP/MOB/Inc-group report
     rip_seqs               = EXTRACT_PLASMIDS_DATA.out.rip_seqs_faa              // RIP protein sequences
     mobility_classification = EXTRACT_PLASMIDS_DATA.out.mobility_classification // per-contig conjugative/mobilizable/non_mobilizable
-    mobility_stats         = EXTRACT_PLASMIDS_DATA.out.mobility_stats           // summary counts (JSON), conjugative always 0 (no MPF evidence here)
+    mobility_stats         = EXTRACT_PLASMIDS_DATA.out.mobility_stats           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
     versions               = ch_versions
 }

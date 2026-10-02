@@ -18,7 +18,6 @@ include { COLLECT_METADATA                      } from '../modules/local/collect
 include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
 
-include { PIGZ_COMPRESS as COMPRESS_PLASMIDS    } from '../modules/nf-core/pigz/compress/main'
 include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -86,17 +85,12 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
-    // Process plasmids filtered from input
+    // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
 
     plasmids = PREPROCESSING.out.plasmids
        .map{ _meta, fna, gff, faa -> fna }
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
-
-    // publish and compress plasmids
-    COMPRESS_PLASMIDS (
-        plasmids
-    )
 
     //
     // Process plasmids

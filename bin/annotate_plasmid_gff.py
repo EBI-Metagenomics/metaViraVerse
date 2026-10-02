@@ -24,6 +24,14 @@ columns are added as comma-joined `mob_suite_biomarker` and
 record(s), the same record level BacPhlip/taxonomy attributes use elsewhere
 in this pipeline (see build_final_gff.py) for whole-contig facts.
 
+--mob-report (MOB-suite's mob_typer `--out_file` report, run with
+`--multi`): one row per plasmid, with its `sample_id` column holding the
+plasmid/contig identifier (some MOB-suite versions prefix it as
+"<sample>:<contig>", which is also accepted). Its `predicted_mobility`
+column (conjugative/mobilizable/non-mobilizable) is added as a
+`mobsuite_predicted_mobility` attribute to that contig's sequence-level
+(non-CDS) record(s), the same level as the biomarker attributes above.
+
 --amr-gff (AMRINTEGRATOR's integrated_<prefix>.gff): built by augmenting
 --gff itself with AMRfinderPlus/RGI/DeepARG hits, so it shares --gff's `ID=`
 values and only contains the plasmids/proteins that actually got an AMR
@@ -54,6 +62,10 @@ PROTEIN_REPORT_COLUMNS = ("RIP_domain", "MOB_group", "Inc_group")
 BIOMARKER_REPORT_COLUMNS = {
     "biomarker": "mob_suite_biomarker",
     "qseqid": "mobsuite_identifier",
+}
+# mob_typer report column -> GFF attribute name
+MOB_REPORT_COLUMNS = {
+    "predicted_mobility": "mobsuite_predicted_mobility",
 }
 
 
@@ -128,6 +140,34 @@ def load_biomarker_report(path: str) -> dict[str, dict[str, str]]:
     }
 
 
+def load_mob_report(path: str) -> dict[str, dict[str, str]]:
+    """Return contig_id -> {mobsuite_predicted_mobility: ...} from mob_typer's report.
+
+    The contig id comes from `sample_id`. When it has the "<sample>:<contig>"
+    form, the contig part is registered as well, so either spelling matches
+    the GFF seqid. Repeated header lines (from concatenating chunked reports)
+    and "-"/empty cells are skipped.
+    """
+    result: dict[str, dict[str, str]] = {}
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            sample_id = (row.get("sample_id") or "").strip()
+            if not sample_id or sample_id == "sample_id":
+                continue
+            attrs = {}
+            for column, attr in MOB_REPORT_COLUMNS.items():
+                value = (row.get(column) or "").strip()
+                if value and value != "-":
+                    attrs[attr] = value
+            if not attrs:
+                continue
+            result[sample_id] = attrs
+            if ":" in sample_id:
+                result.setdefault(sample_id.split(":", 1)[1], attrs)
+    return result
+
+
 def load_gff_attribute_keys(path: str) -> set[str]:
     """Return the set of every column-9 attribute key used anywhere in a GFF."""
     keys: set[str] = set()
@@ -195,14 +235,18 @@ def annotate_gff(
     biomarker_report: dict[str, dict[str, str]],
     amr_report: dict[str, dict[str, str]],
     out,
-) -> tuple[int, int, int]:
-    """Write ``input_gff`` to ``out`` with all three evidence sources added.
+    mob_report: dict[str, dict[str, str]] | None = None,
+) -> tuple[int, int, int, int]:
+    """Write ``input_gff`` to ``out`` with all evidence sources added.
 
-    Returns (cds_records_annotated, contig_records_annotated, amr_records_annotated).
+    Returns (cds_records_annotated, contig_records_annotated,
+    amr_records_annotated, mobility_records_annotated).
     """
+    mob_report = mob_report or {}
     cds_annotated = 0
     contig_annotated = 0
     amr_annotated = 0
+    mobility_annotated = 0
 
     with open_file(input_gff) as f:
         for line in f:
@@ -229,6 +273,9 @@ def annotate_gff(
                 if apply_evidence(attrs, biomarker_report.get(cols[0])):
                     modified = True
                     contig_annotated += 1
+                if apply_evidence(attrs, mob_report.get(cols[0])):
+                    modified = True
+                    mobility_annotated += 1
 
             # AMR evidence applies to any feature type -- keyed by ID=, which
             # AMRINTEGRATOR's output shares directly with this GFF.
@@ -241,7 +288,7 @@ def annotate_gff(
 
             out.write("\t".join(cols) + "\n")
 
-    return cds_annotated, contig_annotated, amr_annotated
+    return cds_annotated, contig_annotated, amr_annotated, mobility_annotated
 
 
 def parse_args():
@@ -256,6 +303,9 @@ def parse_args():
                         help="plaSquid protein_report.tsv (Contig, Protein, RIP_domain, MOB_group, Inc_group).")
     parser.add_argument("-b", "--biomarker-report", default=None,
                         help="MOB-suite plasmids_biomarker_report.txt (optional).")
+    parser.add_argument("-m", "--mob-report", default=None,
+                        help="MOB-suite mob_typer report (--out_file, run with --multi); its "
+                             "predicted_mobility column is added as mobsuite_predicted_mobility (optional).")
     parser.add_argument("-a", "--amr-gff", default=None,
                         help="AMRINTEGRATOR's integrated_<prefix>.gff (optional).")
     parser.add_argument("-o", "--output", default="plasquid_annotated.gff",
@@ -272,6 +322,9 @@ def main():
     biomarker_report = load_biomarker_report(args.biomarker_report) if args.biomarker_report else {}
     print(f"Contigs with MOB-suite biomarker evidence loaded: {len(biomarker_report)}", file=sys.stderr)
 
+    mob_report = load_mob_report(args.mob_report) if args.mob_report else {}
+    print(f"Contigs with MOB-suite predicted mobility loaded: {len(mob_report)}", file=sys.stderr)
+
     if args.amr_gff:
         base_attr_keys = load_gff_attribute_keys(args.gff)
         amr_report = load_amr_gff(args.amr_gff, base_attr_keys)
@@ -280,12 +333,13 @@ def main():
     print(f"Records with AMR evidence loaded: {len(amr_report)}", file=sys.stderr)
 
     with open(args.output, "w") as out:
-        cds_annotated, contig_annotated, amr_annotated = annotate_gff(
-            args.gff, protein_report, biomarker_report, amr_report, out
+        cds_annotated, contig_annotated, amr_annotated, mobility_annotated = annotate_gff(
+            args.gff, protein_report, biomarker_report, amr_report, out, mob_report
         )
 
     print(f"CDS records annotated (plaSquid): {cds_annotated}", file=sys.stderr)
-    print(f"Contig records annotated (MOB-suite): {contig_annotated}", file=sys.stderr)
+    print(f"Contig records annotated (MOB-suite biomarkers): {contig_annotated}", file=sys.stderr)
+    print(f"Contig records annotated (MOB-suite predicted mobility): {mobility_annotated}", file=sys.stderr)
     print(f"Records annotated (AMR): {amr_annotated}", file=sys.stderr)
     print(f"Output written to: {args.output}", file=sys.stderr)
 

@@ -27,9 +27,7 @@ process EXTRACT_PLASMIDS_DATA {
     plasquid_retrieve_rip_plasmids.R ${filt_classification} ${rep_domains} ${mob_table} ${fna}
 
     # Output: rip_seqs.faa, protein_report.tsv, mobility_classification.tsv, mobility_stats.json
-    # (no MPF/T4SS evidence source exists in this pipeline yet -- see plasquid_rip_extraction.R's
-    # header comment -- so mobility_stats.json's "conjugative" bucket stays at 0 for now; the
-    # UPDATE_MOBILITY_STATS process downstream fills it in from MOB-suite's biomarker evidence)
+    # (mobility_stats.json counts protein_report.tsv records: total, and with RIP_domain/MOB_group/Inc_group)
     plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains} ${mob_table}
 
     cat <<-END_VERSIONS > versions.yml

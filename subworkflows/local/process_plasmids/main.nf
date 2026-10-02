@@ -106,21 +106,21 @@ workflow PROCESS_PLASMIDS {
         true,
         true
     )
-    MOBSUITE_TYPER.out.biomarker_report.view()
-    //CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
-    //    MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
-    //    1
-    //)
 
-    //CONCATENATE_MOBSUITE_MGE_REPORT (
-    //    MOBSUITE_TYPER.out.mge_report.groupTuple(),
-    //    1
-    //)
+    CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
+        MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
+        1
+    )
 
-    //CONCATENATE_MOBSUITE_REPORT (
-    //    MOBSUITE_TYPER.out.report.groupTuple(),
-    //    1
-    //)
+    CONCATENATE_MOBSUITE_MGE_REPORT (
+        MOBSUITE_TYPER.out.mge_report.groupTuple(),
+        1
+    )
+
+    CONCATENATE_MOBSUITE_REPORT (
+        MOBSUITE_TYPER.out.report.groupTuple(),
+        1
+    )
 
     //
     // -------- Antimicrobial resistence detection
@@ -149,27 +149,25 @@ workflow PROCESS_PLASMIDS {
     ANNOTATE_PLASMID_GFF(
         EXTRACT_CLUSTER_FILES.out.reps_gff
             .join(PLASQUID_WORKFLOW.out.protein_report)
-            .join(MOBSUITE_TYPER.out.biomarker_report, remainder: true)
+            .join(CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out, remainder: true)
+            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
             .join(AMR_ANNOTATION.out.gff, remainder: true)
-            .map { meta, gff, protein_report, biomarker_report, amr_gff ->
-                tuple(meta, gff, protein_report, biomarker_report ?: [], amr_gff ?: [])
+            .map { meta, gff, protein_report, biomarker_report, mob_report, amr_gff ->
+                tuple(meta, gff, protein_report, biomarker_report ?: [], mob_report ?: [], amr_gff ?: [])
             }
     )
     ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
 
     //
-    // ----------- Populate the "conjugative" mobility class from MOB-suite's MPF evidence -----------
+    // ----------- Combine plaSquid and MOB-suite mobility counts -----------
     //
-    // plaSquid's own mobility_stats.json can never place a contig in "conjugative"
-    // (its MOBSEARCH detects the relaxase gene only, not MPF/T4SS machinery); MOB-suite's
-    // biomarker report supplies exactly that missing MPF evidence. Same `optional: true`
-    // remainder-join safety as above.
+    // plaSquid's protein_report record counts + MOB-suite's predicted_mobility counts.
+    // Same `optional: true` remainder-join safety as above.
     UPDATE_MOBILITY_STATS(
-        PLASQUID_WORKFLOW.out.mobility_classification
-            .join(PLASQUID_WORKFLOW.out.mobility_stats)
-            .join(MOBSUITE_TYPER.out.biomarker_report, remainder: true)
-            .map { meta, classification, mobility_json, biomarker_report ->
-                tuple(meta, classification, mobility_json, biomarker_report ?: [])
+        PLASQUID_WORKFLOW.out.mobility_stats
+            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
+            .map { meta, mobility_json, mob_report ->
+                tuple(meta, mobility_json, mob_report ?: [])
             }
     )
     ch_versions = ch_versions.mix(UPDATE_MOBILITY_STATS.out.versions)
@@ -182,7 +180,7 @@ workflow PROCESS_PLASMIDS {
     reps_proteins         = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
     reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
     reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
-    mobility_stats        = UPDATE_MOBILITY_STATS.out.mobility_stats            // conjugative/mobilizable/non_mobilizable counts, MPF-complete
+    mobility_stats        = UPDATE_MOBILITY_STATS.out.mobility_stats            // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
     versions              = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

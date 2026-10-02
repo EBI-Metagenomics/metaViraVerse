@@ -24,9 +24,8 @@
 #     hits of the same kind on one protein are comma-joined.
 #
 #  3. Classifies every contig with plasquid evidence into the standard
-#     three-tier plasmid mobility scheme and writes both the per-contig
-#     classification (mobility_classification.tsv: contig, category) and
-#     summary counts (mobility_stats.json):
+#     three-tier plasmid mobility scheme and writes the per-contig
+#     classification (mobility_classification.tsv: contig, category):
 #       - conjugative:     has a relaxase (MOB) AND mating-pair-formation
 #                           (MPF) / T4SS conjugation-machinery evidence
 #       - mobilizable:     has a relaxase (MOB) but no MPF evidence
@@ -39,8 +38,14 @@
 #     `contig` TSV of MPF-positive contigs) lets a future caller supply that
 #     missing evidence -- update_mobility_stats.py (bin/) is exactly that
 #     caller, deriving MPF-positive contigs from MOB-suite's biomarker
-#     report and recomputing mobility_stats.json downstream (see
+#     report and recomputing the mobility summary downstream (see
 #     modules/local/update_mobility_stats).
+#
+#  4. Writes summary counts of the per-protein evidence table to
+#     mobility_stats.json: plasquid_total_number (records in
+#     protein_report.tsv) and plasquid_rip_domain_present /
+#     plasquid_mob_group_present / plasquid_inc_group_present (records with a
+#     non-NA value in that column).
 #
 # Output: rip_seqs.faa, protein_report.tsv, mobility_classification.tsv, mobility_stats.json
 
@@ -149,44 +154,21 @@ classify_mobility <- function(rep_domains, inc_classif, mob_table, mpf_contigs =
     )
 }
 
-#' Write classify_mobility()'s per-contig table as summary counts/percentages
-#' to a JSON file (hand-rolled, not jsonlite: the shape is small and fixed,
-#' and this avoids depending on a package the plasquid container may not
-#' carry -- no other R script in this pipeline uses jsonlite).
-write_mobility_stats_json <- function(classification, mpf_data_available, path) {
-  total  <- nrow(classification)
-  counts <- table(factor(classification$category, levels = c("conjugative", "mobilizable", "non_mobilizable")))
-  pct    <- function(n) if (total > 0) round(100 * n / total, 2) else 0
-
-  category_block <- function(name, note = NULL) {
-    n <- unname(counts[[name]])
-    fields <- sprintf('"count": %d, "percent": %s', n, pct(n))
-    if (!is.null(note)) fields <- paste0(fields, sprintf(', "note": "%s"', note))
-    paste0("{", fields, "}")
-  }
-
-  conjugative_note <- if (mpf_data_available) {
-    NULL
-  } else {
-    paste(
-      "plaSquid detects the MOB relaxase gene only, not MPF/T4SS conjugation",
-      "machinery; no contig can be placed here without independently supplied",
-      "MPF evidence. A genuinely conjugative plasmid is reported as",
-      "'mobilizable' instead. See MOB-suite's mob_typer output for a complete",
-      "conjugative/mobilizable/non_mobilizable call on the same representative",
-      "contigs."
-    )
-  }
+#' Write summary counts of protein_report (one record per protein with any
+#' plaSquid hit) to a JSON file: the total number of records, and how many of
+#' them carry each kind of evidence (non-NA RIP_domain / MOB_group / Inc_group).
+#' Hand-rolled, not jsonlite: the shape is small and fixed, and this avoids
+#' depending on a package the plasquid container may not carry -- no other R
+#' script in this pipeline uses jsonlite.
+write_mobility_stats_json <- function(protein_report, path) {
+  n_present <- function(col) if (col %in% names(protein_report)) sum(!is.na(protein_report[[col]])) else 0L
 
   json <- paste0(
     "{\n",
-    '  "total_contigs": ', total, ",\n",
-    '  "mpf_data_available": ', tolower(as.character(mpf_data_available)), ",\n",
-    '  "categories": {\n',
-    '    "conjugative": ',     category_block("conjugative", conjugative_note), ",\n",
-    '    "mobilizable": ',     category_block("mobilizable"), ",\n",
-    '    "non_mobilizable": ', category_block("non_mobilizable"), "\n",
-    "  }\n",
+    '  "plasquid_total_number": ',       nrow(protein_report), ",\n",
+    '  "plasquid_rip_domain_present": ', n_present("RIP_domain"), ",\n",
+    '  "plasquid_mob_group_present": ',  n_present("MOB_group"), ",\n",
+    '  "plasquid_inc_group_present": ',  n_present("Inc_group"), "\n",
     "}\n"
   )
   writeLines(json, path)
@@ -200,4 +182,4 @@ mpf_contigs <- if (!is.na(mpf_contigs_file) && file.exists(mpf_contigs_file)) {
 
 mobility <- classify_mobility(rep_domains, inc_classif, mob_table, mpf_contigs)
 write_delim(mobility %>% select(contig, category), "mobility_classification.tsv", delim = "\t")
-write_mobility_stats_json(mobility, mpf_data_available = length(mpf_contigs) > 0, "mobility_stats.json")
+write_mobility_stats_json(protein_report, "mobility_stats.json")

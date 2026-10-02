@@ -101,11 +101,11 @@ output:
       - "mobility_stats.json":
           type: file
           description: |
-            Contig counts/percentages per mobility class (conjugative,
-            mobilizable, non_mobilizable). plaSquid detects the MOB relaxase
-            gene only, not MPF/T4SS conjugation machinery, so "conjugative"
-            stays at 0 unless independent MPF evidence is supplied -- see
-            plasquid_rip_extraction.R's header comment
+            Summary counts of protein_report.tsv records:
+            plasquid_total_number (all records) and
+            plasquid_rip_domain_present / plasquid_mob_group_present /
+            plasquid_inc_group_present (records with a non-NA value in
+            that column)
           pattern: "mobility_stats.json"
           ontologies:
             - edam: http://edamontology.org/format_3464 # JSON

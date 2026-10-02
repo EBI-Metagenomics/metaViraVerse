@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
 name: update_mobility_stats
-description: Recompute plaSquid's mobility_stats.json using MOB-suite's biomarker report as the missing mating-pair-formation (MPF) evidence
+description: Combine plaSquid's mobility_stats.json with MOB-suite's predicted mobility counts
 keywords:
   - plasmid
   - plasquid
@@ -9,13 +9,11 @@ keywords:
 tools:
   - update_mobility_stats:
       description: |
-        Local script (update_mobility_stats.py) that promotes every contig
-        plaSquid classified "mobilizable" (has a relaxase/MOB hit, no MPF
-        evidence) to "conjugative" wherever MOB-suite's biomarker report also
-        found a mate-pair-formation hit on that contig, then re-derives
-        mobility_stats.json's summary counts/percentages from the updated
-        per-contig classification. non_mobilizable contigs are never
-        promoted (MPF alone doesn't establish a relaxase is present)
+        Local script (update_mobility_stats.py) that copies plaSquid's
+        mobility_stats.json keys and adds MOB-suite's predicted_mobility
+        counts from the mob_typer report: mobsuite_total,
+        mobsuite_conjugative, mobsuite_mobilizable and
+        mobsuite_non_mobilizable
       homepage: ""
       documentation: ""
       licence: []
@@ -26,24 +24,17 @@ input:
         description: |
           Groovy Map containing sample information
           e.g. [ id:'plasmids' ]
-    - mobility_classification:
-        type: file
-        description: plaSquid's per-contig mobility classification (PLASQUID_WORKFLOW.out.mobility_classification)
-        pattern: "mobility_classification.tsv"
-        ontologies:
-          - edam: http://edamontology.org/format_3475 # TSV
     - mobility_json:
         type: file
-        description: plaSquid's aggregate mobility summary (PLASQUID_WORKFLOW.out.mobility_stats), used for a total_contigs sanity check
+        description: plaSquid's protein_report record counts (PLASQUID_WORKFLOW.out.mobility_stats), copied into the output
         pattern: "mobility_stats.json"
         ontologies: []
-    - biomarker_report:
+    - mob_report:
         type: file
         description: |
-          MOB-suite's plasmids_biomarker_report.txt (mob_typer
-          --biomarker_report_file), or `[]` to skip promotion (output then
-          equals plaSquid's own classification, unchanged)
-        pattern: "*_biomarker_report.txt"
+          MOB-suite's mob_typer report (--out_file, run with --multi;
+          predicted_mobility column is counted), or `[]` to skip
+        pattern: "*.txt"
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
 output:
@@ -53,7 +44,7 @@ output:
           description: Groovy Map containing sample information
       - "mobility_stats_final.json":
           type: file
-          description: Summary counts/percentages per mobility class, with a real (non-zero-capped) conjugative count when MOB-suite MPF evidence was supplied
+          description: plaSquid record counts plus MOB-suite mobsuite_total/conjugative/mobilizable/non_mobilizable counts
           pattern: "mobility_stats_final.json"
           ontologies: []
   versions:

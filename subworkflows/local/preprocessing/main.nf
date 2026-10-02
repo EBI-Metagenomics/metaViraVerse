@@ -8,6 +8,9 @@ include { BARRNAP                                        } from '../../../module
 include { CSVTK_CONCAT as CONCATENATE_CHECKV             } from '../../../modules/nf-core/csvtk/concat'
 include { CHECKV_ENDTOEND                                } from '../../../modules/nf-core/checkv/endtoend'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                     } from '../../../modules/nf-core/seqkit/split2'
+include { PIGZ_COMPRESS as COMPRESS_VIRAL_SEQ_FILES      } from '../../../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_PLASMIDS_FILES       } from '../../../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_PROPHAGES_FILES      } from '../../../modules/nf-core/pigz/compress/main'
 
 
 workflow PREPROCESSING {
@@ -157,6 +160,39 @@ workflow PREPROCESSING {
         quality_ch,
         rna_gff,
         RENAME_CONTIGS.out.map_file
+    )
+
+    COMPRESS_VIRAL_SEQ_FILES (
+        CHOOSE_SEQUENCES.out.virus_data
+        .map { meta, fna, gff, faa ->
+            [
+                [meta, gff],
+                [meta, fna],
+                [meta, faa]
+            ]
+        }.flatten()
+    )
+
+    COMPRESS_PLASMIDS_FILES (
+        CHOOSE_SEQUENCES.out.plasmid_data
+        .map { meta, fna, gff, faa ->
+            [
+                [meta, gff],
+                [meta, fna],
+                [meta, faa]
+            ]
+        }.flatten()
+    )
+
+    COMPRESS_PROPHAGES_FILES (
+        CHOOSE_SEQUENCES.out.prophage_data
+        .map { meta, fna, gff, faa ->
+            [
+                [meta, gff],
+                [meta, fna],
+                [meta, faa]
+            ]
+        }.flatten()
     )
 
     emit:

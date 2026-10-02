@@ -58,9 +58,8 @@ output:
   - mobility_stats:
       type: file
       description: |
-        Contig counts/percentages per mobility class (conjugative, mobilizable,
-        non_mobilizable). No MPF/T4SS-detection step exists in this pipeline yet,
-        so "conjugative" stays at 0 unless independent MPF evidence is supplied
+        Summary counts of protein_report.tsv records: plasquid_total_number and
+        plasquid_rip_domain_present / plasquid_mob_group_present / plasquid_inc_group_present
         Structure: [ val(meta), path(json) ]
   - versions:
       type: file
