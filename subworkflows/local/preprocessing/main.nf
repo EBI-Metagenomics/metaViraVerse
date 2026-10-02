@@ -170,7 +170,7 @@ workflow PREPROCESSING {
                 [meta, fna],
                 [meta, faa]
             ]
-        }.flatten()
+        }
     )
 
     COMPRESS_PLASMIDS_FILES (
@@ -181,7 +181,7 @@ workflow PREPROCESSING {
                 [meta, fna],
                 [meta, faa]
             ]
-        }.flatten()
+        }
     )
 
     COMPRESS_PROPHAGES_FILES (
@@ -192,7 +192,7 @@ workflow PREPROCESSING {
                 [meta, fna],
                 [meta, faa]
             ]
-        }.flatten()
+        }
     )
 
     emit:
