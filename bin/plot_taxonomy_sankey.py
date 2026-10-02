@@ -7,6 +7,7 @@ to ensure all links in the Sankey diagram are properly connected.
 """
 
 import argparse
+import gzip
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -74,6 +75,72 @@ def parse_taxonomy(taxonomy_str, standard_levels=None, lineage_reverted=False):
     return filled_taxonomy
 
 
+def open_text(path):
+    """Open a plain or gzip-compressed text file (detected by magic bytes) for reading."""
+    with open(path, 'rb') as fh:
+        is_gzip = fh.read(2) == b'\x1f\x8b'
+    if is_gzip:
+        return gzip.open(path, 'rt')
+    return open(path, 'r')
+
+
+OTHER_LABEL = "Other"
+OTHER_KEY = "__other__"
+
+
+def truncate_to_stop_level(taxonomy_list_with_counts, levels, stop_level):
+    """
+    Cut every taxonomy path after the requested stop level.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples
+        levels: Ordered list of taxonomic level names
+        stop_level: Level name to stop at (inclusive)
+
+    Returns:
+        List of (count, truncated_taxonomy_path) tuples
+    """
+    depth = levels.index(stop_level) + 1
+    return [(count, path[:depth]) for count, path in taxonomy_list_with_counts]
+
+
+def apply_top_hits(taxonomy_list_with_counts, top_hits):
+    """
+    Keep only the top N taxa (by count) at each level; merge the rest into one shared
+    "Other" node (the same node for every level). Paths merged into "Other" stop there.
+
+    Levels are processed top-down, so ranking at a level only considers paths whose
+    ancestors all made it into the top N.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples
+        top_hits: Number of taxa to keep per level
+
+    Returns:
+        List of (count, taxonomy_path) tuples, where collapsed paths end with the
+        OTHER_KEY marker
+    """
+    paths = [(count, list(path)) for count, path in taxonomy_list_with_counts]
+    collapsed = [False] * len(paths)
+    max_depth = max((len(path) for _, path in paths), default=0)
+
+    for depth in range(max_depth):
+        prefix_counts = defaultdict(int)
+        for i, (count, path) in enumerate(paths):
+            if not collapsed[i] and len(path) > depth:
+                prefix_counts[tuple(path[:depth + 1])] += count
+
+        ranked = sorted(prefix_counts.items(), key=lambda item: (-item[1], item[0]))
+        keep = {prefix for prefix, _ in ranked[:top_hits]}
+
+        for i, (count, path) in enumerate(paths):
+            if not collapsed[i] and len(path) > depth and tuple(path[:depth + 1]) not in keep:
+                paths[i] = (count, path[:depth] + [OTHER_KEY])
+                collapsed[i] = True
+
+    return paths
+
+
 def build_sankey_data(taxonomy_list_with_counts):
     """
     Build Sankey diagram data from list of taxonomy paths with counts.
@@ -108,12 +175,18 @@ def build_sankey_data(taxonomy_list_with_counts):
 
         for level, taxon in enumerate(taxonomy_path):
             current_path_parts.append(taxon)
-            # Node key includes full path to make it unique
-            node_key = "|".join(current_path_parts)
+            if taxon == OTHER_KEY:
+                # A single "Other" node shared by all levels and parents
+                node_key = OTHER_KEY
+                label = OTHER_LABEL
+            else:
+                # Node key includes full path to make it unique
+                node_key = "|".join(current_path_parts)
+                label = taxon
 
             # Add node
             node_keys.add(node_key)
-            node_key_to_label[node_key] = taxon
+            node_key_to_label[node_key] = label
 
             # Add edge from previous level to current level
             edge_counts[(prev_key, node_key)] += count
@@ -177,17 +250,18 @@ def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey
     print(f"Sankey plot saved to: {output_file}")
 
 
-def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
+def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
     """
-    Read taxonomy data from TSV file.
+    Read taxonomy data from TSV (or CSV) file.
 
     Supports two formats:
-    1. Standard TSV with header and taxonomy column
+    1. Standard TSV/CSV with header and taxonomy column
     2. Krona format: count\trank1\trank2\t... (no header)
 
     Args:
-        tsv_file: Path to TSV file
-        taxonomy_column: Name of the taxonomy column (for standard TSV)
+        tsv_file: Path to TSV/CSV file
+        taxonomy_column: Name of the taxonomy column (for standard TSV/CSV)
+        delimiter: Field separator: '\t' for TSV, ',' for CSV
 
     Returns:
         List of (count, taxonomy_string) tuples
@@ -196,7 +270,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
 
     taxonomy_data = []
 
-    with open(tsv_file, 'r') as f:
+    with open_text(tsv_file) as f:
         # Peek at first line to detect format
         first_line = f.readline().strip()
         if not first_line:  # File is completely empty
@@ -205,7 +279,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
         f.seek(0)
 
         # Check if it's Krona format (first column is a number)
-        first_parts = first_line.split('\t')
+        first_parts = first_line.split(delimiter)
         is_krona_format = False
         if first_parts:
             try:
@@ -218,7 +292,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
             # Krona format: count\trank1\trank2\t...
             print("Detected Krona format (count\ttaxonomy_ranks)")
             for line in f:
-                parts = line.strip().split('\t')
+                parts = line.strip().split(delimiter)
                 if not parts or not parts[0].strip():
                     continue
 
@@ -240,11 +314,11 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy'):
 
         else:
             # Standard TSV format with header
-            print(f"Detected standard TSV format with header")
-            reader = csv.DictReader(f, delimiter='\t')
+            print(f"Detected standard {'CSV' if delimiter == ',' else 'TSV'} format with header")
+            reader = csv.DictReader(f, delimiter=delimiter)
 
             if taxonomy_column not in reader.fieldnames:
-                print(f"Error: Column '{taxonomy_column}' not found in TSV file.", file=sys.stderr)
+                print(f"Error: Column '{taxonomy_column}' not found in input file.", file=sys.stderr)
                 print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
                 sys.exit(1)
 
@@ -268,7 +342,7 @@ def read_gff_taxonomy(gff_file):
     """
     taxonomy_data = []
 
-    with open(gff_file, 'r') as f:
+    with open_text(gff_file) as f:
         for line in f:
             if line.startswith('#') or not line.strip():
                 continue
@@ -303,17 +377,23 @@ Examples:
   # From Krona format file (count\\ttaxonomy_ranks)
   %(prog)s --input krona.txt --output taxonomy_sankey.html
 
+  # From CSV file
+  %(prog)s --input stats.csv --input-format csv --output taxonomy_sankey.html
+
   # From GFF file directly
   %(prog)s --input viral.gff --input-format gff --output taxonomy_sankey.html
 
   # Specify custom taxonomy levels
   %(prog)s --input stats.tsv --output sankey.html --levels domain phylum class order family genus
 
+  # Plot down to family only, keeping the 10 most abundant taxa per level (rest -> Other)
+  %(prog)s --input stats.tsv --output sankey.html --stop-level family --top-hits 10
+
 Standard viral taxonomy levels (default):
   realm, kingdom, phylum, class, order, family, subfamily, genus, species
 
-TSV Format Support:
-  1. Standard TSV with header: taxonomy column contains semicolon-separated ranks
+TSV/CSV Format Support (--input-format tsv or csv):
+  1. Standard TSV/CSV with header: taxonomy column contains semicolon-separated ranks
   2. Krona format (auto-detected): count\\trank1\\trank2\\trank3\\t... (no header)
         """
     )
@@ -322,7 +402,7 @@ TSV Format Support:
         '--input',
         type=Path,
         required=True,
-        help='Input file (TSV with taxonomy column, Krona format, or GFF)'
+        help='Input file (TSV with taxonomy column, Krona format, or GFF); may be gzip-compressed'
     )
 
     parser.add_argument(
@@ -334,9 +414,9 @@ TSV Format Support:
 
     parser.add_argument(
         '--input-format',
-        choices=['tsv', 'gff'],
+        choices=['tsv', 'csv', 'gff'],
         default='tsv',
-        help='Input file format: tsv (auto-detects Krona format) or gff (default: tsv)'
+        help='Input file format: tsv or csv (both auto-detect Krona format) or gff (default: tsv)'
     )
 
     parser.add_argument(
@@ -350,6 +430,19 @@ TSV Format Support:
         nargs='+',
         default=['realm', 'kingdom', 'phylum', 'class', 'order', 'family', 'subfamily', 'genus', 'species'],
         help='Taxonomic level names in order'
+    )
+
+    parser.add_argument(
+        '--stop-level',
+        default=None,
+        help='Deepest taxonomic level to plot; must be one of --levels (default: plot all levels)'
+    )
+
+    parser.add_argument(
+        '--top-hits',
+        type=int,
+        default=None,
+        help='Keep only the N most abundant taxa at each level; the rest are merged into "Other" (default: keep all)'
     )
 
     parser.add_argument(
@@ -367,6 +460,14 @@ TSV Format Support:
 
     args = parser.parse_args()
 
+    # --levels is user-configurable, so the valid --stop-level choices are validated here
+    if args.stop_level is not None and args.stop_level not in args.levels:
+        parser.error(f"argument --stop-level: invalid choice: '{args.stop_level}' "
+                     f"(choose from {', '.join(args.levels)})")
+
+    if args.top_hits is not None and args.top_hits < 1:
+        parser.error("argument --top-hits: must be a positive integer")
+
     # Validate input file
     if not args.input.exists():
         print(f"Error: Input file not found: {args.input}", file=sys.stderr)
@@ -376,6 +477,8 @@ TSV Format Support:
     print(f"Reading taxonomy data from {args.input}...")
     if args.input_format == 'tsv':
         taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column)
+    elif args.input_format == 'csv':
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',')
     else:
         taxonomy_data = read_gff_taxonomy(args.input)
 
@@ -397,6 +500,16 @@ TSV Format Support:
             taxonomy_paths_with_counts.append((count, path))
 
     print(f"Processed {len(taxonomy_paths_with_counts)} valid taxonomy paths")
+
+    if args.stop_level is not None:
+        print(f"Truncating taxonomy paths at level: {args.stop_level}")
+        taxonomy_paths_with_counts = truncate_to_stop_level(
+            taxonomy_paths_with_counts, args.levels, args.stop_level
+        )
+
+    if args.top_hits is not None:
+        print(f"Keeping top {args.top_hits} taxa per level, merging the rest into '{OTHER_LABEL}'")
+        taxonomy_paths_with_counts = apply_top_hits(taxonomy_paths_with_counts, args.top_hits)
 
     # Build Sankey data
     print("Building Sankey diagram data...")

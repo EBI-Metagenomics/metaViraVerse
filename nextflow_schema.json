@@ -64,6 +64,12 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
+                },
+                "publish_all": {
+                    "type": "boolean",
+                    "description": "Publish outputs for intermediate steps",
+                    "help_text": "Specify if you want to publish valuable steps results in output folder",
+                    "default": false
                 }
             },
             "anyOf": [
@@ -170,6 +176,13 @@
                     "help_text": "Unique custom spaces metadata (Columns: crispr_id, name, parent)",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "custom_genomes_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "TSV with metadata of MGnify genomes that were used to make custom spacers DB",
+                    "help_text": "Concatenated genomes-all-metadata.txt for all MGnify catalogues",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "nucleotide_fasta_chunksize_iphop": {
                     "default": 5000,
                     "description": "Controls the chunking of nucleotide FASTA files for parallel annotation for IPHOP. Format follows seqkit --by-size (this expects a integer).",
@@ -269,7 +282,7 @@
                     "type": "string",
                     "description": "the ViPhOG database, hmmpress'ed"
                 },
-                "additional_model_data": {
+                "additional_viphog_model_data": {
                     "type": "string",
                     "description": "the ViPhOG additional file from ftp://ftp.ebi.ac.uk/pub/databases/metagenomics/viral-pipeline/additional_data_vpHMMs_${params.meta_version}.tsv"
                 },
@@ -277,7 +290,7 @@
                     "type": "string",
                     "description": "the NCBI tax DB to map names"
                 },
-                "factor_file": {
+                "viphogs_factor_file": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Path to file with viral assemblies metadata, including taxon-specific factors"

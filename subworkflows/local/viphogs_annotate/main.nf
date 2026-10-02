@@ -13,9 +13,9 @@ workflow VIPHOGS_ANNOTATION {
     proteins_faa
     proteins_gff
     viphog_db
-    additional_model_data
+    additional_viphog_model_data
     ncbi_db
-    factor_file
+    viphogs_factor_file
 
     main:
     // chunk big fasta file
@@ -43,7 +43,7 @@ workflow VIPHOGS_ANNOTATION {
     // calculate hit qual per protein
     RATIO_EVALUE(
        HMM_POSTPROCESSING.out,
-       additional_model_data
+       additional_viphog_model_data
     )
 
     // annotate contigs based on ViPhOGs
@@ -55,7 +55,7 @@ workflow VIPHOGS_ANNOTATION {
     ASSIGN(
        ANNOTATION.out.annotations,
        ncbi_db,
-       factor_file
+       viphogs_factor_file
     )
 
     emit:

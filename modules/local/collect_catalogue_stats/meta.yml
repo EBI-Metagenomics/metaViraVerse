@@ -17,27 +17,16 @@ input:
   - - meta1:
         type: map
         description: Groovy Map containing sample information
-    - viral_seqs:
+    - json:
         type: file
-        description: FASTA file with viral sequences
-        pattern: "*.{fna,fasta}"
-        ontologies: []
-  - - meta2:
-        type: map
-        description: Groovy Map containing sample information
-    - prophages:
-        type: file
-        description: FASTA file with prophage sequences
-        pattern: "*.{fna,fasta}"
-        ontologies: []
-  - - meta3:
-        type: map
-        description: Groovy Map containing sample information
-    - plasmids:
-        type: file
-        description: FASTA file with plasmid sequences
-        pattern: "*.{fna,fasta}"
-        ontologies: []
+        description: |
+          CHOOSE_SEQUENCES's per-category stats.json (number_of_viral_sequences,
+          number_of_viral_sequence_proteins, number_of_prophages,
+          number_of_prophage_proteins, number_of_plasmids,
+          number_of_plasmid_proteins)
+        pattern: "*.json"
+        ontologies:
+          - edam: http://edamontology.org/format_3464 # JSON
   - - meta4:
         type: map
         description: Groovy Map containing sample information
@@ -65,22 +54,6 @@ input:
         pattern: "*.tsv"
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
-  - - meta7:
-        type: map
-        description: Groovy Map containing sample information
-    - viral_proteins:
-        type: file
-        description: FASTA file with representative viral proteins
-        pattern: "*.{faa,fasta}"
-        ontologies: []
-  - - meta8:
-        type: map
-        description: Groovy Map containing sample information
-    - plasmid_proteins:
-        type: file
-        description: FASTA file with representative plasmid proteins
-        pattern: "*.{faa,fasta}"
-        ontologies: []
   - - meta9:
         type: map
         description: Groovy Map containing sample information

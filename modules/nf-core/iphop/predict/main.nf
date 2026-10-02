@@ -12,8 +12,8 @@ process IPHOP_PREDICT {
     path iphop_db
 
     output:
-    tuple val(meta), path("Host_prediction_to_genus_m*.csv")    , emit: iphop_genus
-    tuple val(meta), path("Host_prediction_to_genome_m*.csv")   , emit: iphop_genome
+    tuple val(meta), path("Host_prediction_to_genus*.csv")    , emit: iphop_genus
+    tuple val(meta), path("Host_prediction_to_genome*.csv")   , emit: iphop_genome
     tuple val(meta), path("Detailed_output_by_tool.csv")        , emit: iphop_detailed_output
     path "versions.yml"                                         , emit: versions
 
@@ -22,6 +22,7 @@ process IPHOP_PREDICT {
 
     script:
     def args   = task.ext.args   ?: ''
+    def chunk_id = fasta.baseName.tokenize('_').last()
     """
     export PERL5LIB=/usr/local/lib/perl5/site_perl/5.22.0
     iphop \\
@@ -32,8 +33,8 @@ process IPHOP_PREDICT {
         --num_threads $task.cpus \\
         $args
 
-    mv iphop_results/Host_prediction_to_genus_m*.csv .
-    mv iphop_results/Host_prediction_to_genome_m*.csv .
+    mv iphop_results/Host_prediction_to_genus_m*.csv Host_prediction_to_genus_${chunk_id}.csv
+    mv iphop_results/Host_prediction_to_genome_m*.csv Host_prediction_to_genome_${chunk_id}.csv
     mv iphop_results/Detailed_output_by_tool.csv .
 
     cat <<-END_VERSIONS > versions.yml

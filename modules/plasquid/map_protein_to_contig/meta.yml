@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: map_protein_to_contig
+description: Build a protein-id-to-contig crosswalk from a representative GFF, for resolving plasquid's protein/RNA hits back to their (renamed) parent contig
+keywords:
+  - plasmid
+  - plasquid
+  - gff
+tools:
+  - map_protein_to_contig:
+      description: |
+        Extracts each CDS feature's seqid (the renamed contig id) and `ID=`
+        attribute (the untouched original protein id) from a GFF with awk,
+        giving an exact (protein_id, contig) crosswalk
+      homepage: ""
+      documentation: ""
+      licence: []
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - gff:
+        type: file
+        description: Representative GFF (CDS features' seqid = renamed contig id, ID= attribute = original protein id)
+        pattern: "*.gff"
+        ontologies:
+          - edam: http://edamontology.org/format_1975 # GFF3
+output:
+  map:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "protein_to_contig.tsv":
+          type: file
+          description: Two-column (protein_id, contig) crosswalk
+          pattern: "protein_to_contig.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

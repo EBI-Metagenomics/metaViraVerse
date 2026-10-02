@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: update_mobility_stats
+description: Combine plaSquid's mobility_stats.json with MOB-suite's predicted mobility counts
+keywords:
+  - plasmid
+  - plasquid
+  - mobsuite
+  - mobility
+tools:
+  - update_mobility_stats:
+      description: |
+        Local script (update_mobility_stats.py) that copies plaSquid's
+        mobility_stats.json keys and adds MOB-suite's predicted_mobility
+        counts from the mob_typer report: mobsuite_total,
+        mobsuite_conjugative, mobsuite_mobilizable and
+        mobsuite_non_mobilizable
+      homepage: ""
+      documentation: ""
+      licence: []
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - mobility_json:
+        type: file
+        description: plaSquid's protein_report record counts (PLASQUID_WORKFLOW.out.mobility_stats), copied into the output
+        pattern: "mobility_stats.json"
+        ontologies: []
+    - mob_report:
+        type: file
+        description: |
+          MOB-suite's mob_typer report (--out_file, run with --multi;
+          predicted_mobility column is counted), or `[]` to skip
+        pattern: "*.txt"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  mobility_stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "mobility_stats_final.json":
+          type: file
+          description: plaSquid record counts plus MOB-suite mobsuite_total/conjugative/mobilizable/non_mobilizable counts
+          pattern: "mobility_stats_final.json"
+          ontologies: []
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"
