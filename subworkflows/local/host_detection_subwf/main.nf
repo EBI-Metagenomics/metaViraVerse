@@ -18,6 +18,9 @@ include { SANKEY_PLOT as SANKEY_IPHOP_GENUS_HOST           } from '../../../modu
 include { SANKEY_PLOT as SANKEY_IPHOP_GENOME_HOST          } from '../../../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_IPHOP_GENUS_HOST_REDUCED   } from '../../../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_IPHOP_GENOME_HOST_REDUCED  } from '../../../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_SPACEPHARER_HOST           } from '../../../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_SPACEPHARER_HOST_REDUCED   } from '../../../modules/local/sankey_plot/main'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -36,6 +39,7 @@ workflow HOST_DETECTION {
     ch_versions = channel.empty()
     iphop_host_genome = channel.empty()
     iphop_host_genus = channel.empty()
+    spacepharer_host = channel.empty()
 
     if ( !params.skip_iphop) {
         CHUNK_FNA_IPHOP (
@@ -122,10 +126,20 @@ workflow HOST_DETECTION {
            metadata
         )
         ch_versions = ch_versions.mix(COLLECT_HOST_INFO.out.versions)
+
+        SANKEY_SPACEPHARER_HOST (
+            COLLECT_HOST_INFO.out.tsv
+        )
+
+        SANKEY_SPACEPHARER_HOST_REDUCED (
+            COLLECT_HOST_INFO.out.tsv
+        )
+        spacepharer_host = COLLECT_HOST_INFO.out.tsv
     }
 
     emit:
     iphop_host_genome   = iphop_host_genome
     iphop_host_genus    = iphop_host_genus
+    spacepharer_host    = spacepharer_host
     versions            = ch_versions                 // channel: [ path(versions.yml) ]
 }

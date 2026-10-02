@@ -125,10 +125,15 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
         PROCESS_PLASMIDS.out.clustering_tsv,
         params.catalogues_metadata,
-        PROCESS_VIRAL_SEQUENCES.out.vitap_best,
-        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign,
-        PROCESS_VIRAL_SEQUENCES.out.genomad_assign,
-        PREPROCESSING.out.mapfile.map { _meta, f -> f }
+        PROCESS_VIRAL_SEQUENCES.out.vitap_best.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.genomad_assign.map { _meta, f -> f }.ifEmpty([]),
+        PREPROCESSING.out.mapfile.map { _meta, f -> f },
+        // optional host predictions: empty channels when iPHoP / SpacePHARER are skipped,
+        // so fall back to [] (no file) instead of blocking COLLECT_METADATA
+        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genome.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genus.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.spacepharer_host.map { _meta, f -> f }.ifEmpty([])
     )
     ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 
