@@ -18,7 +18,6 @@ include { COLLECT_METADATA                      } from '../modules/local/collect
 include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
 
-include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,11 +67,6 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish and compress viruses
-    COMPRESS_VIRUSES (
-        viruses
-    )
-
     //
     // Process viruses
     //
@@ -113,7 +107,9 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
         PREPROCESSING.out.excluded_qc,
-        PREPROCESSING.out.input_metadata
+        PREPROCESSING.out.input_metadata,
+        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
+        PROCESS_PLASMIDS.out.reps_proteins
     )
     ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 
