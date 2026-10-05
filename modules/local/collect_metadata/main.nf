@@ -13,9 +13,9 @@ process COLLECT_METADATA {
     tuple val(meta_viral), path(viral_clusters)
     tuple val(meta_plasmid), path(plasmid_clusters)
     path(additional_metadata)
-    tuple val(meta_vitap), path(vitap_best)
-    tuple val(meta_viphogs), path(viphogs_taxonomy)
-    tuple val(meta_genomad), path(genomad)
+    path(vitap_best)
+    path(viphogs_taxonomy)
+    path(genomad)
     path(map_file)
     path(iphop_genome)      // optional: [] when iPHoP was skipped
     path(iphop_genus)       // optional: [] when iPHoP was skipped
