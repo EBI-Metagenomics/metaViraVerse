@@ -86,7 +86,7 @@ nextflow run main.nf \
 
 ## Outputs
 
-Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](output.md).
+Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](docs/output.md).
 
 ## Citations
 
