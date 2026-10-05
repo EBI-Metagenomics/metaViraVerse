@@ -32,12 +32,12 @@ def parse_args():
                         help="Plasmids cluster TSV from vclust (columns: object, cluster)")
     parser.add_argument("--additional_metadata", required=True,
                         help="Concatenated catalogue metadata tables with header")
-    parser.add_argument("--viruses_vitap", required=True,
-                        help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...)")
-    parser.add_argument("--viphogs_taxonomy", required=True,
-                        help="Per-contig ViPhOGs taxonomy TSV (columns: contig_ID, superkingdom, ...)")
-    parser.add_argument("--genomad", required=True,
-                        help="geNomad virus summary TSV (columns: seq_name, taxonomy, ...)")
+    parser.add_argument("--viruses_vitap", required=False, default=None,
+                        help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...). Optional")
+    parser.add_argument("--viphogs_taxonomy", required=False, default=None,
+                        help="Per-contig ViPhOGs taxonomy TSV (columns: contig_ID, superkingdom, ...). Optional")
+    parser.add_argument("--genomad", required=False, default=None,
+                        help="geNomad virus summary TSV (columns: seq_name, taxonomy, ...). Optional")
     parser.add_argument("--map", required=True,
                         help="Rename map TSV from rename_contigs (columns: original, temporary, short, biome, type)")
     parser.add_argument("--host-iphop-genome", dest="host_iphop_genome", default=None,
@@ -107,6 +107,8 @@ def load_viphogs_taxonomy(path):
     taxonomy = {}
     with open(path) as fh:
         reader = csv.DictReader(fh, delimiter="\t")
+        if not reader.fieldnames:  # empty file
+            return {}
         reader.fieldnames = [f.strip() for f in reader.fieldnames]
         ranks = [f for f in reader.fieldnames if f != "contig_ID"]
         for row in reader:
@@ -452,14 +454,18 @@ def main():
     print("Loading genome metadata...")
     all_meta = load_all_metadata(args.additional_metadata)
 
-    print("Loading ViTAP taxonomy...")
-    vitap = load_vitap(args.viruses_vitap)
-
-    print("Loading ViPhOGs taxonomy...")
-    viphogs_tax = load_viphogs_taxonomy(args.viphogs_taxonomy)
-
-    print("Loading geNomad taxonomy...")
-    genomad = load_genomad(args.genomad)
+    # Taxonomy inputs are optional (the tools can be skipped); a missing input
+    # leaves the corresponding lineage columns as "missing".
+    vitap, viphogs_tax, genomad = {}, {}, {}
+    if args.viruses_vitap:
+        print("Loading ViTAP taxonomy...")
+        vitap = load_vitap(args.viruses_vitap)
+    if args.viphogs_taxonomy:
+        print("Loading ViPhOGs taxonomy...")
+        viphogs_tax = load_viphogs_taxonomy(args.viphogs_taxonomy)
+    if args.genomad:
+        print("Loading geNomad taxonomy...")
+        genomad = load_genomad(args.genomad)
 
     hosts = {"iphop_genome": {}, "iphop_genus": {}, "spacepharer": {}}
     if args.host_iphop_genome:
