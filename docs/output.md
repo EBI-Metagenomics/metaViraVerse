@@ -33,7 +33,8 @@ The pipeline produces the following outputs:
 
 Missing values are written as `missing` by the metadata step, or as `NA` / `not-provided` when the value was already absent in an earlier step. In the tables below, **Can be missing** says whether a column can hold one of these values instead of real data, and when.
 
-#### `viruses-all-metadata.tsv.gz`
+<details markdown="1">
+<summary>Columns of <code>viruses-all-metadata.tsv.gz</code></summary>
 
 | Column | Can be missing | Description |
 | --- | --- | --- |
@@ -65,7 +66,10 @@ Missing values are written as `missing` by the metadata step, or as `NA` / `not-
 | `proviral_length` | Yes (`NA`) | Length (bp) of the viral region when `provirus` is `Yes`. |
 | `kmer_freq` | Yes (`NA`) | Average k-mer frequency; values well above 1 indicate a sequence with repeated regions (possible assembly artefact). |
 
-#### `viruses-cluster-stats.tsv.gz`
+</details>
+
+<details markdown="1">
+<summary>Columns of <code>viruses-cluster-stats.tsv.gz</code></summary>
 
 One row per viral cluster, described by its representative and by aggregates over all cluster members.
 
@@ -85,7 +89,10 @@ One row per viral cluster, described by its representative and by aggregates ove
 | `cluster_completeness_range` | Yes (`missing`) | Range of CheckV completeness across members (`min-max`, or a single value when only one member has an estimate). |
 | `cluster_contamination_range` | Yes (`missing`) | Range of CheckV contamination across members, in the same format as `cluster_completeness_range`. |
 
-#### `plasmids-all-metadata.tsv.gz`
+</details>
+
+<details markdown="1">
+<summary>Columns of <code>plasmids-all-metadata.tsv.gz</code></summary>
 
 Plasmids are not assessed with CheckV and are not assigned viral taxonomy or hosts, so this table has a subset of the virus columns.
 
@@ -102,6 +109,8 @@ Plasmids are not assessed with CheckV and are not assigned viral taxonomy or hos
 | `Source_project` | Yes (`missing`) | ENA study/project accession of the source genome. Same rules as `Source_accession`. |
 | `Sequence_length` | No | Sequence length in bp. |
 | `Sequence_sha256` | No | SHA-256 checksum of the (upper-case) nucleotide sequence. |
+
+</details>
 
 ## Viruses
 
