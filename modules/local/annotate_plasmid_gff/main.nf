@@ -17,20 +17,25 @@ process ANNOTATE_PLASMID_GFF {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(gff), path(protein_report), path(biomarker_report), path(mob_report), path(amr_gff)
+    tuple val(meta), path(gff)
+    path(protein_report)
+    path(biomarker_report)
+    path(mob_report)
+    path(amr_gff)
 
     output:
     tuple val(meta), path("${meta.id}_plasquid_annotated.gff"), emit: gff
     path "versions.yml",                                        emit: versions
 
     script:
+    def protein_report_arg   = protein_report   ? "--table ${protein_report}"              : ""
     def biomarker_report_arg = biomarker_report ? "--biomarker-report ${biomarker_report}" : ""
     def amr_gff_arg          = amr_gff          ? "--amr-gff ${amr_gff}"                   : ""
     def mob_report_arg       = mob_report       ? "--mob-report ${mob_report}"             : ""
     """
     annotate_plasmid_gff.py \\
         --gff ${gff} \\
-        --table ${protein_report} \\
+        ${protein_report_arg} \\
         ${biomarker_report_arg} \\
         ${amr_gff_arg} \\
         ${mob_report_arg} \\

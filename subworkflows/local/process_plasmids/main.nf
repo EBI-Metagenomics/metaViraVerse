@@ -147,14 +147,11 @@ workflow PROCESS_PLASMIDS {
     // `[]` (no file), which the script treats as "no evidence supplied" via
     // its own --biomarker-report/--amr-gff ? ... : "" checks.
     ANNOTATE_PLASMID_GFF(
-        EXTRACT_CLUSTER_FILES.out.reps_gff
-            .join(PLASQUID_WORKFLOW.out.protein_report)
-            .join(CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out, remainder: true)
-            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
-            .join(AMR_ANNOTATION.out.gff, remainder: true)
-            .map { meta, gff, protein_report, biomarker_report, mob_report, amr_gff ->
-                tuple(meta, gff, protein_report, biomarker_report ?: [], mob_report ?: [], amr_gff ?: [])
-            }
+        EXTRACT_CLUSTER_FILES.out.reps_gff,
+        PLASQUID_WORKFLOW.out.protein_report.map { _meta, f -> f },
+        CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
+        CONCATENATE_MOBSUITE_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
+        AMR_ANNOTATION.out.gff.map { _meta, f -> f }.ifEmpty([])
     )
     ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
 
