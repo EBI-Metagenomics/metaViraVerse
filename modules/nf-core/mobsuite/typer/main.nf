@@ -21,7 +21,7 @@ process MOBSUITE_TYPER {
     val generate_mge_report
 
     output:
-    tuple val(meta), path("${prefix}.txt"), emit: report
+    tuple val(meta), path("${task.ext.prefix ?: meta.id}.txt"), emit: report
     tuple val(meta), path("*_biomarker_report.txt"), optional: true, emit: biomarker_report
     tuple val(meta), path("*_mge_report.txt"), optional: true, emit: mge_report
     tuple val("${task.process}"), val('mobsuite'), eval("mob_typer --version | sed 's/mob_typer //g'"), topic: versions, emit: versions_mobsuite
