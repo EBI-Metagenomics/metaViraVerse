@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: mobsearch
+description: Identify mobilisation/relaxase (MOB) genes by hmmsearch against the MOB profile database, keeping hits passing each MOB family's curated score cutoff
+keywords:
+  - plasmid
+  - plasquid
+  - mobilisation
+  - hmmer
+tools:
+  - mobsearch:
+      description: |
+        Local scripts (plasquid_filter_mob.R, plasquid_mob_extraction.R) that apply
+        the plasquid tool's curated per-MOB-family bit-score cutoffs to hmmsearch hits
+        and extract the accepted proteins' sequences
+      homepage: https://github.com/mgimenez720/plaSquid
+      documentation: https://github.com/mgimenez720/plaSquid
+      licence: []
+      identifier: ""
+  - hmmer:
+      description: Biosequence analysis using profile hidden Markov models
+      homepage: http://hmmer.org/
+      documentation: http://hmmer.org/documentation.html
+      licence: ["BSD"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - proteins:
+        type: file
+        description: Plasmid cluster representative protein sequences
+        pattern: "*.{faa,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+    - protein_to_contig:
+        type: file
+        description: Protein-id-to-contig crosswalk (MAP_PROTEIN_TO_CONTIG module output)
+        pattern: "protein_to_contig.tsv"
+        ontologies: []
+  - - mobsearch_db:
+        type: directory
+        description: Path to the MOB HMM profile database (`--mobsearch_db`)
+        pattern: "*"
+        ontologies: []
+output:
+  mob_candidates:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "mob_candidates.tsv":
+          type: file
+          description: Raw hmmsearch --domtblout hits of proteins against the MOB database
+          pattern: "mob_candidates.tsv"
+          ontologies: []
+  mob_table:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "mob_table.tsv":
+          type: file
+          description: Accepted MOB hits after per-family score filtering
+          pattern: "mob_table.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  mob_seqs:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "mob_seqs.faa":
+          type: file
+          description: Protein sequences of the accepted MOB hits
+          pattern: "mob_seqs.faa"
+          ontologies:
+            - edam: http://edamontology.org/format_1929 # FASTA
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

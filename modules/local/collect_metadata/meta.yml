@@ -79,6 +79,31 @@ input:
         pattern: "*.tsv"
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
+  - - iphop_genome:
+        type: file
+        description: |
+          iPHoP Host_prediction_to_genome CSV ('Host taxonomy' column; highest
+          confidence host per virus is kept), or `[]` when iPHoP was skipped
+        pattern: "*.csv"
+        ontologies:
+          - edam: http://edamontology.org/format_3752 # CSV
+  - - iphop_genus:
+        type: file
+        description: |
+          iPHoP Host_prediction_to_genus CSV ('Host genus' column; highest
+          confidence host per virus is kept), or `[]` when iPHoP was skipped
+        pattern: "*.csv"
+        ontologies:
+          - edam: http://edamontology.org/format_3752 # CSV
+  - - spacepharer:
+        type: file
+        description: |
+          SpacePHARER host TSV from collect_crispr_host_info.py ('host_lineage'
+          column; lowest e-value host per virus is kept), or `[]` when
+          SpacePHARER was not run
+        pattern: "*.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
 output:
   viruses_final_metadata:
     - "viruses-all-metadata.tsv.gz":

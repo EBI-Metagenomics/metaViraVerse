@@ -28,15 +28,15 @@ input:
   - viphog_db:
       type: directory
       description: Path to the ViPhOGs HMM profile database (`--viphog_db`)
-  - additional_model_data:
+  - additional_viphog_model_data:
       type: file
-      description: Supplementary ViPhOGs model metadata used when scoring HMM hits
+      description: Supplementary ViPhOGs model metadata used when scoring HMM hits (`--additional_viphog_model_data`)
   - ncbi_db:
       type: directory
       description: Path to the NCBI taxonomy database used for lineage assignment (`--ncbi_db`)
-  - factor_file:
+  - viphogs_factor_file:
       type: file
-      description: Optional ViPhOGs lineage weighting factor file (`--factor_file`), or `false` to leave unset
+      description: Optional ViPhOGs lineage weighting factor file (`--viphogs_factor_file`), or `[]` to leave unset
 output:
   - assignment:
       type: file

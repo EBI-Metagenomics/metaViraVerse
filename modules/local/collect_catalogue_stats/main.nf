@@ -9,16 +9,14 @@ process COLLECT_CATALOGUE_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta1), path(viral_seqs)
-    tuple val(meta2), path(prophages)
-    tuple val(meta3), path(plasmids)
+    tuple val(meta1), path(json)
     tuple val(meta4), path(metadata)
     tuple val(meta5), path(clusters_viruses)
     tuple val(meta6), path(clusters_plasmids)
-    tuple val(meta7), path(viral_proteins)
-    tuple val(meta8), path(plasmid_proteins)
     tuple val(meta9), path(excluded_metadata)
     tuple val(meta10), path(initial_metadata)
+    tuple val(meta_prot_viral), path(clusters_viruses_prot)
+    tuple val(meta_prot_plasmid), path(clusters_plasmids_prot)
 
     output:
     path("*.json"),                      emit: catalogue_json
@@ -27,16 +25,14 @@ process COLLECT_CATALOGUE_STATS {
     script:
     """
     collect_catalogue_stats.py \\
-      --viral-sequences ${viral_seqs} \\
-      --plasmids ${plasmids} \\
-      --prophages ${prophages} \\
+      --initial-json ${json} \\
       --metadata ${metadata} \\
       --clusters-viruses ${clusters_viruses} \\
       --clusters-plasmids ${clusters_plasmids} \\
-      --proteins-viruses ${viral_proteins} \\
-      --proteins-plasmids ${plasmid_proteins} \\
       --excluded-metadata ${excluded_metadata} \\
       --initial-metadata ${initial_metadata} \\
+      --viruses-reps-proteins ${clusters_viruses_prot} \\
+      --plasmids-reps-proteins ${clusters_plasmids_prot} \\
       -o catalogue.json
 
     cat <<-END_VERSIONS > versions.yml

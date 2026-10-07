@@ -32,14 +32,20 @@ def parse_args():
                         help="Plasmids cluster TSV from vclust (columns: object, cluster)")
     parser.add_argument("--additional_metadata", required=True,
                         help="Concatenated catalogue metadata tables with header")
-    parser.add_argument("--viruses_vitap", required=True,
-                        help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...)")
-    parser.add_argument("--viphogs_taxonomy", required=True,
-                        help="Per-contig ViPhOGs taxonomy TSV (columns: contig_ID, superkingdom, ...)")
-    parser.add_argument("--genomad", required=True,
-                        help="geNomad virus summary TSV (columns: seq_name, taxonomy, ...)")
+    parser.add_argument("--viruses_vitap", required=False, default=None,
+                        help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...). Optional")
+    parser.add_argument("--viphogs_taxonomy", required=False, default=None,
+                        help="Per-contig ViPhOGs taxonomy TSV (columns: contig_ID, superkingdom, ...). Optional")
+    parser.add_argument("--genomad", required=False, default=None,
+                        help="geNomad virus summary TSV (columns: seq_name, taxonomy, ...). Optional")
     parser.add_argument("--map", required=True,
                         help="Rename map TSV from rename_contigs (columns: original, temporary, short, biome, type)")
+    parser.add_argument("--host-iphop-genome", dest="host_iphop_genome", default=None,
+                        help="iPHoP Host_prediction_to_genome CSV (columns: Virus, Host taxonomy, Confidence score, ...). Optional")
+    parser.add_argument("--host-iphop-genus", dest="host_iphop_genus", default=None,
+                        help="iPHoP Host_prediction_to_genus CSV (columns: Virus, Host genus, Confidence score, ...). Optional")
+    parser.add_argument("--host-spacepharer", dest="host_spacepharer", default=None,
+                        help="SpacePHARER host TSV from collect_crispr_host_info.py (columns: viral_seq, host_lineage, evalue, ...). Optional")
     parser.add_argument("--output_viruses", required=True,
                         help="Output TSV for viral sequences and prophages")
     parser.add_argument("--output_plasmids", required=True,
@@ -101,6 +107,8 @@ def load_viphogs_taxonomy(path):
     taxonomy = {}
     with open(path) as fh:
         reader = csv.DictReader(fh, delimiter="\t")
+        if not reader.fieldnames:  # empty file
+            return {}
         reader.fieldnames = [f.strip() for f in reader.fieldnames]
         ranks = [f for f in reader.fieldnames if f != "contig_ID"]
         for row in reader:
@@ -122,6 +130,58 @@ def load_genomad(path):
         for row in reader:
             genomad[row["seq_name"]] = row.get("taxonomy", MISSING) or MISSING
     return genomad
+
+
+def load_iphop(path, lineage_column):
+    """Return dict: Virus (MGYV catalogue ID) -> host lineage from an iPHoP CSV.
+
+    iPHoP lists several candidate hosts per virus; the one with the highest
+    `Confidence score` is kept. Repeated header lines (from concatenating
+    chunked outputs) and empty lineages are skipped. An empty file yields {}.
+    """
+    best = {}  # virus -> (score, lineage)
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh)
+        if not reader.fieldnames:
+            return {}
+        if lineage_column not in reader.fieldnames:
+            raise SystemExit(
+                f"Column '{lineage_column}' not found in {path}; available: {', '.join(reader.fieldnames)}"
+            )
+        for row in reader:
+            virus = (row.get("Virus") or "").strip()
+            lineage = (row.get(lineage_column) or "").strip()
+            if not virus or virus == "Virus" or not lineage:
+                continue
+            score = _safe_float(row.get("Confidence score"))
+            score = score if score is not None else float("-inf")
+            if virus not in best or score > best[virus][0]:
+                best[virus] = (score, lineage)
+    return {virus: lineage for virus, (_, lineage) in best.items()}
+
+
+def load_spacepharer(path):
+    """Return dict: viral_seq (MGYV catalogue ID) -> host_lineage.
+
+    collect_crispr_host_info.py can write several rows per virus (one per
+    parent genome of the matching spacer); the row with the lowest `evalue`
+    is kept. "NA" lineages and an empty file are skipped.
+    """
+    best = {}  # viral_seq -> (evalue, lineage)
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        if not reader.fieldnames:
+            return {}
+        for row in reader:
+            viral_seq = (row.get("viral_seq") or "").strip()
+            lineage = (row.get("host_lineage") or "").strip()
+            if not viral_seq or viral_seq == "viral_seq" or not lineage or lineage == "NA":
+                continue
+            evalue = _safe_float(row.get("evalue"))
+            evalue = evalue if evalue is not None else float("inf")
+            if viral_seq not in best or evalue < best[viral_seq][0]:
+                best[viral_seq] = (evalue, lineage)
+    return {viral_seq: lineage for viral_seq, (_, lineage) in best.items()}
 
 
 def load_map(path):
@@ -189,10 +249,11 @@ def _safe_float(val):
 
 def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                   viphogs_tax, genomad, desc_to_mgyv,
-                  out_path, compress):
+                  out_path, compress, hosts):
     fieldnames = [
         "ID", "Original_ID", "Source_of_prediction", "rRNA", "Cluster_rep",
         "vitap_lineage", "viphogs_lineage", "genomad_lineage",
+        "Host_iphop_genome_lineage", "Host_iphop_genus_lineage", "Host_spacepharer_lineage",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
         "Sequence_length", "Sequence_sha256",
     ] + CHECKV_FIELDS
@@ -215,6 +276,9 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                 "vitap_lineage":        vitap.get(mgyv, MISSING),
                 "viphogs_lineage":      viphogs_tax.get(mgyv, MISSING) if mgyv else MISSING,
                 "genomad_lineage":      genomad.get(mgyv, MISSING) if mgyv else MISSING,
+                "Host_iphop_genome_lineage": hosts["iphop_genome"].get(mgyv, MISSING) if mgyv else MISSING,
+                "Host_iphop_genus_lineage":  hosts["iphop_genus"].get(mgyv, MISSING) if mgyv else MISSING,
+                "Host_spacepharer_lineage":  hosts["spacepharer"].get(mgyv, MISSING) if mgyv else MISSING,
                 "Source":               row.get("type", MISSING),
                 "Biome":                row.get("biomes", MISSING),
                 "Source_accession":     meta.get("Genome_accession", MISSING),
@@ -390,14 +454,31 @@ def main():
     print("Loading genome metadata...")
     all_meta = load_all_metadata(args.additional_metadata)
 
-    print("Loading ViTAP taxonomy...")
-    vitap = load_vitap(args.viruses_vitap)
+    # Taxonomy inputs are optional (the tools can be skipped); a missing input
+    # leaves the corresponding lineage columns as "missing".
+    vitap, viphogs_tax, genomad = {}, {}, {}
+    if args.viruses_vitap:
+        print("Loading ViTAP taxonomy...")
+        vitap = load_vitap(args.viruses_vitap)
+    if args.viphogs_taxonomy:
+        print("Loading ViPhOGs taxonomy...")
+        viphogs_tax = load_viphogs_taxonomy(args.viphogs_taxonomy)
+    if args.genomad:
+        print("Loading geNomad taxonomy...")
+        genomad = load_genomad(args.genomad)
 
-    print("Loading ViPhOGs taxonomy...")
-    viphogs_tax = load_viphogs_taxonomy(args.viphogs_taxonomy)
-
-    print("Loading geNomad taxonomy...")
-    genomad = load_genomad(args.genomad)
+    hosts = {"iphop_genome": {}, "iphop_genus": {}, "spacepharer": {}}
+    if args.host_iphop_genome:
+        print("Loading iPHoP genome-level hosts...")
+        hosts["iphop_genome"] = load_iphop(args.host_iphop_genome, "Host taxonomy")
+    if args.host_iphop_genus:
+        print("Loading iPHoP genus-level hosts...")
+        hosts["iphop_genus"] = load_iphop(args.host_iphop_genus, "Host genus")
+    if args.host_spacepharer:
+        print("Loading SpacePHARER hosts...")
+        hosts["spacepharer"] = load_spacepharer(args.host_spacepharer)
+    for name, table in hosts.items():
+        print(f"  {name}: {len(table)} viruses with a host")
 
     print("Loading rename map...")
     desc_to_mgyv, mgyv_to_desc = load_map(args.map)
@@ -421,7 +502,7 @@ def main():
     written = write_viruses(
         virus_rows, virus_member_to_rep, all_meta, vitap,
         viphogs_tax, genomad, desc_to_mgyv,
-        args.output_viruses, args.compress,
+        args.output_viruses, args.compress, hosts,
     )
     print(f"  -> {written}")
 

@@ -19,8 +19,7 @@ process SANKEY_PLOT {
     plot_taxonomy_sankey.py \\
         ${args} \\
         --input ${table} \\
-        --output ${prefix}_sankey.html \\
-        --input-format tsv
+        --output ${prefix}_sankey.html
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

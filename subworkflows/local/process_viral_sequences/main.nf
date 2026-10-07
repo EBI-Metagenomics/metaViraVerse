@@ -86,7 +86,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     HOST_DETECTION (
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        params.catalogues_metadata
+        params.custom_genomes_metadata,
+        mapfile
     )
     ch_versions = ch_versions.mix(HOST_DETECTION.out.versions)
 
@@ -119,9 +120,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
        params.skip_genomad,
        params.skip_viphogs,
        params.viphog_db,
-       params.additional_model_data,
+       params.additional_viphog_model_data,
        params.ncbi_db,
-       params.factor_file ? params.factor_file: channel.value(false)
+       params.viphogs_factor_file ? params.viphogs_factor_file: []
     )
     ch_versions = ch_versions.mix(TAXONOMY_ASSIGNMENT.out.versions)
 
@@ -159,13 +160,16 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     emit:
 
-    clustering_tsv = CLUSTERING.out.clusters_tsv  // [meta, tsv]
-    reps_tsv       = EXTRACT_CLUSTER_FILES.out.reps_list
-    reps_seqs      = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed  // compressed
-    reps_proteins  = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed  // compressed
-    vitap_best     = TAXONOMY_ASSIGNMENT.out.vitap_best
-    viphogs_assign = TAXONOMY_ASSIGNMENT.out.viphogs_taxonomy
-    genomad_assign = TAXONOMY_ASSIGNMENT.out.genomad_taxonomy
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    clustering_tsv      = CLUSTERING.out.clusters_tsv  // [meta, tsv]
+    reps_tsv            = EXTRACT_CLUSTER_FILES.out.reps_list
+    reps_seqs           = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed  // compressed
+    reps_proteins       = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed  // compressed
+    vitap_best          = TAXONOMY_ASSIGNMENT.out.vitap_best
+    viphogs_assign      = TAXONOMY_ASSIGNMENT.out.viphogs_taxonomy
+    genomad_assign      = TAXONOMY_ASSIGNMENT.out.genomad_taxonomy
+    iphop_host_genome   = HOST_DETECTION.out.iphop_host_genome
+    iphop_host_genus    = HOST_DETECTION.out.iphop_host_genus
+    spacepharer_host    = HOST_DETECTION.out.spacepharer_host
+    versions            = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

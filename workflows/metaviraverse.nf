@@ -15,9 +15,9 @@ include { THIRD_PARTY_DATA                      } from '../subworkflows/local/th
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
+include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
 
-include { PIGZ_COMPRESS as COMPRESS_PLASMIDS    } from '../modules/nf-core/pigz/compress/main'
-include { PIGZ_COMPRESS as COMPRESS_VIRUSES     } from '../modules/nf-core/pigz/compress/main'
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,11 +67,6 @@ workflow METAVIRAVERSE {
         .collectFile(name: "viruses.fasta")
         .map{ seqs -> [[id: 'viruses'], seqs]}
 
-    // publish and compress viruses
-    COMPRESS_VIRUSES (
-        viruses
-    )
-
     //
     // Process viruses
     //
@@ -84,17 +79,12 @@ workflow METAVIRAVERSE {
     )
     ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
-    // Process plasmids filtered from input
+    // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
 
     plasmids = PREPROCESSING.out.plasmids
        .map{ _meta, fna, gff, faa -> fna }
        .collectFile(name: "plasmids.fasta")
        .map{ seqs -> [[id: 'plasmids'], seqs]}
-
-    // publish and compress plasmids
-    COMPRESS_PLASMIDS (
-        plasmids
-    )
 
     //
     // Process plasmids
@@ -112,16 +102,14 @@ workflow METAVIRAVERSE {
     // Collect stats for whole catalogue into JSON
     //
     COLLECT_CATALOGUE_STATS (
-        PREPROCESSING.out.viral_sequences.map{ meta, fna, gff, faa -> [meta, fna] },
-        PREPROCESSING.out.prophages.map{ meta, fna, gff, faa -> [meta, fna] },
-        PREPROCESSING.out.plasmids.map{ meta, fna, gff, faa -> [meta, fna] },
+        PREPROCESSING.out.stats_json,
         PREPROCESSING.out.metadata,
         PROCESS_VIRAL_SEQUENCES.out.reps_tsv,
         PROCESS_PLASMIDS.out.reps_tsv,
-        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
-        PROCESS_PLASMIDS.out.reps_proteins,
         PREPROCESSING.out.excluded_qc,
-        PREPROCESSING.out.input_metadata
+        PREPROCESSING.out.input_metadata,
+        PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
+        PROCESS_PLASMIDS.out.reps_proteins
     )
     ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 
@@ -133,13 +121,28 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.clustering_tsv,
         PROCESS_PLASMIDS.out.clustering_tsv,
         params.catalogues_metadata,
-        PROCESS_VIRAL_SEQUENCES.out.vitap_best,
-        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign,
-        PROCESS_VIRAL_SEQUENCES.out.genomad_assign,
-        PREPROCESSING.out.mapfile.map { _meta, f -> f }
+        PROCESS_VIRAL_SEQUENCES.out.vitap_best.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.genomad_assign.map { _meta, f -> f }.ifEmpty([]),
+        PREPROCESSING.out.mapfile.map { _meta, f -> f },
+        // optional host predictions: empty channels when iPHoP / SpacePHARER are skipped,
+        // so fall back to [] (no file) instead of blocking COLLECT_METADATA
+        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genome.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genus.map { _meta, f -> f }.ifEmpty([]),
+        PROCESS_VIRAL_SEQUENCES.out.spacepharer_host.map { _meta, f -> f }.ifEmpty([])
     )
     ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 
+
+    // Plot Sankey for hosts
+    SANKEY_PLASMIDS_HOST (
+        COLLECT_METADATA.out.plasmids_final_metadata
+    )
+
+    // Plot Sankey for hosts
+    SANKEY_VIRUSES_HOST (
+        COLLECT_METADATA.out.viruses_final_metadata
+    )
 
     //
     // Collate and save software versions

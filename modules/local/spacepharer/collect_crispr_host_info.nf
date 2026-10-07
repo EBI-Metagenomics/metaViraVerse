@@ -9,11 +9,13 @@ process COLLECT_HOST_INFO {
     input:
     tuple val(meta_predictions), path(predictions)
     tuple val(meta_spacers), path(spacers_metadata)
+    path(mapping_file)
     path(metadata)
 
     output:
     tuple val(meta_predictions), path("custom_chosen_host.tsv"),    emit: tsv
-    path "versions.yml",                                      emit: versions
+    tuple val(meta_predictions), path("*.json"),                    emit: lineage_comparison_json
+    path "versions.yml",                                            emit: versions
 
     script:
     """
@@ -21,7 +23,8 @@ process COLLECT_HOST_INFO {
         -p ${predictions} \\
         -c ${spacers_metadata} \\
         -m ${metadata} \\
-        -o custom_chosen_host.tsv
+        -o custom_chosen_host.tsv \\
+        --rename-map ${mapping_file}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

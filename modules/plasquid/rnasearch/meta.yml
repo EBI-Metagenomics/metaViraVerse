@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: rnasearch
+description: Search plasmid contigs for Inc-associated RNA (Col/Rep) elements with Infernal cmsearch
+keywords:
+  - plasmid
+  - plasquid
+  - incompatibility
+  - infernal
+tools:
+  - infernal:
+      description: Infernal ("INFERence of RNA ALignment") searches sequence databases for RNA structure and sequence similarities
+      homepage: http://eddylab.org/infernal/
+      documentation: http://eddylab.org/infernal/Userguide.pdf
+      licence: ["BSD"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'plasmids' ]
+    - fna:
+        type: file
+        description: Plasmid cluster representative nucleotide sequences
+        pattern: "*.{fna,fasta}"
+        ontologies:
+          - edam: http://edamontology.org/format_1929 # FASTA
+  - - rna_inc_db:
+        type: directory
+        description: Path to the Inc-associated RNA covariance model database (`--rna_inc_db`)
+        pattern: "*"
+        ontologies: []
+output:
+  rna_candidates:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "rna_candidates.tsv":
+          type: file
+          description: Infernal cmsearch --tblout hits of contigs against the Inc-RNA database
+          pattern: "rna_candidates.tsv"
+          ontologies: []
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

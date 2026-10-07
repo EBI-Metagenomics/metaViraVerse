@@ -8,6 +8,9 @@ include { BARRNAP                                        } from '../../../module
 include { CSVTK_CONCAT as CONCATENATE_CHECKV             } from '../../../modules/nf-core/csvtk/concat'
 include { CHECKV_ENDTOEND                                } from '../../../modules/nf-core/checkv/endtoend'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                     } from '../../../modules/nf-core/seqkit/split2'
+include { PIGZ_COMPRESS as COMPRESS_VIRAL_SEQ_FILES      } from '../../../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_PLASMIDS_FILES       } from '../../../modules/nf-core/pigz/compress/main'
+include { PIGZ_COMPRESS as COMPRESS_PROPHAGES_FILES      } from '../../../modules/nf-core/pigz/compress/main'
 
 
 workflow PREPROCESSING {
@@ -26,16 +29,16 @@ workflow PREPROCESSING {
     // It will also rename ID in attributes column in GFF
     // That step is running with --combine option and it will return one renamed FASTA and GFF
 
-    ch_fna       = input.map { meta, fna, gff, faa -> fna }.collect()
-    ch_gff       = input.map { meta, fna, gff, faa -> gff }.collect()
-    ch_sources   = input.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect()
-    ch_biomes    = input.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect()
+    ch_fna       = input.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
+    ch_gff       = input.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
+    ch_sources   = input.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
+    ch_biomes    = input.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
 
-    ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect()
-    ch_gff_tp    = ch_third_party_data.map { meta, fna, gff, faa -> gff }.collect()
-    ch_types_tp  = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.type]) }.collect()
-    ch_biomes_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect()
-    ch_source_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect()
+    ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
+    ch_gff_tp    = ch_third_party_data.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
+    ch_types_tp  = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.type]) }.collect().ifEmpty([])
+    ch_biomes_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
+    ch_source_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
 
     // Raw pool of protein sequences (original, unrenamed protein IDs) from both sources,
     // used later to pull out just the proteins that survive separation + deduplication
@@ -159,6 +162,30 @@ workflow PREPROCESSING {
         RENAME_CONTIGS.out.map_file
     )
 
+    COMPRESS_VIRAL_SEQ_FILES (
+        CHOOSE_SEQUENCES.out.virus_data
+        .map { meta, fna, gff, faa ->
+            [meta, [fna, gff, faa]]
+        }
+        .transpose()
+    )
+
+    COMPRESS_PLASMIDS_FILES (
+        CHOOSE_SEQUENCES.out.plasmid_data
+        .map { meta, fna, gff, faa ->
+            [meta, [fna, gff, faa]]
+        }
+        .transpose()
+    )
+
+    COMPRESS_PROPHAGES_FILES (
+        CHOOSE_SEQUENCES.out.prophage_data
+        .map { meta, fna, gff, faa ->
+            [meta, [fna, gff, faa]]
+        }
+        .transpose()
+    )
+
     emit:
     mapfile             = RENAME_CONTIGS.out.map_file             // [id:combined, metadata.tsv]
 
@@ -177,6 +204,8 @@ workflow PREPROCESSING {
     combined_gff        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> gff }
 
     combined_faa        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> faa }
+
+    stats_json          = CHOOSE_SEQUENCES.out.stats
 
     versions            = ch_versions                        // channel: [ path(versions.yml) ]
 }
