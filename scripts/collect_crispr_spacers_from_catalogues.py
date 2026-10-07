@@ -49,11 +49,24 @@ def parse_arguments() -> argparse.Namespace:
         "--previous-metadata",
         help="Previous <prefix>_crispr.tsv (crispr_id, name, parent; plain or .gz); used with --update"
     )
+    parser.add_argument(
+        "--catalogue-metadata",
+        nargs='+',
+        help="Genome metadata table(s) of the catalogue(s) (TSV with header, genome ID in the "
+             "first column; plain or .gz). Concatenated into <prefix>_catalogue_metadata.tsv "
+             "with one header and one row per genome"
+    )
+    parser.add_argument(
+        "--previous-catalogue-metadata",
+        help="Previous <prefix>_catalogue_metadata.tsv (plain or .gz); used with --update. "
+             "Genomes also present in --catalogue-metadata are replaced by the new row"
+    )
     args = parser.parse_args()
     if args.update and not (args.previous_fasta and args.previous_metadata):
         parser.error("--update requires both --previous-fasta and --previous-metadata")
-    if not args.update and (args.previous_fasta or args.previous_metadata):
-        parser.error("--previous-fasta/--previous-metadata are only used together with --update")
+    if not args.update and (args.previous_fasta or args.previous_metadata or args.previous_catalogue_metadata):
+        parser.error("--previous-fasta/--previous-metadata/--previous-catalogue-metadata "
+                     "are only used together with --update")
     return args
 
 
@@ -309,6 +322,86 @@ def ensure_unique_names(spacers: list[dict]) -> list[dict]:
     return spacers
 
 
+def read_metadata_table(path: str) -> tuple[list[str], list[list[str]]]:
+    """Return (header, rows) of a TSV metadata table (plain or .gz); empty lines are skipped."""
+    check_path_exists(path)
+    with open_text(path) as fh:
+        reader = csv.reader(fh, delimiter='\t')
+        header = next(reader, None)
+        if header is None:
+            print(f'Warning: {path} is empty; skipped')
+            return [], []
+        rows = [row for row in reader if row and any(cell.strip() for cell in row)]
+    return header, rows
+
+
+def collect_catalogue_metadata(new_paths: list[str], previous_path: str | None) -> tuple[list[str], list[list[str]]]:
+    """Concatenate genome metadata tables, keeping one header and one row per genome.
+
+    Rows are unique by the first column (genome ID). Previous rows come
+    first, in their original order; a genome that also appears in a new
+    table is replaced in place by the new row (the newer metadata wins).
+    Genomes only in the new tables are appended in input order. Within the
+    new tables, the first occurrence of a genome is kept.
+
+    All tables must have the same header.
+    """
+    header: list[str] = []
+    rows_by_genome: dict[str, list[str]] = {}
+
+    def check_header(path: str, table_header: list[str]) -> None:
+        nonlocal header
+        if not header:
+            header = table_header
+        elif table_header != header:
+            print(f'Error: header of {path} differs from the first metadata table:\n'
+                  f'  {header}\n  {table_header}')
+            sys.exit(1)
+
+    n_previous = 0
+    if previous_path:
+        table_header, rows = read_metadata_table(previous_path)
+        if table_header:
+            check_header(previous_path, table_header)
+            for row in rows:
+                rows_by_genome.setdefault(row[0], row)
+            n_previous = len(rows_by_genome)
+
+    replaced = added = repeated = 0
+    seen_new: set[str] = set()
+    for path in new_paths:
+        table_header, rows = read_metadata_table(path)
+        if not table_header:
+            continue
+        check_header(path, table_header)
+        for row in rows:
+            genome = row[0]
+            if genome in seen_new:
+                repeated += 1
+                continue
+            seen_new.add(genome)
+            if genome in rows_by_genome:
+                replaced += 1
+            else:
+                added += 1
+            rows_by_genome[genome] = row  # dicts keep the original position on reassignment
+
+    print(f'Catalogue metadata: {n_previous} previous genomes, {added} added, '
+          f'{replaced} updated from new tables, {repeated} repeated rows in new tables skipped; '
+          f'{len(rows_by_genome)} genomes in total')
+    return header, list(rows_by_genome.values())
+
+
+def write_catalogue_metadata(header: list[str], rows: list[list[str]], output_path: str, prefix: str) -> None:
+    os.makedirs(output_path, exist_ok=True)
+    path = os.path.join(output_path, prefix + '_catalogue_metadata.tsv')
+    with open(path, 'w', newline='') as fh:
+        writer = csv.writer(fh, delimiter='\t', lineterminator='\n')
+        writer.writerow(header)
+        writer.writerows(rows)
+    print(f'Written: {path}')
+
+
 def list_rep_dirs(catalogue_path: str) -> list[tuple[str, str]]:
     """Return sorted (rep, rep_dir) pairs for every representative in a catalogue.
 
@@ -401,6 +494,11 @@ def main() -> None:
         print(f'Total after update: {len(unique_spacers)} spacers')
 
     write_outputs(ensure_unique_names(unique_spacers), args.output_path, args.prefix)
+
+    if args.catalogue_metadata or args.previous_catalogue_metadata:
+        header, rows = collect_catalogue_metadata(args.catalogue_metadata or [], args.previous_catalogue_metadata)
+        if header:
+            write_catalogue_metadata(header, rows, args.output_path, args.prefix)
 
 
 if __name__ == '__main__':
