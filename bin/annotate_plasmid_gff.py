@@ -299,8 +299,8 @@ def parse_args():
     )
     parser.add_argument("-g", "--gff", required=True,
                         help="Representative GFF file (plain or .gz).")
-    parser.add_argument("-t", "--table", required=True,
-                        help="plaSquid protein_report.tsv (Contig, Protein, RIP_domain, MOB_group, Inc_group).")
+    parser.add_argument("-t", "--table", default=None,
+                        help="plaSquid protein_report.tsv (Contig, Protein, RIP_domain, MOB_group, Inc_group) (optional).")
     parser.add_argument("-b", "--biomarker-report", default=None,
                         help="MOB-suite plasmids_biomarker_report.txt (optional).")
     parser.add_argument("-m", "--mob-report", default=None,
@@ -308,15 +308,16 @@ def parse_args():
                              "predicted_mobility column is added as mobsuite_predicted_mobility (optional).")
     parser.add_argument("-a", "--amr-gff", default=None,
                         help="AMRINTEGRATOR's integrated_<prefix>.gff (optional).")
-    parser.add_argument("-o", "--output", default="plasquid_annotated.gff",
-                        help="Output GFF file (default: plasquid_annotated.gff).")
+    parser.add_argument("-o", "--output", default="annotated.gff.gz",
+                        help="Output GFF file; gzip-compressed when the name ends with .gz "
+                             "(default: annotated.gff.gz).")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    protein_report = load_protein_report(args.table)
+    protein_report = load_protein_report(args.table) if args.table else {}
     print(f"Proteins with plaSquid evidence loaded: {len(protein_report)}", file=sys.stderr)
 
     biomarker_report = load_biomarker_report(args.biomarker_report) if args.biomarker_report else {}
@@ -332,7 +333,8 @@ def main():
         amr_report = {}
     print(f"Records with AMR evidence loaded: {len(amr_report)}", file=sys.stderr)
 
-    with open(args.output, "w") as out:
+    open_output = gzip.open if args.output.endswith(".gz") else open
+    with open_output(args.output, "wt") as out:
         cds_annotated, contig_annotated, amr_annotated, mobility_annotated = annotate_gff(
             args.gff, protein_report, biomarker_report, amr_report, out, mob_report
         )

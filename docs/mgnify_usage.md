@@ -133,18 +133,49 @@ python3 collect_data_from_catalogues.py \
 One of the pipeline's steps is viral host detection. To find a possible host among MGnify genomes, you need to collect all spacers predicted by CRISPRCasFinder. This can be done with the [`collect_crispr_spacers_from_catalogues.py`](../scripts/collect_crispr_spacers_from_catalogues.py) script (make sure you're in the correct queue to access NFS):
 
 ```commandline
-usage: collect_crispr_spacers_from_catalogues.py [-h] -p CATALOGUE_PATH [CATALOGUE_PATH ...] -o OUTPUT_PATH --prefix PREFIX
+usage: collect_crispr_spacers_from_catalogues.py [-h]
+                                                 -p CATALOGUE_PATH [CATALOGUE_PATH ...]
+                                                 -o OUTPUT_PATH
+                                                 --prefix PREFIX [--update]
+                                                 [--previous-fasta PREVIOUS_FASTA]
+                                                 [--previous-metadata PREVIOUS_METADATA]
+                                                 [--catalogue-metadata CATALOGUE_METADATA [CATALOGUE_METADATA ...]]
+                                                 [--previous-catalogue-metadata PREVIOUS_CATALOGUE_METADATA]
 
-Script searches for CRISPRCasFinder results in catalogue(s) and greps CRISPR spacer information.
+Script searches for CrisprcasFinder results in catalogue(s) and greps CRISPRspacer information
 
 options:
   -h, --help            show this help message and exit
   -p, --catalogue-path CATALOGUE_PATH [CATALOGUE_PATH ...]
-                        Path to NFS location of catalogue(s)
+                        Path to NFS location of catalogue(s) or
+                        catalogue_results/species_catalogue
   -o, --output-path OUTPUT_PATH
                         Path to save results
   --prefix PREFIX       Output filename
+  --update              Add spacers from --catalogue-path to a previous output
+                        of this script (requires --previous-fasta and
+                        --previous-metadata)
+  --previous-fasta PREVIOUS_FASTA
+                        Previous <prefix>_crispr.fasta (plain or .gz); used
+                        with --update
+  --previous-metadata PREVIOUS_METADATA
+                        Previous <prefix>_crispr.tsv (crispr_id, name, parent;
+                        plain or .gz); used with --update
+  --catalogue-metadata CATALOGUE_METADATA [CATALOGUE_METADATA ...]
+                        Genome metadata table(s) of the catalogue(s) (TSV with
+                        header, genome ID in the first column; plain or .gz).
+                        Concatenated into <prefix>_catalogue_metadata.tsv with
+                        one header and one row per genome
+  --previous-catalogue-metadata PREVIOUS_CATALOGUE_METADATA
+                        Previous <prefix>_catalogue_metadata.tsv (plain or
+                        .gz); used with --update. Genomes also present in
+                        --catalogue-metadata are replaced by the new row
 ```
+
+Two catalogue layouts are supported. The CRISPRCasFinder GFF can be plain (`.gff`) or gzip-compressed (`.gff.gz`) in both:
+
+- `<catalogue>/MGYG.../genome/MGYG..._crisprcasfinder.gff`
+- `.../species_catalogue/<group>/MGYG.../genome/MGYG..._crisprcasfinder.gff`, used when `species_catalogue` is in the path. Genomes are grouped in `MGYG*` sub-directories.
 
 Example:
 
@@ -152,23 +183,62 @@ Example:
 python3 collect_crispr_spacers_from_catalogues.py \
   -p nfs/catalogue_1/v1.0 nfs/catalogue_2/v1.0 \
   -o results_spacers \
-  --prefix all_catalogues
+  --prefix all_catalogues \
+  --catalogue-metadata nfs/catalogue_1/v1.0/metadata.tsv nfs/catalogue_2/v1.0/metadata.tsv
 ```
+
+`--catalogue-metadata` is optional. It collects the genome metadata (e.g. lineages) of the catalogues into one table. The pipeline needs these lineages for the spacer host genomes and for the genomes the viruses came from.
 
 <details>
 <summary>Outputs description</summary>
 
+- `PREFIX_catalogue_metadata.tsv` — only with `--catalogue-metadata`: the metadata tables concatenated with a single header, one row per genome (unique by the first column). All input tables must have the same header.
 - `PREFIX_crispr.fasta` — multi-FASTA file containing spacer sequences.
-- `PREFIX_crispr.tsv` — TSV with spacer metadata: ID, name, and parent (genome, protein ID, and fragment coordinates).
+- `PREFIX_crispr.tsv` — TSV with spacer metadata: ID, name, and parent.
+  - `crispr_id`, `name`: CRISPRCasFinder's spacer ID and name, prefixed with the contig. CRISPRCasFinder names spacers only by position and length (e.g. `spacer_19345_29`), so the same name occurs in many genomes; the contig prefix makes names unique.
+  - `parent`: the CRISPR array(s) the spacer was found in, as `<contig>_<array start>_<array end>`. Spacers are deduplicated by sequence, so a spacer found in several arrays or genomes has one record with all of them, comma-separated. The record's name comes from the first of these. Every genome in `parent` is reported as a candidate host when a virus matches the spacer.
 
 Example:
 
 ```commandline
-crispr_id       name    parent
-sp_19345        spacer_19345_29 MGYG000518600_13_19319_19399
+crispr_id                   name                                parent
+MGYG000518600_13_sp_19345   MGYG000518600_13_spacer_19345_29    MGYG000518600_13_19319_19399
+MGYG000296150_19_sp_1131    MGYG000296150_19_spacer_1131_35     MGYG000296150_19_103_4169,MGYG000521496_130_391_2168
 ```
 
 </details>
+
+##### Updating an existing spacer set
+
+When new genomes are added to the catalogues, you don't need to rebuild the spacer set from scratch. Run the script in update mode on the new (or re-annotated) catalogues, and pass the previous outputs:
+
+```bash
+python3 collect_crispr_spacers_from_catalogues.py \
+  -p nfs/catalogue_3/v1.0 \
+  -o results_spacers_v2 \
+  --prefix all_catalogues \
+  --update \
+  --previous-fasta results_spacers/all_catalogues_crispr.fasta \
+  --previous-metadata results_spacers/all_catalogues_crispr.tsv \
+  --catalogue-metadata nfs/catalogue_3/v1.0/metadata.tsv \
+  --previous-catalogue-metadata results_spacers/all_catalogues_catalogue_metadata.tsv
+```
+
+In update mode the script:
+
+1. Collects and deduplicates the spacers from `--catalogue-path`, as in a normal run.
+2. Reads the previous FASTA and TSV. The script always writes the two files in the same order, so rows are matched by position, and any repeated previous records are merged by sequence.
+3. Compares the new spacers with the previous ones by sequence (case-insensitive):
+   - **Sequence already present:** no new record is added. Any arrays it was found in that aren't listed yet are appended to the existing record's `parent`.
+   - **New sequence:** added as a new record.
+4. Writes the previous records first, in their original order and with their original names, followed by the new ones.
+5. If `--catalogue-metadata` is given, adds it to `--previous-catalogue-metadata`. A genome in both is replaced in place by the new row (the newer metadata wins); genomes that are only in the new tables are appended. The result is written to `PREFIX_catalogue_metadata.tsv`.
+
+Notes:
+
+- Spacers are matched by sequence, so re-annotated catalogues can be included in the update. Spacers that are already known are not duplicated. If re-annotation changes an array's boundaries, the same array can be listed twice in `parent` with different coordinates; the host genome is the same, so host prediction is not affected.
+- The previous files are read completely before the new ones are written, so `-o`/`--prefix` can point at the previous files to update them in place.
+- Older outputs that used names without the contig prefix (e.g. `spacer_1131_35`) are converted to the new names on update. If such an output was itself made by an earlier update run, it may contain spacers whose sequence was overwritten by another spacer with the same name. Regenerate it once without `--update` before using it as the previous input.
 
 ## Input samplesheet
 

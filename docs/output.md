@@ -163,7 +163,7 @@ Viral sequences and prophages are pooled and clustered, and one representative p
   - `plasmids_host_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the plasmids were found in.
   - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 70% ANI and 50% coverage.
     - `plasmids.fasta.gz`, `plasmids.faa.gz`: nucleotide and protein sequences of one representative per plasmid cluster.
-    - `plasmids.gff.gz`: GFF of the representatives, enriched with AMR and MOB typing results.
+    - `plasmids_annotated.gff.gz`: GFF of the representatives, enriched with AMR and MOB typing results.
     - `functional_annotation/`
       - `mobility_stats_final.json`: summary counts combining plaSquid evidence and MOB-suite predicted mobility.
       - `amr/`
