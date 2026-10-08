@@ -24,7 +24,7 @@ process ANNOTATE_PLASMID_GFF {
     path(amr_gff)
 
     output:
-    tuple val(meta), path("${meta.id}_plasquid_annotated.gff"), emit: gff
+    tuple val(meta), path("${meta.id}_annotated.gff.gz"), emit: gff
     path "versions.yml",                                        emit: versions
 
     script:
@@ -39,7 +39,7 @@ process ANNOTATE_PLASMID_GFF {
         ${biomarker_report_arg} \\
         ${amr_gff_arg} \\
         ${mob_report_arg} \\
-        --output ${meta.id}_plasquid_annotated.gff
+        --output ${meta.id}_annotated.gff.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
