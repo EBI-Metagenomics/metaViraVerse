@@ -274,8 +274,10 @@ nextflow run main.nf \
     --predict_host_from_custom_spacers <if CRISPR spacers were fetched in the "Collect CRISPR spacers" step> \
     --custom_spacers_fasta PREFIX_crispr.fasta <if CRISPR spacers were fetched in the "Collect CRISPR spacers" step> \
     --custom_spacers_metadata PREFIX_crispr.tsv <if CRISPR spacers were fetched in the "Collect CRISPR spacers" step> \
-    --phammseqs <if you want to run protein clustering>
+    --annotation_db <directory with HMM databases for protein annotation [optional]>
 ```
+
+Protein clustering (`--skip_phammseqs`, `--skip_mmseqs`) and AMR detection (`--skip_<tool>_for_viruses`, `--skip_<tool>_for_plasmids`) can be switched off separately; see the [README](../README.md#run) for all options.
 
 ## Outputs
 

@@ -17,13 +17,16 @@ process BUILD_FINAL_GFF {
     path "versions.yml",                              emit: versions
 
     script:
+    // hmmer tables and AMR GFF are optional upstream ([] when the step was skipped)
+    def hmmer_arg = hmmfile        ? "--hmmer ${hmmfile}"      : ""
+    def gff_arg   = additional_gff ? "--gff ${additional_gff}" : ""
     """
     build_final_gff.py \\
         --input ${input_gff} \\
         --output ${meta_input.id}_final.gff \\
         --bacphlip ${bacphlip} \\
-        --hmmer ${hmmfile} \\
-        --gff ${additional_gff} \\
+        ${hmmer_arg} \\
+        ${gff_arg} \\
         --compress-output
 
     cat <<-END_VERSIONS > versions.yml
