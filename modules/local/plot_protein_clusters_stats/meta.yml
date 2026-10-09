@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/yaml-schema.json
+name: plot_protein_clusters_stats
+description: Plots and statistics for protein clustering from PhaMMseqs or MMseqs2
+keywords:
+  - protein clustering
+  - phammseqs
+  - mmseqs2
+  - visualization
+  - statistics
+tools:
+  - plot_protein_clusters_stats:
+      description: |
+        Local script (bin/plot_protein_clusters_stats.py) that takes a PhaMMseqs pham table
+        (phamID<TAB>proteinID function) or an MMseqs2 cluster table
+        (representative<TAB>member), optionally with a protein FASTA carrying
+        functions in its headers, and produces: cluster size distribution
+        (binned bar plot and per-size TSV), a rank-abundance plot, the top
+        functions by number of proteins (excluding "hypothetical protein" and
+        "putative protein", case-insensitive), per-cluster function purity, and
+        a statistics table with cluster size statistics and clustering
+        agreement metrics (mutual information, normalised and adjusted mutual
+        information, adjusted Rand score, homogeneity, completeness, V-measure)
+        between clusters and protein functions or a reference labelling
+      homepage: ""
+      documentation: ""
+      licence: []
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'viruses' ]
+    - clusters:
+        type: file
+        description: |
+          Clustering table: PhaMMseqs phams TSV (PHAMMSEQS.out.phams_tsv) or
+          MMseqs2 cluster TSV (`mmseqs createtsv`); plain or .gz
+        pattern: "*.{tsv,tsv.gz}"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  - cluster_format:
+      type: string
+      description: Format of `clusters`, either 'phammseqs' or 'mmseqs'
+  - fasta:
+      type: file
+      description: |
+        Optional protein FASTA with the function in the header
+        (>proteinID function), plain or .gz, or `[]`. Takes precedence over
+        functions in a PhaMMseqs table; needed for function plots with MMseqs2
+      pattern: "*.{faa,fasta,fa}{,.gz}"
+      ontologies:
+        - edam: http://edamontology.org/format_1929 # FASTA
+  - reference:
+      type: file
+      description: |
+        Optional proteinID<TAB>label TSV to compare clusters against instead of
+        protein functions, or `[]`
+      pattern: "*.tsv"
+      ontologies:
+        - edam: http://edamontology.org/format_3475 # TSV
+output:
+  size_distribution:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_cluster_size_distribution.tsv":
+          type: file
+          description: Number of clusters and proteins for each cluster size, with cumulative protein fraction
+          pattern: "*_cluster_size_distribution.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - "${prefix}_cluster_size_distribution.png":
+          type: file
+          description: Bar plot of clusters per size bin
+          pattern: "*_cluster_size_distribution.png"
+          ontologies:
+            - edam: http://edamontology.org/format_3603 # PNG
+  rank_abundance:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_cluster_rank_abundance.png":
+          type: file
+          description: Cluster size versus rank (log-log)
+          pattern: "*_cluster_rank_abundance.png"
+          ontologies:
+            - edam: http://edamontology.org/format_3603 # PNG
+  top_functions_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_top_functions.tsv":
+          type: file
+          description: All informative functions ranked by number of proteins, with number of clusters (header only when no functions)
+          pattern: "*_top_functions.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  top_functions_png:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_top_functions.png":
+          type: file
+          description: Bar plot of the top functions (default 20); absent when no informative function exists
+          pattern: "*_top_functions.png"
+          ontologies:
+            - edam: http://edamontology.org/format_3603 # PNG
+  purity_tsv:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_cluster_function_purity.tsv":
+          type: file
+          description: Per cluster, the share of annotated proteins carrying its dominant function
+          pattern: "*_cluster_function_purity.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  purity_png:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_cluster_function_purity.png":
+          type: file
+          description: Histogram of function purity for clusters with at least 2 annotated proteins (optional)
+          pattern: "*_cluster_function_purity.png"
+          ontologies:
+            - edam: http://edamontology.org/format_3603 # PNG
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "${prefix}_clustering_stats.tsv":
+          type: file
+          description: Cluster size statistics and clustering agreement metrics (metric<TAB>value)
+          pattern: "*_clustering_stats.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

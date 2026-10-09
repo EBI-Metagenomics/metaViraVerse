@@ -7,8 +7,7 @@ include { CLUSTERING                                                } from '../c
 include { EXTRACT_CLUSTER_FILES                                     } from '../extract_cluster_files/main'
 include { INDEX_RESULTS                                             } from '../index_results/main'
 include { PLASQUID_WORKFLOW                                         } from '../plasquid_workflow/main'
-
-include { AMR_ANNOTATION                                            } from '../../ebi-metagenomics/amr_annotation'
+include { PROTEINS_PROCESSING                                       } from '../proteins_subwf/main'
 
 include { MOBSUITE_TYPER                                            } from '../../../modules/nf-core/mobsuite/typer/main'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
@@ -39,7 +38,7 @@ workflow PROCESS_PLASMIDS {
     ch_versions = channel.empty()
 
     //
-    // Cluster sequences
+    // --------- Cluster DNA sequences
     //
     sequences
         .filter { _meta, seqs ->
@@ -81,7 +80,7 @@ workflow PROCESS_PLASMIDS {
     )
 
     //
-    // ----------- Analysis -----------
+    // ----------- plasquid analysis -----------
     //
 
     PLASQUID_WORKFLOW(
@@ -90,6 +89,11 @@ workflow PROCESS_PLASMIDS {
         EXTRACT_CLUSTER_FILES.out.reps_gff
     )
     ch_versions = ch_versions.mix(PLASQUID_WORKFLOW.out.versions)
+
+
+    //
+    // ----------- MOB-suite typer run on chunked fasta
+    //
 
     CHUNK_FNA (
         EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
@@ -122,21 +126,39 @@ workflow PROCESS_PLASMIDS {
         1
     )
 
+
     //
-    // -------- Antimicrobial resistence detection
+    // ----------- Combine plaSquid and MOB-suite mobility counts -----------
     //
-    AMR_ANNOTATION (
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
-        params.amrfinderplus_db,
-        params.deeparg_db,
-        params.deeparg_db_version,
-        params.deeparg_model,
-        params.deeparg_tool_version,
-        params.rgi_db,
-        false,
-        false,
-        false
+    // plaSquid's protein_report record counts + MOB-suite's predicted_mobility counts.
+    // Same `optional: true` remainder-join safety as above.
+
+    UPDATE_MOBILITY_STATS(
+        PLASQUID_WORKFLOW.out.mobility_stats
+            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
+            .map { meta, mobility_json, mob_report ->
+                tuple(meta, mobility_json, mob_report ?: [])
+            }
     )
+    ch_versions = ch_versions.mix(UPDATE_MOBILITY_STATS.out.versions)
+
+
+    //
+    // ----------- Proteins processing -----------
+    // AMR detection, hmmer annotation - skipped, protein clustering with mmseqs
+    //
+
+    PROTEINS_PROCESSING(
+       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
+       params.skip_amrfinderplus_for_plasmids,
+       params.skip_deeparg_for_plasmids,
+       params.skip_rgi_for_plasmids,
+       true,
+       params.skip_mmseqs,
+       false
+    )
+    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
+
 
     //
     // ----------- Add plaSquid RIP/MOB/Inc, MOB-suite biomarker and AMR evidence to the representative GFF -----------
@@ -146,28 +168,16 @@ workflow PROCESS_PLASMIDS {
     // missing/never-emitted file doesn't stall the process, falling back to
     // `[]` (no file), which the script treats as "no evidence supplied" via
     // its own --biomarker-report/--amr-gff ? ... : "" checks.
+
     ANNOTATE_PLASMID_GFF(
         EXTRACT_CLUSTER_FILES.out.reps_gff,
         PLASQUID_WORKFLOW.out.protein_report.map { _meta, f -> f },
         CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
         CONCATENATE_MOBSUITE_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
-        AMR_ANNOTATION.out.gff.map { _meta, f -> f }.ifEmpty([])
+        PROTEINS_PROCESSING.out.amr_gff.map { _meta, f -> f }.ifEmpty([])
     )
     ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
 
-    //
-    // ----------- Combine plaSquid and MOB-suite mobility counts -----------
-    //
-    // plaSquid's protein_report record counts + MOB-suite's predicted_mobility counts.
-    // Same `optional: true` remainder-join safety as above.
-    UPDATE_MOBILITY_STATS(
-        PLASQUID_WORKFLOW.out.mobility_stats
-            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
-            .map { meta, mobility_json, mob_report ->
-                tuple(meta, mobility_json, mob_report ?: [])
-            }
-    )
-    ch_versions = ch_versions.mix(UPDATE_MOBILITY_STATS.out.versions)
 
     emit:
 
