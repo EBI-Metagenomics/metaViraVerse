@@ -93,7 +93,7 @@ Once plasmid sequences have been separated out, they are clustered into represen
 Plasmid sequences are clustered into representative genomes ("plasmid operational taxonomic units", POTUs) using [vclust](https://github.com/refresh-bio/vclust/wiki/6-Use-cases#68-cluster-plasmid-genomes-into-potus), following the use case described in the vclust wiki for grouping plasmid genomes.
 
 - Clustering is based on global ANI (gANI), computed by `vclust align` after `vclust prefilter` has discarded genome pairs too dissimilar to be worth aligning, and then thresholded by `vclust cluster`.
-- The similarity threshold used for plasmids is a minimum gANI of 0.35 — considerably looser than the threshold used for viruses (see below), reflecting the greater sequence diversity typically observed within a single plasmid lineage.
+- `vclust align` keeps only pairs with at least 70% ANI and 50% query coverage; these are clustered with the Leiden algorithm at a minimum gANI of 0.35 — considerably looser than the threshold used for viruses (see below), reflecting the greater sequence diversity typically observed within a single plasmid lineage.
 - If `--cluster_vclust` is disabled, an alternative, simpler pipeline is used instead: an all-vs-all BLASTN search (via `makeblastdb`/`blastn`), followed by pairwise ANI calculation (`anicalc`) and a UCLUST-style greedy centroid clustering (`aniclust`), both adapted from CheckV's companion scripts.
 - Whichever method is used, the output is a table assigning every plasmid sequence to a cluster and identifying one representative per cluster; only these representatives are carried forward into the plasmid-specific analyses below (as well as into the website indexing step).
 
@@ -171,7 +171,7 @@ Unlike MGnify input (which always arrives with predicted proteins), third-party 
 
 ### AMR annotation
 
-Antimicrobial-resistance genes are detected with up to three independent, optional tools, run over the same representative protein set: [AMRFinderPlus](https://github.com/ncbi/amr) (curated reference-gene search against the NCBI Reference Gene Catalog; disabled by default — enable with `--skip_amrfinderplus false`), [DeepARG](https://github.com/gaarangoa/deeparg) (deep-learning classification of resistance genes, `--skip_deeparg`) and [RGI](https://github.com/arpcard/rgi) against the CARD database (`--skip_rgi`). Each tool's raw output is standardised with hAMRonization and the (up to three) sets of calls are integrated into a single AMR GFF track, so that a gene flagged by more than one detector is easy to spot. See the [AMR annotation subworkflow docs](https://ebi-metagenomics.github.io/nf-modules/subworkflows/ebi-metagenomics/amr_annotation/) for the full module-by-module breakdown.
+Antimicrobial-resistance genes are detected in both viral and plasmid representative proteins with up to three independent, optional tools: [AMRFinderPlus](https://github.com/ncbi/amr) (curated reference-gene search against the NCBI Reference Gene Catalog; disabled by default), [DeepARG](https://github.com/gaarangoa/deeparg) (deep-learning classification of resistance genes) and [RGI](https://github.com/arpcard/rgi) against the CARD database. Each tool can be switched off separately for viruses and for plasmids (`--skip_amrfinderplus_for_viruses`, `--skip_deeparg_for_viruses`, `--skip_rgi_for_viruses`, and the same with `_for_plasmids`). Each tool's raw output is standardised with hAMRonization and the (up to three) sets of calls are integrated into a single AMR GFF track, so that a gene flagged by more than one detector is easy to spot. See the [AMR annotation subworkflow docs](https://ebi-metagenomics.github.io/nf-modules/subworkflows/ebi-metagenomics/amr_annotation/) for the full module-by-module breakdown.
 
 ### Hmmsearch annotation
 
@@ -179,7 +179,9 @@ General protein function is annotated by searching every representative protein 
 
 ### Protein clustering
 
-As an optional step (`--phammseqs`, off by default), representative proteins are grouped into "phamilies" of related sequences with **[PHAMMSeqs](https://github.com/chg60/phammseqs)**, an MMseqs2-based clustering wrapper originally developed for bacteriophage comparative genomics. This is mainly useful for downstream comparative-genomics work rather than for the core catalogue itself, so it is left disabled unless specifically requested.
+Representative viral proteins are grouped into "phamilies" (phams) of related sequences with **[PhaMMseqs](https://github.com/chg60/phammseqs)**, an MMseqs2-based clustering wrapper originally developed for bacteriophage comparative genomics (skip with `--skip_phammseqs`). Representative plasmid proteins are clustered with **[MMseqs2](https://github.com/soedinglab/MMseqs2)** `linclust` at `--mmseqs_id_threshold` sequence identity (default 0.9) and `--mmseqs_cov_threshold` coverage (default 0.8) (skip with `--skip_mmseqs`).
+
+For both clusterings, `plot_protein_clusters_stats.py` reports the cluster size distribution, the most common protein functions (excluding "hypothetical protein" and "putative protein"), the function purity of each cluster, and agreement metrics between the clusters and the protein function annotation (mutual information, normalised and adjusted mutual information, adjusted Rand score, homogeneity, completeness and V-measure).
 
 ## Protein structures
 

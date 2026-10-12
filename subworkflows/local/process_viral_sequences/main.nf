@@ -128,10 +128,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     //
     // ----------- Proteins processing -----------
+    // AMR detection, hmmer annotation, protein clustering with phammseqs
     //
 
     PROTEINS_PROCESSING(
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff)
+       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
+       params.skip_amrfinderplus_for_viruses,
+       params.skip_deeparg_for_viruses,
+       params.skip_rgi_for_viruses,
+       params.skip_phammseqs,
+       true,
+       params.annotation_db
     )
     ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
@@ -142,8 +149,9 @@ workflow PROCESS_VIRAL_SEQUENCES {
     BUILD_FINAL_GFF (
         EXTRACT_CLUSTER_FILES.out.reps_gff,
         CONCATENATE_BACPHLIP.out.file_out,
-        PROTEINS_PROCESSING.out.hmmer_tables,
-        PROTEINS_PROCESSING.out.amr_gff
+        // optional: empty when --annotation_db is not set / all AMR tools are skipped
+        PROTEINS_PROCESSING.out.hmmer_tables.ifEmpty([[:], []]),
+        PROTEINS_PROCESSING.out.amr_gff.ifEmpty([[:], []])
     )
     ch_versions = ch_versions.mix(BUILD_FINAL_GFF.out.versions)
 

@@ -41,19 +41,6 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "phammseqs": {
-                    "type": "boolean",
-                    "description": "Cluster representative viral proteins into phamilies with PHAMMSeqs.",
-                    "help_text": "Run phams generation",
-                    "default": false
-                },
-                "annotation_db": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to annotation DB containing hmm profiles.",
-                    "help_text": "You need to pre-download hmm profiles for DBs of interest",
-                    "fa_icon": "fas fa-folder-open"
-                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -64,12 +51,6 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
-                },
-                "publish_all": {
-                    "type": "boolean",
-                    "description": "Publish outputs for intermediate steps",
-                    "help_text": "Specify if you want to publish valuable steps results in output folder",
-                    "default": false
                 }
             },
             "anyOf": [
@@ -80,6 +61,53 @@
                     "required": ["third_party_input"]
                 }
             ]
+        },
+        "protein_annotation_options": {
+            "title": "Protein functional annotation",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Protein functional annotation with hmmer",
+            "properties": {
+                "annotation_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to annotation DB containing hmm profiles.",
+                    "help_text": "You need to pre-download hmm profiles for DBs of interest",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "protein_clustering_options": {
+            "title": "Clustering of protein sequences",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Clustering of protein sequences with mmseqs or phammseqs",
+            "properties": {
+                "skip_phammseqs": {
+                    "type": "boolean",
+                    "description": "Skip clustering of representative viral proteins into phamilies with PhaMMseqs.",
+                    "help_text": "Skip phams generation",
+                    "default": false
+                },
+                "skip_mmseqs": {
+                    "type": "boolean",
+                    "description": "Skip clustering of representative plasmid proteins with MMseqs2.",
+                    "help_text": "Skip mmseqs clustering",
+                    "default": false
+                },
+                "mmseqs_id_threshold": {
+                    "default": 0.9,
+                    "description": "mmseqs clustering level",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                },
+                "mmseqs_cov_threshold": {
+                    "default": 0.8,
+                    "description": "mmseqs coverage threshold",
+                    "fa_icon": "fas fa-weight",
+                    "type": "number"
+                }
+            }
         },
         "preprocessing_options": {
             "title": "Preprocessing input data",
@@ -109,12 +137,6 @@
                     "type": "boolean",
                     "description": "Skip the rRNA/tRNA/tmRNA screening step (Barrnap).",
                     "help_text": "Skip step to detect rRNA",
-                    "default": false
-                },
-                "skip_checkv": {
-                    "type": "boolean",
-                    "description": "Skip the CheckV quality evaluation step.",
-                    "help_text": "Skip step to evaluate quality",
                     "default": false
                 },
                 "rename_accession": {
@@ -237,6 +259,12 @@
                     "description": "Path to CheckV DB.",
                     "help_text": "You need to pre-download CheckV DB https://bitbucket.org/berkeleylab/checkv/src/master/#markdown-header-checkv-database",
                     "fa_icon": "fas fa-folder-open"
+                },
+                "skip_checkv": {
+                    "type": "boolean",
+                    "description": "Skip the CheckV quality evaluation step.",
+                    "help_text": "Skip step to evaluate quality",
+                    "default": false
                 }
             }
         },
@@ -395,19 +423,37 @@
                     "help_text": "Path of RGI db",
                     "fa_icon": "fas fa-users-cog"
                 },
-                "skip_amrfinderplus": {
+                "skip_amrfinderplus_for_viruses": {
                     "type": "boolean",
                     "description": "Skip AMRFinderPlus antimicrobial resistance annotation.",
                     "help_text": "Flag to skip amrfinderplus ",
                     "default": true
                 },
-                "skip_deeparg": {
+                "skip_deeparg_for_viruses": {
                     "type": "boolean",
                     "description": "Skip DeepARG antimicrobial resistance annotation.",
                     "help_text": "Flag to skip deeparg ",
                     "default": false
                 },
-                "skip_rgi": {
+                "skip_rgi_for_viruses": {
+                    "type": "boolean",
+                    "description": "Skip RGI antimicrobial resistance annotation.",
+                    "help_text": "Flag to skip RGI ",
+                    "default": false
+                },
+                "skip_amrfinderplus_for_plasmids": {
+                    "type": "boolean",
+                    "description": "Skip AMRFinderPlus antimicrobial resistance annotation.",
+                    "help_text": "Flag to skip amrfinderplus ",
+                    "default": true
+                },
+                "skip_deeparg_for_plasmids": {
+                    "type": "boolean",
+                    "description": "Skip DeepARG antimicrobial resistance annotation.",
+                    "help_text": "Flag to skip deeparg ",
+                    "default": false
+                },
+                "skip_rgi_for_plasmids": {
                     "type": "boolean",
                     "description": "Skip RGI antimicrobial resistance annotation.",
                     "help_text": "Flag to skip RGI ",
@@ -484,6 +530,12 @@
                     "fa_icon": "fas fa-copy",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
                     "hidden": true
+                },
+                "save_intermediates": {
+                    "type": "boolean",
+                    "description": "Publish outputs for intermediate steps",
+                    "help_text": "Specify if you want to publish valuable steps results in output folder",
+                    "default": false
                 },
                 "max_multiqc_email_size": {
                     "type": "string",
@@ -568,6 +620,12 @@
         },
         {
             "$ref": "#/$defs/plasmid_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/protein_annotation_options"
+        },
+        {
+            "$ref": "#/$defs/protein_clustering_options"
         }
     ]
 }

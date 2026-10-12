@@ -122,7 +122,7 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
 - `viruses/`
   - `prophages.fna.gz`, `prophages.faa.gz`, `prophages.gff.gz`: nucleotide sequences, proteins and GFF annotation of all prophages.
   - `viral_sequences.fna.gz`, `viral_sequences.faa.gz`, `viral_sequences.gff.gz`: nucleotide sequences, proteins and GFF annotation of all viral sequences.
-  - `viruses_host_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in.
+  - `viruses_source_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in.
   - `viruses-all-metadata.tsv.gz`: one row per **input** viral sequence or prophage (before clustering), combining source, quality and taxonomy information.
   - `viruses-cluster-stats.tsv.gz`: one row per viral **cluster representative**, with per-cluster statistics (cluster size, mean gene and viral-gene counts, biomes and source types in the cluster, completeness and contamination ranges).
   - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage.
@@ -145,8 +145,12 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
       - `genomad/`: [geNomad](https://github.com/apcamargo/genomad) taxonomy calls (`viruses.tsv`), taxonomy combined with metadata and counts (`viruses_genomad_taxonomy_counts.tsv`), interactive Krona and Sankey plots, and iTOL annotation files (`itol_genomad/`).
       - `viphogs/`: [ViPhOGs-based](https://www.mdpi.com/1999-4915/13/6/1164) taxonomy assignment (`viruses_reps_annotation.tsv`, `viruses_reps_annotation_taxonomy.tsv`), taxonomy tables (`viruses_modified*.tsv`, `viruses_viphogs_taxonomy_counts.tsv`), Krona and Sankey plots, and iTOL files (`itol_viphogs/`).
       - `vitap/`: [VITAP](https://github.com/DrKaiyangZheng/VITAP) taxonomy assignment and counts (`viruses_vitap_taxonomy_counts.tsv`), Krona and Sankey plots, and iTOL files (`itol_vitap/`).
-    - `protein_clusters_phammseqs/`: proteins grouped into families ("phams") with [PhaMMseqs](https://github.com/chg60/phammseqs); only produced when `--phammseqs` is used.
+    - `protein_clusters_phammseqs/`: proteins grouped into families ("phams") with [PhaMMseqs](https://github.com/chg60/phammseqs); not produced with `--skip_phammseqs`.
       - `viruses_phams.tsv`: each protein (`proteinID`, with its description) and the pham it belongs to (`phamID`).
+      - `viruses_cluster_size_distribution.tsv`/`.png`, `viruses_cluster_rank_abundance.png`: number of phams and proteins per pham size.
+      - `viruses_top_functions.tsv`/`.png`: protein functions ranked by number of proteins ("hypothetical protein" and "putative protein" excluded), with the number of phams each is spread over.
+      - `viruses_cluster_function_purity.tsv`/`.png`: for each pham, the share of its annotated proteins that carry its main function.
+      - `viruses_clustering_stats.tsv`: pham size statistics and agreement between phams and protein functions (mutual information, normalised and adjusted mutual information, adjusted Rand score, homogeneity, completeness, V-measure).
 
 </details>
 
@@ -159,29 +163,33 @@ Viral sequences and prophages are pooled and clustered, and one representative p
 
 - `plasmids/`
   - `plasmids-all-metadata.tsv.gz`: one row per **input** plasmid sequence (before clustering).
-  - `plasmids.fasta.gz`, `plasmids.faa.gz`, `plasmids.gff.gz`: nucleotide sequences, proteins and GFF annotation of all plasmids (before clustering).
-  - `plasmids_host_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the plasmids were found in.
-  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 70% ANI and 50% coverage.
-    - `plasmids.fasta.gz`, `plasmids.faa.gz`: nucleotide and protein sequences of one representative per plasmid cluster.
-    - `plasmids_annotated.gff.gz`: GFF of the representatives, enriched with AMR and MOB typing results.
+  - `plasmids.fna.gz`, `plasmids.faa.gz`, `plasmids.gff.gz`: nucleotide sequences, proteins and GFF annotation of all plasmids (before clustering).
+  - `plasmids_source_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the plasmids were found in.
+  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust): pairs with at least 70% ANI and 50% coverage are clustered with the Leiden algorithm at gANI 0.35.
+    - `plasmids_reps.fasta.gz`, `plasmids_reps.faa.gz`, `plasmids_reps.gff.gz` (with `.fai`/`.gzi`/`.tbi` indices): nucleotide sequences, proteins and GFF of one representative per plasmid cluster.
+    - `plasmids_annotated.gff.gz`: GFF of the representatives, enriched with AMR, MOB-suite and plaSquid annotations.
     - `functional_annotation/`
-      - `mobility_stats_final.json`: summary counts combining plaSquid evidence and MOB-suite predicted mobility.
-      - `amr/`
+      - `mobility_stats_final.json`: summary counts combining plaSquid evidence (proteins with RIP, MOB and Inc hits) and MOB-suite predicted mobility (conjugative, mobilizable, non-mobilizable).
+      - `amr/`: not produced when all `--skip_<tool>_for_plasmids` flags are set.
         - `plasmids.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi).
         - `integrated_plasmids.gff`: GFF with the AMR annotations merged in.
-      - `mobsuite_typer/`: results of [MOB-suite `mob_typer`](https://github.com/phac-nml/mob-suite#mob-typer).
-        - `*_report.txt`: per-plasmid typing report, including predicted mobility.
-        - `*biomarker_report.txt`: replicon, relaxase, mate-pair formation and oriT biomarkers found on each plasmid.
-        - `*mge_report.txt`: other mobile genetic elements found on each plasmid.
+      - `mobsuite-typer/`: results of [MOB-suite `mob_typer`](https://github.com/phac-nml/mob-suite#mob-typer).
+        - `plasmids_report.txt`: per-plasmid typing report, including predicted mobility.
+        - `plasmids_biomarker_report.txt`: replicon, relaxase, mate-pair formation and oriT biomarkers found on each plasmid.
+        - `plasmids_mge_report.txt`: other mobile genetic elements found on each plasmid.
       - `plasquid/`: predictions from [plaSquid](https://github.com/mgimenez720/plaSquid).
         - `final_report_per_contig.tsv`: plaSquid evidence summarised per plasmid.
         - `final_report_per_protein.tsv`: replication initiator protein (RIP) domain, MOB group and Inc group for each protein with a hit.
         - `mobility_classification.tsv`: mobility class assigned to each plasmid from plaSquid evidence.
-        - `mobility_stats.json`: number of proteins with plaSquid hits, in total and for each evidence type.
+        - `mobility_stats_base.json`: number of proteins with plaSquid hits, in total and for each evidence type.
+        - `evidence/` [`--save_intermediates`]: raw plaSquid search candidates (`mobilisation_candidates.tsv`, `replication_initiator_proteins.tsv`, `rna_candidates.tsv`, `incompatibility_candidates.tsv`).
+    - `protein_clusters_mmseqs/`: representative proteins clustered with [MMseqs2](https://github.com/soedinglab/MMseqs2) `linclust` at `--mmseqs_id_threshold` identity and `--mmseqs_cov_threshold` coverage; not produced with `--skip_mmseqs`.
+      - `protein_catalogue-<identity>.tsv`: MMseqs2 clusters, one line per protein (`representative<TAB>member`); `<identity>` is the identity threshold in percent (90 by default).
+      - `plasmids_cluster_size_distribution.tsv`/`.png`, `plasmids_cluster_rank_abundance.png`, `plasmids_top_functions.tsv`/`.png`, `plasmids_cluster_function_purity.tsv`/`.png`, `plasmids_clustering_stats.tsv`: the same plots and statistics as for viral phams, computed on the MMseqs2 clusters (functions taken from the protein FASTA headers).
 
 </details>
 
-Plasmid sequences are pooled and clustered, and one representative per cluster is carried forward for annotation; its results are collected under `cluster_representatives/`. The representatives are annotated for AMR genes (AMRFinderPlus, DeepARG, RGI), typed with MOB-suite and searched with plaSquid for replication initiator proteins, MOB groups and incompatibility groups.
+Plasmid sequences are pooled and clustered, and one representative per cluster is carried forward for annotation; its results are collected under `cluster_representatives/`. The representatives are annotated for AMR genes (AMRFinderPlus, DeepARG, RGI), typed with MOB-suite, searched with plaSquid for replication initiator proteins, MOB groups and incompatibility groups, and their proteins are clustered with MMseqs2. The genome (MAG) each plasmid was found in is treated as its host.
 
 ## Catalogue summary
 
@@ -214,7 +222,7 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 
 ## Additional data
 
-Intermediate files produced while the inputs (from the samplesheet and, optionally, `--third_party_input`) are combined, quality-checked and split by sequence type. Files marked [`--publish_all`] are only published when the pipeline is run with `--publish_all`; all others are always published.
+Intermediate files produced while the inputs (from the samplesheet and, optionally, `--third_party_input`) are combined, quality-checked and split by sequence type. Files marked [`--save_intermediates`] are only published when the pipeline is run with `--save_intermediates`; all others are always published.
 
 <details markdown="1">
 <summary>Output files</summary>
@@ -224,10 +232,10 @@ Intermediate files produced while the inputs (from the samplesheet and, optional
   - `catalogue_filtered_metadata.tsv`: metadata for all sequences that passed QC filtering.
   - `catalogue_excluded_records_metadata.tsv`: records excluded for low quality, with the reason for exclusion.
   - `rename_contigs/`: input FASTA and GFF files combined across all samples, with unique catalogue-wide identifiers (`combined.fna`, `combined.gff`), and the mapping back to the original sequence names, biomes and types (`combined.tsv`).
-  - `rename/` [`--publish_all`]: renamed `*.fna`, `*.faa` and `*.gff` files.
-  - `viruses_checkv_report.tsv` [`--publish_all`]: [CheckV](https://bitbucket.org/berkeleylab/checkv) quality assessment for each sequence: completeness, contamination, provirus status and quality tier.
-  - `barrnap/` [`--publish_all`]: rRNA gene predictions on the combined sequences (`combined_bac.gff`); skipped when `--skip_rrna_detection` is used.
-  - `choose_sequences/` [`--publish_all`]: the sequences that passed QC filtering, with their metadata (`combined_filtered.tsv`, `combined_filtered.fna`, `combined_filtered.gff`).
+  - `rename/` [`--save_intermediates`]: renamed `*.fna`, `*.faa` and `*.gff` files.
+  - `viruses_checkv_report.tsv` [`--save_intermediates`]: [CheckV](https://bitbucket.org/berkeleylab/checkv) quality assessment for each sequence: completeness, contamination, provirus status and quality tier.
+  - `barrnap/` [`--save_intermediates`]: rRNA gene predictions on the combined sequences (`combined_bac.gff`); skipped when `--skip_rrna_detection` is used.
+  - `choose_sequences/` [`--save_intermediates`]: the sequences that passed QC filtering, with their metadata (`combined_filtered.tsv`, `combined_filtered.fna`, `combined_filtered.gff`).
 
 </details>
 

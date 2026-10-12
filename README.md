@@ -8,21 +8,24 @@ The pipeline takes previously predicted **viral sequences**, **prophages**, and 
 
 **Viruses:**
 
-- Quality assessment
+- Quality assessment (CheckV)
 - rRNA detection
-- Clustering at 95% ANI identity
-- Taxonomy assignment
-- Host detection
-- Lifestyle categorisation
-- Protein prediction
-- Protein annotation
-- Protein clustering
+- Clustering with vclust (95% ANI, 85% coverage)
+- Taxonomy assignment (geNomad, VITAP, ViPhOGs)
+- Host detection (iPHoP; optionally CRISPR spacer matching with SpacePHARER)
+- Lifestyle categorisation (BACPHLIP)
+- Protein annotation (HMMER, AMR genes)
+- Protein clustering (PhaMMseqs)
 
 **Plasmids:**
 
-- Clustering at 85% ANI identity
-- Host detection [in development]
-- Prediction of replicon family, relaxase type, and mate-pair formation type [in development]
+- Clustering with vclust (pairs with ≥70% ANI and ≥50% coverage, clustered at gANI 0.35)
+- Replicon family, relaxase type, mate-pair formation type and predicted mobility (MOB-suite, plaSquid)
+- AMR gene detection
+- Protein clustering (MMseqs2)
+- Host: the genome (MAG) each plasmid was found in
+
+All analyses after clustering are run on cluster representatives.
 
 <p align="center">
     <img src="assets/schema.png" alt="Pipeline overview" width="1000%">
@@ -68,14 +71,21 @@ nextflow run main.nf \
     --start_accession <first identifier number, e.g. 30. Used when renaming, e.g. >seq30 [optional]> \
     --end_accession <last identifier number, e.g. 40, used when renaming e.g. >seq40 [optional]> \
 
-    --phammseqs <if you want to run protein clustering [optional, default: true]> \
+    --save_intermediates <publish intermediate files [optional, default: false]> \
 
     --skip_vitap [default: false] \
     --skip_genomad [default: false] \
 
-    --skip_amrfinderplus [default: true] \
-    --skip_deeparg [default: false] \
-    --skip_rgi [default: false] \
+    --annotation_db <directory with HMM databases for protein annotation [optional; annotation is skipped without it]> \
+    --skip_phammseqs <skip viral protein clustering [default: false]> \
+    --skip_mmseqs <skip plasmid protein clustering [default: false]> \
+
+    --skip_amrfinderplus_for_viruses [default: true] \
+    --skip_deeparg_for_viruses [default: false] \
+    --skip_rgi_for_viruses [default: false] \
+    --skip_amrfinderplus_for_plasmids [default: true] \
+    --skip_deeparg_for_plasmids [default: false] \
+    --skip_rgi_for_plasmids [default: false] \
 
     --skip_iphop [default: false] \
 
