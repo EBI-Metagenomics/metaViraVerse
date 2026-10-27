@@ -223,6 +223,12 @@
                     "type": "boolean",
                     "description": "Use vclust for sequence clustering (instead of the BLASTN + anicalc/aniclust fallback).",
                     "help_text": "Use vclust as clustering tool",
+                    "default": false
+                },
+                "cluster_vjdb": {
+                    "type": "boolean",
+                    "description": "Use VJDB algorithm for viral clustering",
+                    "help_text": "Use https://github.com/maltesie/vjdb-clustering for clustering",
                     "default": true
                 }
             }

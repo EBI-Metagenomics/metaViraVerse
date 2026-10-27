@@ -1,3 +1,6 @@
+#!/usr/bin/env nextflow
+nextflow.enable.types = true
+
 include { ANICALC               } from '../../../modules/local/checkv/anicalc'
 include { ANICLUST              } from '../../../modules/local/checkv/aniclust'
 
@@ -6,6 +9,8 @@ include { BLAST_BLASTN          } from '../../../modules/nf-core/blast/blastn'
 include { VCLUST_ALIGN          } from '../../../modules/nf-core/vclust/align'
 include { VCLUST_CLUSTER        } from '../../../modules/nf-core/vclust/cluster'
 include { VCLUST_PREFILTER      } from '../../../modules/nf-core/vclust/prefilter'
+
+include { workflow as INITIAL_CLUSTERING    } from '../../../pipelines/vjdb-clustering/main'
 
 
 workflow CLUSTERING {
@@ -21,7 +26,11 @@ workflow CLUSTERING {
 
     ch_versions = channel.empty()
 
-    if ( params.cluster_vclust ) {
+    if ( params.cluster_vjdb ) {
+        INITIAL_CLUSTERING (
+            sequences.map{ meta, seqs -> seqs}
+        )
+    } else if ( params.cluster_vclust ) {
         VCLUST_PREFILTER (
             sequences
         )

@@ -1,4 +1,7 @@
 #!/usr/bin/env nextflow
+
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     EBI-Metagenomics/metaviraverse
