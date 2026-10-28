@@ -27,12 +27,12 @@ workflow INDEX_RESULTS {
     // ----------- viral reps GFF -----------
     //
     SORT_GFF (
-        reps_gff
+        reps_gff.map { meta, gff -> record(meta: meta, gff: gff) }
     )
 
     // Index and compress GFF
     INDEX_COMPRESS_GFF (
-        SORT_GFF.out.sorted_gff
+        SORT_GFF.out.map { r -> [r.meta, r.sorted_gff] }
     )
 
     //

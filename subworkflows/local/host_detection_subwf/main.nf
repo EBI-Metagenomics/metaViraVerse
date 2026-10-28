@@ -78,55 +78,56 @@ workflow HOST_DETECTION {
 
         // Plot Sankey for hosts reduced to genus and top 20 hits for website
         SANKEY_IPHOP_GENUS_HOST_REDUCED (
-            iphop_host_genus
+            iphop_host_genus.map { meta, table -> record(meta: meta, table: table) }
         )
         SANKEY_IPHOP_GENOME_HOST_REDUCED (
-            iphop_host_genome
+            iphop_host_genome.map { meta, table -> record(meta: meta, table: table) }
         )
         // Plot Sankey for hosts
         SANKEY_IPHOP_GENUS_HOST (
-            iphop_host_genus
+            iphop_host_genus.map { meta, table -> record(meta: meta, table: table) }
         )
         SANKEY_IPHOP_GENOME_HOST (
-            iphop_host_genome
+            iphop_host_genome.map { meta, table -> record(meta: meta, table: table) }
         )
     }
 
     if (params.predict_host_from_custom_spacers) {
-        CHANGE_SPACE_TO_UNDERSCORE(fna)
+        CHANGE_SPACE_TO_UNDERSCORE(fna.map { meta, fasta -> record(meta: meta, fasta: fasta) })
+        sanitised_fasta = CHANGE_SPACE_TO_UNDERSCORE.out.map { r -> record(meta: r.meta, fasta: r.sanitised_fasta) }
 
         SPACEPHARER_CREATEDB (
-            CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
+            sanitised_fasta,
             "targetSetDB"
         )
 
         SPACEPHARER_CREATEDB_REV (
-            CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
+            sanitised_fasta,
             "targetSetDB_rev"
         )
 
         SPACEPHARER_EASYPREDICT(
-            channel.of(params.custom_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
+            channel.of(params.custom_spacers_fasta).map { fasta -> record(meta: [id:'spacers'], crispr_fasta: file(fasta)) },
             "targetSetDB",
-            SPACEPHARER_CREATEDB.out.db.map { meta, db -> db },
-            SPACEPHARER_CREATEDB_REV.out.db.map { meta, db -> db }
+            SPACEPHARER_CREATEDB.out.map { r -> r.db },
+            SPACEPHARER_CREATEDB_REV.out.map { r -> r.db }
         )
 
         COLLECT_HOST_INFO (
-           SPACEPHARER_EASYPREDICT.out.predictions,
-           channel.of(params.custom_spacers_metadata).map{tsv -> [[id:'spacers'], tsv]},
+           SPACEPHARER_EASYPREDICT.out.map { r -> record(meta: r.meta, predictions: r.predictions) },
+           file(params.custom_spacers_metadata),
            mapfile,
-           metadata
+           file(metadata)
         )
 
         SANKEY_SPACEPHARER_HOST (
-            COLLECT_HOST_INFO.out.tsv
+            COLLECT_HOST_INFO.out.map { r -> record(meta: r.meta, table: r.tsv) }
         )
 
         SANKEY_SPACEPHARER_HOST_REDUCED (
-            COLLECT_HOST_INFO.out.tsv
+            COLLECT_HOST_INFO.out.map { r -> record(meta: r.meta, table: r.tsv) }
         )
-        spacepharer_host = COLLECT_HOST_INFO.out.tsv
+        spacepharer_host = COLLECT_HOST_INFO.out.map { r -> [r.meta, r.tsv] }
     }
 
     emit:

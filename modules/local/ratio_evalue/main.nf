@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process RATIO_EVALUE {
     /* Description
     Generates tabular file (File_informative_ViPhOG.tsv) listing results per protein, which include the ratio of the aligned target profile and the abs value of the total Evalue
@@ -13,14 +15,21 @@ process RATIO_EVALUE {
     container 'quay.io/microbiome-informatics/virify-python3:1.1'
 
     input:
-    tuple val(meta), path(modified_table)
-    path model_metadata
+    record(
+        meta: Map,
+        modified_table: Path
+    )
+    model_metadata: Path
+    evalue: Float
 
     output:
-    tuple val(meta), path("${meta.id}_modified_informative.tsv"), emit: informative_hits_tsv
+    record(
+        meta: meta,
+        informative_hits_tsv: file("${meta.id}_modified_informative.tsv")
+    )
 
     script:
     """
-    ratio_evalue_table.py -i ${modified_table} -t ${model_metadata} -o ${meta.id}_modified_informative.tsv -e ${params.viphogs_evalue}
+    ratio_evalue_table.py -i ${modified_table} -t ${model_metadata} -o ${meta.id}_modified_informative.tsv -e ${evalue}
     """
 }

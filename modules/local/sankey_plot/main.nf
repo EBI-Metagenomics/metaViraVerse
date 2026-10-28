@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process SANKEY_PLOT {
 
     label 'process_low'
@@ -5,12 +7,20 @@ process SANKEY_PLOT {
     container 'community.wave.seqera.io/library/pip_plotly:43c7ed2f4992fc92'
 
     input:
-      tuple val(meta), path(table)
+    record(
+        meta: Map,
+        table: Path
+    )
 
     output:
-      tuple val(meta), path("*sankey.html"), optional: true, emit: sankey_html
-      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
-      tuple val("${task.process}"), val('plotly'), eval('python -c "import plotly; print(plotly.__version__)"'), emit: versions_plotly, topic: versions
+    record(
+        meta: meta,
+        sankey_html: file("*sankey.html", optional: true)
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
+    tuple(task.process, 'plotly', eval('python -c "import plotly; print(plotly.__version__)"')) >> 'versions'
 
     script:
     def args = task.ext.args ?: ''

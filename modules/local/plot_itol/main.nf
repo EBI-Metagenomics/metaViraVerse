@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process PLOT_ITOL {
 
     label 'process_low'
@@ -7,15 +9,24 @@ process PLOT_ITOL {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-      tuple val(meta), path(table), path(metadata)
+    record(
+        meta: Map,
+        table: Path,
+        metadata: Path
+    )
 
     output:
-      tuple val(meta), path("*_tree.nwk"),          emit: tree_nwk
-      tuple val(meta), path("*_labels.txt"),        emit: tree_labels, optional:true
-      tuple val(meta), path("*_counts.txt"),        emit: tree_counts
-      tuple val(meta), path("*.type.binary.txt"),   emit: tree_types , optional:true  // genome/assembly
-      tuple val(meta), path("*.biomes.binary.txt"), emit: tree_biomes, optional:true
-      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        meta: meta,
+        tree_nwk: file("*_tree.nwk"),
+        tree_labels: file("*_labels.txt", optional: true),
+        tree_counts: file("*_counts.txt"),
+        tree_types: file("*.type.binary.txt", optional: true),     // genome/assembly
+        tree_biomes: file("*.biomes.binary.txt", optional: true)
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     def args = task.ext.args ?: ''

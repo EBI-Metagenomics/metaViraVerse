@@ -26,13 +26,13 @@ workflow TAXONOMY_VISUALISATION {
     // -------- Taxonomy visualisation with sankey
     //
     SANKEY_PLOT (
-        reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
+        reps_krona_and_metadata.map{meta, tsv, _metadata -> record(meta: meta, table: tsv)}
     )
 
     //
     // -------- Taxonomy tree files to upload to iTOL
     //
     PLOT_ITOL (
-        reps_krona_and_metadata
+        reps_krona_and_metadata.map{meta, tsv, metadata -> record(meta: meta, table: tsv, metadata: metadata)}
     )
 }

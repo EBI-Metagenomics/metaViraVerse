@@ -65,13 +65,13 @@ workflow TAXONOMY_ASSIGNMENT {
             CONCATENATE_GENOMAD.out.csv.map { meta, table ->
                 def new_meta = meta.clone()
                 new_meta.tool = 'genomad'
-                tuple(new_meta, table)
+                record(meta: new_meta, table: table)
             },
-            combined_metadata
+            combined_metadata.map { _meta, metadata_file -> metadata_file }
         )
 
         VIS_GENOMAD (
-            TAX_GENOMAD.out.taxonomy_and_metadata
+            TAX_GENOMAD.out.map { r -> [r.meta, r.taxonomy_counts, r.metadata_table] }
         )
 
         genomad_taxonomy = CONCATENATE_GENOMAD.out.csv
@@ -95,13 +95,13 @@ workflow TAXONOMY_ASSIGNMENT {
             .map { meta, table ->
                 def new_meta = meta.clone()
                 new_meta.tool = 'viphogs'
-                tuple(new_meta, table)
+                record(meta: new_meta, table: table)
             },
-            combined_metadata
+            combined_metadata.map { _meta, metadata_file -> metadata_file }
         )
 
         VIS_VIPHOGS (
-            TAX_VIPHOGS.out.taxonomy_and_metadata
+            TAX_VIPHOGS.out.map { r -> [r.meta, r.taxonomy_counts, r.metadata_table] }
         )
 
         viphogs_taxonomy = VIPHOGS_ANNOTATION.out.assignment
@@ -112,12 +112,12 @@ workflow TAXONOMY_ASSIGNMENT {
         // Taxonomy VITAP
         //
         VITAP (
-            ch_fna_chunks,
+            ch_fna_chunks.map { meta, fasta -> record(meta: meta, fasta: fasta) },
             params.vitap_db
         )
 
         CONCATENATE_VITAP (
-            VITAP.out.best_lineages.groupTuple(),
+            VITAP.out.map { r -> [r.meta, r.best_lineages] }.groupTuple(),
             1
         )
 
@@ -125,13 +125,13 @@ workflow TAXONOMY_ASSIGNMENT {
             CONCATENATE_VITAP.out.file_out.map { meta, table ->
                 def new_meta = meta.clone()
                 new_meta.tool = 'vitap'
-                tuple(new_meta, table)
+                record(meta: new_meta, table: table)
             },
-            combined_metadata
+            combined_metadata.map { _meta, metadata_file -> metadata_file }
         )
 
         VIS_VITAP (
-           TAX_VITAP.out.taxonomy_and_metadata
+           TAX_VITAP.out.map { r -> [r.meta, r.taxonomy_counts, r.metadata_table] }
         )
 
         vitap_best = CONCATENATE_VITAP.out.file_out

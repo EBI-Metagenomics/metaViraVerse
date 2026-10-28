@@ -63,8 +63,12 @@ workflow PREPROCESSING {
         ch_source_tp,
         params.viral_sequence_identifier,
         params.prophage_identifier,
-        params.plasmid_identifier
+        params.plasmid_identifier,
+        params.rename_accession
     )
+    ch_fna_renamed = RENAME_CONTIGS.out.map { r -> [r.meta, r.fna_renamed] }
+    ch_gff_renamed = RENAME_CONTIGS.out.map { r -> r.gff_renamed }
+    ch_map_file    = RENAME_CONTIGS.out.map { r -> [r.meta, r.map_file] }
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRUSES, PROPHAGES AND PLASMIDS ------
@@ -75,31 +79,31 @@ workflow PREPROCESSING {
     //
 
     SEPARATE_VIRAL_SEQUENCES(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+       ch_fna_renamed.map { meta, fna -> record(meta: meta, fna: fna) },
+       ch_gff_renamed,
+       ch_faa_raw.map { _meta, faa -> faa },
+       ch_map_file.map { _meta, map_file -> map_file },
        'virus'
     )
 
     SEPARATE_PROPHAGES(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+       ch_fna_renamed.map { meta, fna -> record(meta: meta, fna: fna) },
+       ch_gff_renamed,
+       ch_faa_raw.map { _meta, faa -> faa },
+       ch_map_file.map { _meta, map_file -> map_file },
        'prophage'
     )
 
     SEPARATE_PLASMIDS(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+       ch_fna_renamed.map { meta, fna -> record(meta: meta, fna: fna) },
+       ch_gff_renamed,
+       ch_faa_raw.map { _meta, faa -> faa },
+       ch_map_file.map { _meta, map_file -> map_file },
        'plasmid'
     )
 
-    ch_virus_prophage_fna = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences.map{ meta, fna, gff, faa -> fna }
-        .mix( SEPARATE_PROPHAGES.out.chosen_sequences.map{ meta, fna, gff, faa -> fna } )
+    ch_virus_prophage_fna = SEPARATE_VIRAL_SEQUENCES.out.map{ r -> r.fna }
+        .mix( SEPARATE_PROPHAGES.out.map{ r -> r.fna } )
         .collectFile( name: 'viruses_and_prophages.fna' )
         .map{ fna -> [[id: 'combined'], fna] }
 
@@ -125,9 +129,9 @@ workflow PREPROCESSING {
             'tsv',
             'tsv'
         )
-        quality_ch = CONCATENATE_CHECKV.out.csv
+        quality_ch = CONCATENATE_CHECKV.out.csv.map { _meta, quality -> quality }
     } else {
-        quality_ch = tuple([id:'combined'], [])
+        quality_ch = []
     }
 
     //
@@ -138,9 +142,9 @@ workflow PREPROCESSING {
           ch_virus_prophage_fna.map { meta, fasta -> [meta, fasta, "bac"] }
         )
 
-        rna_gff = BARRNAP.out.gff
+        rna_gff = BARRNAP.out.gff.map { _meta, gff -> gff }
     } else {
-        rna_gff = tuple([id:'combined'], [])
+        rna_gff = []
     }
 
     //
@@ -152,57 +156,58 @@ workflow PREPROCESSING {
     // corresponding GFF/FAA records for any sequence that gets deduplicated away.
     //
     CHOOSE_SEQUENCES (
-        SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences,
-        SEPARATE_PROPHAGES.out.chosen_sequences,
-        SEPARATE_PLASMIDS.out.chosen_sequences,
+        ch_map_file.map { meta, map_file -> record(meta: meta, map_file: map_file) },
+        SEPARATE_VIRAL_SEQUENCES.out,
+        SEPARATE_PROPHAGES.out,
+        SEPARATE_PLASMIDS.out,
         quality_ch,
-        rna_gff,
-        RENAME_CONTIGS.out.map_file
+        rna_gff
     )
+    chosen = CHOOSE_SEQUENCES.out
 
     COMPRESS_VIRAL_SEQ_FILES (
-        CHOOSE_SEQUENCES.out.virus_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
+        chosen
+        .map { r ->
+            [r.meta, [r.virus_fna, r.virus_gff, r.virus_faa]]
         }
         .transpose()
     )
 
     COMPRESS_PLASMIDS_FILES (
-        CHOOSE_SEQUENCES.out.plasmid_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
+        chosen
+        .map { r ->
+            [r.meta, [r.plasmid_fna, r.plasmid_gff, r.plasmid_faa]]
         }
         .transpose()
     )
 
     COMPRESS_PROPHAGES_FILES (
-        CHOOSE_SEQUENCES.out.prophage_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
+        chosen
+        .map { r ->
+            [r.meta, [r.prophage_fna, r.prophage_gff, r.prophage_faa]]
         }
         .transpose()
     )
 
     emit:
-    mapfile             = RENAME_CONTIGS.out.map_file             // [id:combined, metadata.tsv]
+    mapfile             = ch_map_file             // [id:combined, metadata.tsv]
 
-    separated_prophages = SEPARATE_PROPHAGES.out.chosen_sequences  // [[id:combined_prophage], fna, gff, faa]
-    separated_viruses   = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [[id:combined_virus], fna, gff, faa]
-    separated_plasmids  = SEPARATE_PLASMIDS.out.chosen_sequences  // [[id:combined_plasmid], fna, gff, faa]
+    separated_prophages = SEPARATE_PROPHAGES.out.map { r -> [r.meta, r.fna, r.gff, r.faa] }  // [[id:combined_prophage], fna, gff, faa]
+    separated_viruses   = SEPARATE_VIRAL_SEQUENCES.out.map { r -> [r.meta, r.fna, r.gff, r.faa] }  // [[id:combined_virus], fna, gff, faa]
+    separated_plasmids  = SEPARATE_PLASMIDS.out.map { r -> [r.meta, r.fna, r.gff, r.faa] }  // [[id:combined_plasmid], fna, gff, faa]
 
-    input_metadata      = CHOOSE_SEQUENCES.out.metadata           // [id:combined, combined_metadata.tsv]
-    metadata            = CHOOSE_SEQUENCES.out.filtered_metadata  // [id:combined, combined_filtered.tsv]
-    excluded_qc         = CHOOSE_SEQUENCES.out.excluded_metadata  // [id:combined, excluded_metadata.tsv]
+    input_metadata      = chosen.map { r -> [r.meta, r.metadata] }           // [id:combined, combined_metadata.tsv]
+    metadata            = chosen.map { r -> [r.meta, r.filtered_metadata] }  // [id:combined, combined_filtered.tsv]
+    excluded_qc         = chosen.map { r -> [r.meta, r.excluded_metadata] }  // [id:combined, excluded_metadata.tsv]
 
-    viral_sequences     = CHOOSE_SEQUENCES.out.virus_data     // [id:combined, combined_virus_filtered.fna, gff, faa]
-    prophages           = CHOOSE_SEQUENCES.out.prophage_data  // [id:combined, combined_prophage_filtered.fna, gff, faa]
-    plasmids            = CHOOSE_SEQUENCES.out.plasmid_data   // [id:combined, combined_plasmid_filtered.fna, gff, faa]
+    viral_sequences     = chosen.map { r -> [r.meta, r.virus_fna, r.virus_gff, r.virus_faa] }     // [id:combined, combined_virus_filtered.fna, gff, faa]
+    prophages           = chosen.map { r -> [r.meta, r.prophage_fna, r.prophage_gff, r.prophage_faa] }  // [id:combined, combined_prophage_filtered.fna, gff, faa]
+    plasmids            = chosen.map { r -> [r.meta, r.plasmid_fna, r.plasmid_gff, r.plasmid_faa] }   // [id:combined, combined_plasmid_filtered.fna, gff, faa]
 
-    combined_gff        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> gff }
+    combined_gff        = chosen.map { r -> r.filtered_gff }
 
-    combined_faa        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> faa }
+    combined_faa        = chosen.map { r -> r.filtered_faa }
 
-    stats_json          = CHOOSE_SEQUENCES.out.stats
+    stats_json          = chosen.map { r -> [r.meta, r.stats] }
 
 }

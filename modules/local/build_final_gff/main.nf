@@ -1,29 +1,39 @@
+nextflow.enable.types = true
+
 process BUILD_FINAL_GFF {
 
     label 'process_low'
-    tag "${meta_input.id}"
+    tag "${meta.id}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta_input), path(input_gff)
-    tuple val(meta_bacphlip), path(bacphlip)
-    tuple val(meta_hmmer), path(hmmfile)
-    tuple val(meta_gff), path(additional_gff)
+    record(
+        meta: Map,
+        input_gff: Path
+    )
+    bacphlip: Path
+    hmmfiles: List<Path>    // hmmer tables, empty when --annotation_db is not set
+    additional_gff: Path?   // AMR GFF, null when all AMR tools are skipped
 
     output:
-    tuple val(meta_input), path("*final.gff*"),       emit: final_gff
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        meta: meta,
+        final_gff: file("*final.gff*")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
-    // hmmer tables and AMR GFF are optional upstream ([] when the step was skipped)
-    def hmmer_arg = hmmfile        ? "--hmmer ${hmmfile}"      : ""
-    def gff_arg   = additional_gff ? "--gff ${additional_gff}" : ""
+    // hmmer tables and AMR GFF are optional upstream (empty when the step was skipped)
+    def hmmer_arg = hmmfiles       ? "--hmmer ${hmmfiles.join(' ')}" : ""
+    def gff_arg   = additional_gff ? "--gff ${additional_gff}"       : ""
     """
     build_final_gff.py \\
         --input ${input_gff} \\
-        --output ${meta_input.id}_final.gff \\
+        --output ${meta.id}_final.gff \\
         --bacphlip ${bacphlip} \\
         ${hmmer_arg} \\
         ${gff_arg} \\

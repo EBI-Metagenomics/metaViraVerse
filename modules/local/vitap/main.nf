@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process VITAP {
 
     label 'process_medium'
@@ -6,12 +8,22 @@ process VITAP {
     container "quay.io/microbiome-informatics/vitap:1.7"
 
     input:
-    tuple val(meta), path(fasta)
-    path(db)
+    record(
+        meta: Map,
+        fasta: Path
+    )
+    db: Path
 
     output:
-    tuple val(meta), path("*_vitap_best.tsv"), emit: best_lineages
-    tuple val("${task.process}"), val('VITAP'), val('1.7'), emit: versions_vitap, topic: versions
+    record(
+        meta: meta,
+        best_lineages: file("*_vitap_best.tsv")
+    )
+
+    // version is hardcoded because Docker container has version 1.7 installed
+    // but tool itself still prints version 1.3 (which is a bug in tool)
+    topic:
+    tuple(task.process, 'VITAP', '1.7') >> 'versions'
 
     script:
     def fasta_file = fasta.name.endsWith('.gz') ? fasta.baseName : fasta.name

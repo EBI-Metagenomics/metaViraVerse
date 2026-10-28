@@ -53,11 +53,11 @@ workflow PROTEINS_PROCESSING {
         // -------- Assort phage protein sequences into phamilies using MMseqs2
         //
         PHAMMSEQS(
-           ch_proteins
+           ch_proteins.map { meta, faa -> record(meta: meta, faa: faa) }
         )
 
         PLOT_PHAMS_STATS (
-            PHAMMSEQS.out.phams_tsv,
+            PHAMMSEQS.out.map { r -> record(meta: r.meta, clusters: r.phams_tsv) },
             'phammseqs',
             [],   // functions are already in the phams TSV
             []    // no reference labelling: compare phams with protein functions
@@ -66,7 +66,7 @@ workflow PROTEINS_PROCESSING {
 
     if ( !skip_mmseqs ) {
         MMSEQS (
-            ch_proteins,
+            ch_proteins.map { meta, faa -> record(meta: meta, faa_file: faa) },
             channel.value(params.mmseqs_id_threshold),
             channel.value(params.mmseqs_cov_threshold)
         )
@@ -74,7 +74,9 @@ workflow PROTEINS_PROCESSING {
         // MMSEQS emits the cluster TSV without meta: attach the proteins' meta,
         // and take functions from the protein FASTA headers
         PLOT_MMSEQS_STATS (
-            ch_proteins.map { meta, _faa -> meta }.combine(MMSEQS.out.mmseq_cluster_tsv),
+            ch_proteins.map { meta, _faa -> meta }
+                .combine(MMSEQS.out.map { r -> r.mmseq_cluster_tsv })
+                .map { meta, clusters -> record(meta: meta, clusters: clusters) },
             'mmseqs',
             ch_proteins.map { _meta, faa -> faa },
             []
@@ -133,7 +135,9 @@ workflow PROTEINS_PROCESSING {
             }
 
         SUMMARISE_ANNOTATIONS(
-            CONCATENATE_HMMER_TBLOUT.out.file_out.join(hmm_metadata)
+            CONCATENATE_HMMER_TBLOUT.out.file_out
+                .join(hmm_metadata)
+                .map { meta, tbl, metadata -> record(meta: meta, tbl: tbl, metadata: metadata) }
         )
 
         hmmer_tables = CONCATENATE_HMMER_TBLOUT.out.file_out

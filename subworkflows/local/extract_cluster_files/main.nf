@@ -33,10 +33,11 @@ workflow EXTRACT_CLUSTER_FILES {
     //
 
     EXTRACT_REPS_STATS (
-        clusters_tsv,
+        clusters_tsv.map { meta, tsv -> record(meta: meta, reps_file: tsv) },
         gff,
         mapfile
     )
+    reps_stats = EXTRACT_REPS_STATS.out
 
     //
     // ----------- Extract nucleotide sequences for cluster reps -----------
@@ -44,7 +45,7 @@ workflow EXTRACT_CLUSTER_FILES {
 
     GREP_FNA (
         sequences,
-        EXTRACT_REPS_STATS.out.reps_list.map{ id, tsv -> tsv }
+        reps_stats.map { r -> r.reps_list }
     )
 
     UNCOMPRESSED_REPS_FNA(
@@ -57,7 +58,7 @@ workflow EXTRACT_CLUSTER_FILES {
 
     GREP_FAA (
         faa.map{faa_item -> [[id: type], faa_item]},
-        EXTRACT_REPS_STATS.out.reps_proteins_list.map{ id, tsv -> tsv }
+        reps_stats.map { r -> r.reps_proteins_list }
     )
 
     UNCOMPRESSED_REPS_FAA(
@@ -69,6 +70,6 @@ workflow EXTRACT_CLUSTER_FILES {
     reps_faa_uncompressed      = UNCOMPRESSED_REPS_FAA.out.gunzip
     reps_fna_compressed        = GREP_FNA.out.sequences
     reps_faa_compressed        = GREP_FAA.out.sequences
-    reps_gff                   = EXTRACT_REPS_STATS.out.reps_gff
-    reps_list                  = EXTRACT_REPS_STATS.out.reps_list
+    reps_gff                   = reps_stats.map { r -> [r.meta, r.reps_gff] }
+    reps_list                  = reps_stats.map { r -> [r.meta, r.reps_list] }
 }

@@ -92,11 +92,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
 
     BACPHLIP(
-        ch_fna_chunks
+        ch_fna_chunks.map { meta, fasta -> record(meta: meta, fasta: fasta) }
     )
 
     CONCATENATE_BACPHLIP (
-        BACPHLIP.out.bacphlip_table.groupTuple(),
+        BACPHLIP.out.map { r -> [r.meta, r.bacphlip_table] }.groupTuple(),
         1
     )
 
@@ -138,11 +138,11 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
 
     BUILD_FINAL_GFF (
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
-        CONCATENATE_BACPHLIP.out.file_out,
+        EXTRACT_CLUSTER_FILES.out.reps_gff.map { meta, reps_gff -> record(meta: meta, input_gff: reps_gff) },
+        CONCATENATE_BACPHLIP.out.file_out.map { _meta, bacphlip -> bacphlip },
         // optional: empty when --annotation_db is not set / all AMR tools are skipped
-        PROTEINS_PROCESSING.out.hmmer_tables.ifEmpty([[:], []]),
-        PROTEINS_PROCESSING.out.amr_gff.ifEmpty([[:], []])
+        PROTEINS_PROCESSING.out.hmmer_tables.map { _meta, tables -> tables }.ifEmpty([]),
+        PROTEINS_PROCESSING.out.amr_gff.map { _meta, amr_gff -> amr_gff }.ifEmpty([])
     )
 
     //

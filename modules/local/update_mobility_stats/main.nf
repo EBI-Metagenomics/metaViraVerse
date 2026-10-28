@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process UPDATE_MOBILITY_STATS {
     /*
      * Combine plaSquid's mobility_stats.json (protein_report record counts) with
@@ -13,11 +15,20 @@ process UPDATE_MOBILITY_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(mobility_json), path(mob_report)
+    record(
+        meta: Map,
+        mobility_json: Path,
+        mob_report: Path?
+    )
 
     output:
-    tuple val(meta), path("mobility_stats_final.json"), emit: mobility_stats
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        meta: meta,
+        mobility_stats: file("mobility_stats_final.json")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     def mob_report_arg = mob_report ? "--mob-report ${mob_report}" : ""

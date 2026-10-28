@@ -31,45 +31,53 @@ workflow PLASQUID_WORKFLOW {
     // script needs this crosswalk to resolve a protein hit back to its contig.
     //
     MAP_PROTEIN_TO_CONTIG(
-        plasmids_gff
+        plasmids_gff.map { meta, gff -> record(meta: meta, gff: gff) }
     )
+    protein_to_contig = MAP_PROTEIN_TO_CONTIG.out.map { r -> [r.meta, r.map] }
 
     REPSEARCH(
-        plasmids_faa.join(MAP_PROTEIN_TO_CONTIG.out.map),
+        plasmids_faa
+           .join(protein_to_contig)
+           .map { meta, proteins, map -> record(meta: meta, proteins: proteins, protein_to_contig: map) },
         params.repsearch_db,
         params.repfilter_db
     )
 
     RNASEARCH(
-        plasmids_fna,
+        plasmids_fna.map { meta, fna -> record(meta: meta, fna: fna) },
         params.rna_inc_db
     )
 
     INCSEARCH(
         plasmids_faa
-           .join(RNASEARCH.out.rna_candidates)
-           .join(MAP_PROTEIN_TO_CONTIG.out.map),
+           .join(RNASEARCH.out.map { r -> [r.meta, r.rna_candidates] })
+           .join(protein_to_contig)
+           .map { meta, proteins, rna, map -> record(meta: meta, proteins: proteins, rna_candidates: rna, protein_to_contig: map) },
         params.incsearch_db
     )
 
     MOBSEARCH(
-        plasmids_faa.join(MAP_PROTEIN_TO_CONTIG.out.map),
+        plasmids_faa
+           .join(protein_to_contig)
+           .map { meta, proteins, map -> record(meta: meta, proteins: proteins, protein_to_contig: map) },
         params.mobsearch_db
     )
 
     EXTRACT_PLASMIDS_DATA(
-        INCSEARCH.out.filt_classification
-           .join(MOBSEARCH.out.mob_table)
-           .join(REPSEARCH.out.rep_domains)
+        INCSEARCH.out.map { r -> [r.meta, r.filt_classification] }
+           .join(MOBSEARCH.out.map { r -> [r.meta, r.mob_table] })
+           .join(REPSEARCH.out.map { r -> [r.meta, r.rep_domains] })
            .join(plasmids_fna)
            .join(plasmids_faa)
+           .map { meta, filt, mob, rep, fna, faa -> record(meta: meta, filt_classification: filt, mob_table: mob, rep_domains: rep, fna: fna, faa: faa) }
     )
+    plasmids_data = EXTRACT_PLASMIDS_DATA.out
 
     emit:
-    fasta                  = EXTRACT_PLASMIDS_DATA.out.fasta                   // combined plasmid contig sequences
-    report                 = EXTRACT_PLASMIDS_DATA.out.report                   // per-contig RIP/MOB/Inc-group report
-    protein_report         = EXTRACT_PLASMIDS_DATA.out.protein_report           // per-protein RIP/MOB/Inc-group report
-    rip_seqs               = EXTRACT_PLASMIDS_DATA.out.rip_seqs_faa              // RIP protein sequences
-    mobility_classification = EXTRACT_PLASMIDS_DATA.out.mobility_classification // per-contig conjugative/mobilizable/non_mobilizable
-    mobility_stats         = EXTRACT_PLASMIDS_DATA.out.mobility_stats           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
+    fasta                  = plasmids_data.map { r -> [r.meta, r.fasta] }                   // combined plasmid contig sequences
+    report                 = plasmids_data.map { r -> [r.meta, r.report] }                   // per-contig RIP/MOB/Inc-group report
+    protein_report         = plasmids_data.map { r -> [r.meta, r.protein_report] }           // per-protein RIP/MOB/Inc-group report
+    rip_seqs               = plasmids_data.map { r -> [r.meta, r.rip_seqs_faa] }              // RIP protein sequences
+    mobility_classification = plasmids_data.map { r -> [r.meta, r.mobility_classification] } // per-contig conjugative/mobilizable/non_mobilizable
+    mobility_stats         = plasmids_data.map { r -> [r.meta, r.mobility_stats] }           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
 }

@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process EXTRACT_PLASMIDS_DATA {
     /*
      * Combine REPSEARCH/INCSEARCH/MOBSEARCH's independent plasmid-evidence tables
@@ -10,16 +12,28 @@ process EXTRACT_PLASMIDS_DATA {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(filt_classification), path(mob_table), path(rep_domains), path(fna), path(faa)
+    record(
+        meta: Map,
+        filt_classification: Path,
+        mob_table: Path,
+        rep_domains: Path,
+        fna: Path,
+        faa: Path
+    )
 
     output:
-    tuple val(meta), path("plasmids_contigs.fasta"),        emit: fasta
-    tuple val(meta), path("plasmid_report.tsv"),            emit: report
-    tuple val(meta), path("protein_report.tsv"),            emit: protein_report
-    tuple val(meta), path("rip_seqs.faa"),                  emit: rip_seqs_faa
-    tuple val(meta), path("mobility_classification.tsv"),   emit: mobility_classification
-    tuple val(meta), path("mobility_stats.json"),           emit: mobility_stats
-    tuple val("${task.process}"), val('r-base'), eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'"), emit: versions_r_base, topic: versions
+    record(
+        meta: meta,
+        fasta: file("plasmids_contigs.fasta"),
+        report: file("plasmid_report.tsv"),
+        protein_report: file("protein_report.tsv"),
+        rip_seqs_faa: file("rip_seqs.faa"),
+        mobility_classification: file("mobility_classification.tsv"),
+        mobility_stats: file("mobility_stats.json")
+    )
+
+    topic:
+    tuple(task.process, 'r-base', eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'")) >> 'versions'
 
     script:
     """

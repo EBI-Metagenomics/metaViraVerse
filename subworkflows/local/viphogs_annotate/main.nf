@@ -37,27 +37,31 @@ workflow VIPHOGS_ANNOTATION {
     )
 
     HMM_POSTPROCESSING(
-       FIND_CONCATENATE.out.file_out
+       FIND_CONCATENATE.out.file_out.map { meta, tbl -> record(meta: meta, hmmer_tbl: tbl) }
     )
 
     // calculate hit qual per protein
     RATIO_EVALUE(
-       HMM_POSTPROCESSING.out,
-       additional_viphog_model_data
+       HMM_POSTPROCESSING.out.map { r -> record(meta: r.meta, modified_table: r.modified_tsv) },
+       additional_viphog_model_data,
+       params.viphogs_evalue
     )
 
     // annotate contigs based on ViPhOGs
     ANNOTATION(
-       RATIO_EVALUE.out.informative_hits_tsv.join(proteins_gff)
+       RATIO_EVALUE.out
+           .map { r -> [r.meta, r.informative_hits_tsv] }
+           .join(proteins_gff)
+           .map { meta, tab, gff -> record(meta: meta, tab: tab, gff: gff) }
     )
 
     // assign lineages
     ASSIGN(
-       ANNOTATION.out.annotations,
+       ANNOTATION.out.map { r -> record(meta: r.meta, tab: r.annotations) },
        ncbi_db,
        viphogs_factor_file
     )
 
     emit:
-    assignment     = ASSIGN.out.taxonomy_tsv
+    assignment     = ASSIGN.out.map { r -> [r.meta, r.taxonomy_tsv] }
 }

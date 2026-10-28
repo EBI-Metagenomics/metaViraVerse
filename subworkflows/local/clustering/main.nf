@@ -59,17 +59,20 @@ workflow CLUSTERING {
 
         // Calculate pairwise ANI by combining local alignments between sequence pairs
         ANICALC(
-           BLAST_BLASTN.out.txt
+           BLAST_BLASTN.out.txt.map { meta, tsv -> record(meta: meta, tsv: tsv) }
         )
 
         // UCLUST-like clustering
         // simple greedy, centroid-based clustering
         // sometimes called leader clustering or single-pass centroid clustering
         ANICLUST(
-           ANICALC.out.calculated_ani_tsv.join(sequences)
+           ANICALC.out
+               .map { r -> [r.meta, r.calculated_ani_tsv] }
+               .join(sequences)
+               .map { meta, ani_tsv, seqs -> record(meta: meta, ani_tsv: ani_tsv, sequences: seqs) }
         )
 
-        clusters_tsv = ANICLUST.out.clusters_tsv
+        clusters_tsv = ANICLUST.out.map { r -> [r.meta, r.clusters_tsv] }
     }
 
     emit:

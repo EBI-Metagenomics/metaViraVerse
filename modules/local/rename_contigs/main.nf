@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
  * change headers to short names for contigs fasta and gff
 */
@@ -10,36 +12,42 @@ process RENAME_CONTIGS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    val(meta)
-    path(fna)
-    path(gff)
-    val(types)
-    val(biomes)
-    val(start_accession)
-    val(end_accession)
-    path(fna_tp)
-    path(gff_tp)
-    val(types_tp)
-    val(biomes_tp)
-    val(sources_tp)
-    val(viral_sequence_identifier)
-    val(prophage_identifier)
-    val(plasmid_identifier)
+    meta: Map
+    fna: List<Path>
+    gff: List<Path>
+    types: List<String>
+    biomes: List<String>
+    start_accession: Integer?
+    end_accession: Integer?
+    fna_tp: List<Path>
+    gff_tp: List<Path>
+    types_tp: List<String>
+    biomes_tp: List<String>
+    sources_tp: List<String>
+    viral_sequence_identifier: String?
+    prophage_identifier: String?
+    plasmid_identifier: String?
+    rename_accession: String
 
     output:
-    tuple val(meta), path("combined.fna"), emit: fna_renamed
-    tuple val(meta), path("combined.gff"), emit: gff_renamed
-    tuple val(meta), path("combined.tsv"), emit: map_file
-    tuple val("${task.process}"), val('python'), eval('python --version 2>&1 | sed "s/Python //g"'), topic: versions
+    record(
+        meta: meta,
+        fna_renamed: file("combined.fna"),
+        gff_renamed: file("combined.gff"),
+        map_file: file("combined.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval('python --version 2>&1 | sed "s/Python //g"')) >> 'versions'
 
     script:
     def args   = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${params.rename_accession}"
+    def prefix = task.ext.prefix ?: "${rename_accession}"
 
-    def fna_files    = fna    ? fna.collect { it }    : []
-    def gff_files    = gff    ? gff.collect { it }    : []
-    def fna_tp_files = fna_tp ? fna_tp.collect { it } : []
-    def gff_tp_files = gff_tp ? gff_tp.collect { it } : []
+    def fna_files    = fna
+    def gff_files    = gff
+    def fna_tp_files = fna_tp
+    def gff_tp_files = gff_tp
 
     def fna_args    = fna_files    ? "--fasta ${fna_files.join(' ')}"       : ''
     def gff_args    = gff_files    ? "--gff ${gff_files.join(' ')}"         : ''

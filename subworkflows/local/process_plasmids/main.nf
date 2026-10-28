@@ -131,7 +131,7 @@ workflow PROCESS_PLASMIDS {
         PLASQUID_WORKFLOW.out.mobility_stats
             .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
             .map { meta, mobility_json, mob_report ->
-                tuple(meta, mobility_json, mob_report ?: [])
+                record(meta: meta, mobility_json: mobility_json, mob_report: mob_report)
             }
     )
 
@@ -162,7 +162,7 @@ workflow PROCESS_PLASMIDS {
     // its own --biomarker-report/--amr-gff ? ... : "" checks.
 
     ANNOTATE_PLASMID_GFF(
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
+        EXTRACT_CLUSTER_FILES.out.reps_gff.map { meta, gff -> record(meta: meta, gff: gff) },
         PLASQUID_WORKFLOW.out.protein_report.map { _meta, f -> f },
         CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
         CONCATENATE_MOBSUITE_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
@@ -177,7 +177,7 @@ workflow PROCESS_PLASMIDS {
     reps_seqs             = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed      // compressed
     reps_proteins         = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
     reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
-    reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
-    mobility_stats        = UPDATE_MOBILITY_STATS.out.mobility_stats            // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
+    reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.map { r -> [r.meta, r.gff] }                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
+    mobility_stats        = UPDATE_MOBILITY_STATS.out.map { r -> [r.meta, r.mobility_stats] }            // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
 
 }

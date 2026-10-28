@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process HMM_POSTPROCESSING {
     /*
     input: File_hmmer_ViPhOG.tbl
@@ -9,10 +11,16 @@ process HMM_POSTPROCESSING {
     container 'quay.io/microbiome-informatics/virify-python3:1.2'
 
     input:
-      tuple val(meta), path(hmmer_tbl)
+    record(
+        meta: Map,
+        hmmer_tbl: Path
+    )
 
     output:
-      tuple val(meta), path("${meta.id}_modified.tsv")
+    record(
+        meta: meta,
+        modified_tsv: file("${meta.id}_modified.tsv")
+    )
 
     script:
     """
