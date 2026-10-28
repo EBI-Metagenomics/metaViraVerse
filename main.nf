@@ -70,6 +70,7 @@ params {
 
     // Clustering
     cluster_vclust: Boolean = true
+    viral_clustering: String = 'default'   // 'default' or 'vjdb' (pipelines/vjdb-clustering)
 
     // AMR detection
     amrfinderplus_db: String?
@@ -344,6 +345,8 @@ output {
             // CheckV ANI clustering (--cluster_vclust false)
             r.ani_tsv >> "${r.meta.id}/clustering/"
             r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
+            // vjdb-clustering membership table (--viral_clustering vjdb)
+            r.vjdb_clusters_csv >> "${r.meta.id}/clustering/"
 
             r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
             r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"

@@ -10,6 +10,7 @@ include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../../modules/
 
 include { BACPHLIP                                     } from '../../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../../modules/local/build_final_gff'
+include { VJDB_CLUSTERS_TSV                            } from '../../../modules/local/vjdb_clusters_tsv'
 
 include { EXTRACT_CLUSTER_FILES                        } from '../extract_cluster_files/main'
 include { CLUSTERING                                   } from '../clustering/main'
@@ -17,6 +18,8 @@ include { HOST_DETECTION ; HostResult                  } from '../host_detection
 include { INDEX_RESULTS ; IndexedReps                  } from '../index_results/main'
 include { PROTEINS_PROCESSING ; ProteinsResult         } from '../proteins_subwf/main'
 include { TAXONOMY_ASSIGNMENT ; TaxonomyResult         } from '../taxonomy_subwf/main'
+
+include { params as VjdbParams ; workflow as VJDB_CLUSTERING } from '../../../pipelines/vjdb-clustering/main.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,6 +29,7 @@ include { TAXONOMY_ASSIGNMENT ; TaxonomyResult         } from '../taxonomy_subwf
 
 // params of this workflow and of the subworkflows it calls
 record ViralParams {
+    viral_clustering: String   // 'default' (vclust, or blastn with cluster_vclust false) or 'vjdb'
     cluster_vclust: Boolean
     nucleotide_fasta_chunksize: Integer
     skip_phammseqs: Boolean
@@ -69,6 +73,14 @@ record ViralSequences {
     fna: Path
 }
 
+record ViralClusters {
+    meta: Map
+    clusters_tsv: Path         // vclust format (object, cluster)
+    ani_tsv: Path?             // CheckV ANI clustering only
+    ani_clusters_tsv: Path?
+    vjdb_clusters_csv: Path?   // vjdb-clustering only
+}
+
 record LifestyleTable {
     meta: Map
     bacphlip: Path
@@ -79,6 +91,7 @@ record ViralCatalogue {
     clusters_tsv: Path
     ani_tsv: Path?             // CheckV ANI clustering only
     ani_clusters_tsv: Path?
+    vjdb_clusters_csv: Path?   // vjdb-clustering only
     reps_list: Path
     fna_gz: Path               // representative sequences, compressed
     faa_gz: Path               // representative proteins, compressed
@@ -108,14 +121,33 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     samples_seqs = sequences.filter { r -> r.fna && r.fna.size() > 0 }
 
-    clusters = CLUSTERING(
-       samples_seqs,
-       'ani',
-       0,
-       0,
-       0.95,
-       opts.cluster_vclust
-    )
+    if ( !(opts.viral_clustering in ['default', 'vjdb']) ) {
+        error("--viral_clustering must be 'default' or 'vjdb', got '${opts.viral_clustering}'")
+    }
+
+    def clusters: Channel<ViralClusters> = channel.empty()
+    if ( opts.viral_clustering == 'vjdb' ) {
+        // vjdb-clustering (pipelines/vjdb-clustering) takes the single FASTA of viruses and prophages as a dataflow value
+        def viruses = samples_seqs.reduce { a, _b -> a }
+        def vjdb = VJDB_CLUSTERING(record(mode: 'initial', input: viruses.map { r -> r.fna }))
+
+        def vjdb_csv = viruses
+            .combine(clusters_csv: vjdb.clusters_csv)
+            .flatMap { r -> [record(meta: r.meta, clusters_csv: r.clusters_csv)] }
+
+        clusters = VJDB_CLUSTERS_TSV(vjdb_csv)
+            .join(vjdb_csv, by: 'meta')
+            .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: null, ani_clusters_tsv: null, vjdb_clusters_csv: r.clusters_csv) }
+    } else {
+        clusters = CLUSTERING(
+           samples_seqs,
+           'ani',
+           0,
+           0,
+           0.95,
+           opts.cluster_vclust
+        ).map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv, vjdb_clusters_csv: null) }
+    }
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
@@ -234,7 +266,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         .map { r ->
             record(
                 meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
-                reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                vjdb_clusters_csv: r.vjdb_clusters_csv, reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
                 final_gff: r.final_gff, index: r.index,
                 taxonomy: r.taxonomy, hosts: r.hosts, proteins: r.proteins
             )

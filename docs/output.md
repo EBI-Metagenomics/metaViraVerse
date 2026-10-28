@@ -125,7 +125,8 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
   - `viruses_source_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in.
   - `viruses-all-metadata.tsv.gz`: one row per **input** viral sequence or prophage (before clustering), combining source, quality and taxonomy information.
   - `viruses-cluster-stats.tsv.gz`: one row per viral **cluster representative**, with per-cluster statistics (cluster size, mean gene and viral-gene counts, biomes and source types in the cluster, completeness and contamination ranges).
-  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage.
+  - `clustering/`: only produced by the alternative clustering methods: the CheckV pairwise ANI and ANI clusters tables (`--cluster_vclust false`), or the [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) membership table `vjdb1_merged_reps.csv` (`--viral_clustering vjdb`; one row per sequence with its cluster representative in `cluster_rep`).
+  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage (or with vjdb-clustering, see `--viral_clustering`).
     - `viruses_reps.fasta.gz`, `viruses_reps.faa.gz`: nucleotide and protein sequences of one representative per viral cluster.
     - `viruses_reps_annotated.gff.gz`: GFF of the representatives, enriched with lifestyle (BACPHLIP), HMMER (e.g. PVOG, TIGRFAM) and AMR annotations.
     - `functional_annotation/`
