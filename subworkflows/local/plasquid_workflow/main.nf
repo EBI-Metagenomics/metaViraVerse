@@ -24,8 +24,6 @@ workflow PLASQUID_WORKFLOW {
 
     main:
 
-    ch_versions = channel.empty()
-
     //
     // Protein ids keep their original (pre-rename) form, e.g.
     // "MGYG000517684_26|plasmid-1:6000_1", while the matching nucleotide contig has
@@ -35,20 +33,17 @@ workflow PLASQUID_WORKFLOW {
     MAP_PROTEIN_TO_CONTIG(
         plasmids_gff
     )
-    ch_versions = ch_versions.mix(MAP_PROTEIN_TO_CONTIG.out.versions)
 
     REPSEARCH(
         plasmids_faa.join(MAP_PROTEIN_TO_CONTIG.out.map),
         params.repsearch_db,
         params.repfilter_db
     )
-    ch_versions = ch_versions.mix(REPSEARCH.out.versions)
 
     RNASEARCH(
         plasmids_fna,
         params.rna_inc_db
     )
-    ch_versions = ch_versions.mix(RNASEARCH.out.versions)
 
     INCSEARCH(
         plasmids_faa
@@ -56,13 +51,11 @@ workflow PLASQUID_WORKFLOW {
            .join(MAP_PROTEIN_TO_CONTIG.out.map),
         params.incsearch_db
     )
-    ch_versions = ch_versions.mix(INCSEARCH.out.versions)
 
     MOBSEARCH(
         plasmids_faa.join(MAP_PROTEIN_TO_CONTIG.out.map),
         params.mobsearch_db
     )
-    ch_versions = ch_versions.mix(MOBSEARCH.out.versions)
 
     EXTRACT_PLASMIDS_DATA(
         INCSEARCH.out.filt_classification
@@ -71,7 +64,6 @@ workflow PLASQUID_WORKFLOW {
            .join(plasmids_fna)
            .join(plasmids_faa)
     )
-    ch_versions = ch_versions.mix(EXTRACT_PLASMIDS_DATA.out.versions)
 
     emit:
     fasta                  = EXTRACT_PLASMIDS_DATA.out.fasta                   // combined plasmid contig sequences
@@ -80,5 +72,4 @@ workflow PLASQUID_WORKFLOW {
     rip_seqs               = EXTRACT_PLASMIDS_DATA.out.rip_seqs_faa              // RIP protein sequences
     mobility_classification = EXTRACT_PLASMIDS_DATA.out.mobility_classification // per-contig conjugative/mobilizable/non_mobilizable
     mobility_stats         = EXTRACT_PLASMIDS_DATA.out.mobility_stats           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
-    versions               = ch_versions
 }

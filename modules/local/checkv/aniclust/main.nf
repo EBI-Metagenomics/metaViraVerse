@@ -12,7 +12,7 @@ process ANICLUST {
 
     output:
     tuple val(meta), path("${meta.id}_clusters.tsv"), emit: clusters_tsv
-    path "versions.yml"                             , emit: versions
+    tuple val("${task.process}"), val('checkv'), eval("checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p'"), emit: versions_checkv, topic: versions
 
     script:
     def args = task.ext.args ?: ''
@@ -22,10 +22,5 @@ process ANICLUST {
       --ani ${ani_tsv} \\
       --out ${meta.id}_clusters.tsv \\
       ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        checkv: \$(checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p')
-    END_VERSIONS
     """
 }

@@ -14,7 +14,7 @@ process SEQKIT_SPLIT2 {
 
     output:
     tuple val(meta), path("**/*"), emit: chunked_output
-    path "versions.yml"                 , emit: versions
+    tuple val("${task.process}"), val('seqkit'), eval("echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//'"), emit: versions_seqkit, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -49,10 +49,5 @@ process SEQKIT_SPLIT2 {
         --threads $task.cpus \\
         ${input_fasta} \\
         --out-dir ${prefix}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        seqkit: \$(echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
-    END_VERSIONS
     """
 }

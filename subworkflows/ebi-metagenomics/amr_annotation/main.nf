@@ -25,7 +25,6 @@ workflow AMR_ANNOTATION {
     skip_rgi                  // boolean
 
     main:
-    ch_versions = channel.empty()
 
     // Extract individual components from input channel
     ch_faa = ch_inputs.map{ meta, aminoacids, _cds_gff ->
@@ -57,10 +56,8 @@ workflow AMR_ANNOTATION {
         if (!ch_rgi_db) {
             // Download and process CARD database
             RGI_DOWNLOADDB()
-            ch_versions = ch_versions.mix(RGI_DOWNLOADDB.out.versions.first())
             RGI_CARDANNOTATION(RGI_DOWNLOADDB.out.card_json)
             card = RGI_CARDANNOTATION.out.db
-            ch_versions = ch_versions.mix(RGI_CARDANNOTATION.out.versions.first())
         }
         else {
             // Use user-supplied database
@@ -68,7 +65,6 @@ workflow AMR_ANNOTATION {
             if (!rgi_db.contains("card_database_processed")) {
                 RGI_CARDANNOTATION(rgi_db)
                 card = RGI_CARDANNOTATION.out.db
-                ch_versions = ch_versions.mix(RGI_CARDANNOTATION.out.versions.first())
             }
             else {
                 card = rgi_db
@@ -76,11 +72,9 @@ workflow AMR_ANNOTATION {
         }
 
         RGI_MAIN(ch_faa, card, [])
-        ch_versions = ch_versions.mix(RGI_MAIN.out.versions.first())
 
         // Reporting
         HAMRONIZATION_RGI(RGI_MAIN.out.tsv, 'tsv', RGI_MAIN.out.tool_version, RGI_MAIN.out.db_version)
-        ch_versions = ch_versions.mix(HAMRONIZATION_RGI.out.versions.first())
         ch_rgi_results = HAMRONIZATION_RGI.out.tsv
     }
 
@@ -91,7 +85,6 @@ workflow AMR_ANNOTATION {
     else if (!skip_deeparg && !ch_deeparg_db) {
         // Download deeparg database
         DEEPARG_DOWNLOADDATA()
-        ch_versions = ch_versions.mix(DEEPARG_DOWNLOADDATA.out.versions.first())
         deeparg_db = DEEPARG_DOWNLOADDATA.out.db
     }
 
@@ -105,10 +98,8 @@ workflow AMR_ANNOTATION {
             .set { ch_input_for_deeparg }
 
         DEEPARG_PREDICT(ch_input_for_deeparg, deeparg_db)
-        ch_versions = ch_versions.mix(DEEPARG_PREDICT.out.versions.first())
 
         HAMRONIZATION_DEEPARG(DEEPARG_PREDICT.out.arg, 'tsv', ch_deeparg_tool_version, ch_deeparg_db_version)
-        ch_versions = ch_versions.mix(HAMRONIZATION_DEEPARG.out.versions.first())
         ch_deeparg_results = HAMRONIZATION_DEEPARG.out.tsv
     }
 
@@ -203,9 +194,7 @@ workflow AMR_ANNOTATION {
         }
 
     AMRINTEGRATOR(ch_for_amrintegrator)
-    ch_versions = ch_versions.mix(AMRINTEGRATOR.out.versions.first())
 
     emit:
     gff      = AMRINTEGRATOR.out.gff            // channel: [ val(meta), [ gff ] ]
-    versions = ch_versions                      // channel: [ versions.yml ]
 }

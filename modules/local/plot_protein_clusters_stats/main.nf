@@ -30,7 +30,9 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
     tuple val(meta), path("${prefix}_cluster_function_purity.tsv"),                                                    emit: purity_tsv
     tuple val(meta), path("${prefix}_cluster_function_purity.png"), optional: true,                                    emit: purity_png
     tuple val(meta), path("${prefix}_clustering_stats.tsv"),                                                       emit: stats
-    path "versions.yml",                                                                                           emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    tuple val("${task.process}"), val('matplotlib'), eval('python -c "import matplotlib; print(matplotlib.__version__)"'), emit: versions_matplotlib, topic: versions
+    tuple val("${task.process}"), val('scikit-learn'), eval('python -c "import sklearn; print(sklearn.__version__)"'), emit: versions_scikit_learn, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -51,13 +53,6 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
         --prefix ${prefix} \\
         ${reference_arg} \\
         ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        matplotlib: \$(python -c "import matplotlib; print(matplotlib.__version__)")
-        scikit-learn: \$(python -c "import sklearn; print(sklearn.__version__)")
-    END_VERSIONS
     """
 
     stub:
@@ -68,12 +63,5 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
     touch ${prefix}_top_functions.tsv ${prefix}_top_functions.png
     touch ${prefix}_cluster_function_purity.tsv ${prefix}_cluster_function_purity.png
     touch ${prefix}_clustering_stats.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        matplotlib: \$(python -c "import matplotlib; print(matplotlib.__version__)")
-        scikit-learn: \$(python -c "import sklearn; print(sklearn.__version__)")
-    END_VERSIONS
     """
 }

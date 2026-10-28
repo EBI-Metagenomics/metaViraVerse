@@ -15,7 +15,7 @@ process PLOT_ITOL {
       tuple val(meta), path("*_counts.txt"),        emit: tree_counts
       tuple val(meta), path("*.type.binary.txt"),   emit: tree_types , optional:true  // genome/assembly
       tuple val(meta), path("*.biomes.binary.txt"), emit: tree_biomes, optional:true
-      path "versions.yml",                          emit: versions
+      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     def args = task.ext.args ?: ''
@@ -29,10 +29,5 @@ process PLOT_ITOL {
         --output ${prefix}_tree.nwk \\
         --labels ${prefix}_labels.txt \\
         --counts ${prefix}_counts.txt
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

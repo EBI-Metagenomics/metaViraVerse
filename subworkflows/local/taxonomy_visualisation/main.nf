@@ -15,15 +15,12 @@ workflow TAXONOMY_VISUALISATION {
 
     main:
 
-    ch_versions = channel.empty()
-
     //
     // -------- Taxonomy visualisation with krona
     //
     KRONA_KTIMPORTTEXT (
         reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
     )
-    ch_versions = ch_versions.mix(KRONA_KTIMPORTTEXT.out.versions)
 
     //
     // -------- Taxonomy visualisation with sankey
@@ -31,7 +28,6 @@ workflow TAXONOMY_VISUALISATION {
     SANKEY_PLOT (
         reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
     )
-    ch_versions = ch_versions.mix(SANKEY_PLOT.out.versions)
 
     //
     // -------- Taxonomy tree files to upload to iTOL
@@ -39,10 +35,4 @@ workflow TAXONOMY_VISUALISATION {
     PLOT_ITOL (
         reps_krona_and_metadata
     )
-    ch_versions = ch_versions.mix(PLOT_ITOL.out.versions)
-
-    emit:
-
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
-
 }

@@ -14,7 +14,7 @@ process BUILD_FINAL_GFF {
 
     output:
     tuple val(meta_input), path("*final.gff*"),       emit: final_gff
-    path "versions.yml",                              emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     // hmmer tables and AMR GFF are optional upstream ([] when the step was skipped)
@@ -28,10 +28,5 @@ process BUILD_FINAL_GFF {
         ${hmmer_arg} \\
         ${gff_arg} \\
         --compress-output
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

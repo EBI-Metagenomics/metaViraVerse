@@ -1,6 +1,3 @@
-#!/usr/bin/env nextflow
-nextflow.enable.types = true
-
 include { ANICALC               } from '../../../modules/local/checkv/anicalc'
 include { ANICLUST              } from '../../../modules/local/checkv/aniclust'
 
@@ -9,8 +6,6 @@ include { BLAST_BLASTN          } from '../../../modules/nf-core/blast/blastn'
 include { VCLUST_ALIGN          } from '../../../modules/nf-core/vclust/align'
 include { VCLUST_CLUSTER        } from '../../../modules/nf-core/vclust/cluster'
 include { VCLUST_PREFILTER      } from '../../../modules/nf-core/vclust/prefilter'
-
-include { workflow as INITIAL_CLUSTERING    } from '../../../pipelines/vjdb-clustering/main'
 
 
 workflow CLUSTERING {
@@ -24,24 +19,16 @@ workflow CLUSTERING {
 
     main:
 
-    ch_versions = channel.empty()
-
-    if ( params.cluster_vjdb ) {
-        INITIAL_CLUSTERING (
-            sequences.map{ meta, seqs -> seqs}
-        )
-    } else if ( params.cluster_vclust ) {
+    if ( params.cluster_vclust ) {
         VCLUST_PREFILTER (
             sequences
         )
-        ch_versions = ch_versions.mix(VCLUST_PREFILTER.out.versions)
 
         VCLUST_ALIGN (
             sequences,
             VCLUST_PREFILTER.out.txt,
             false
         )
-        ch_versions = ch_versions.mix(VCLUST_ALIGN.out.versions)
 
         VCLUST_CLUSTER (
             VCLUST_ALIGN.out.tsv,
@@ -51,7 +38,6 @@ workflow CLUSTERING {
             vclust_gani_threshold,
             vclust_ani_threshold
         )
-        ch_versions = ch_versions.mix(VCLUST_CLUSTER.out.versions)
 
         clusters_tsv = VCLUST_CLUSTER.out.clusters
 
@@ -70,13 +56,11 @@ workflow CLUSTERING {
             '',
             ''
         )
-        ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions)
 
         // Calculate pairwise ANI by combining local alignments between sequence pairs
         ANICALC(
            BLAST_BLASTN.out.txt
         )
-        ch_versions = ch_versions.mix(ANICALC.out.versions)
 
         // UCLUST-like clustering
         // simple greedy, centroid-based clustering
@@ -84,13 +68,11 @@ workflow CLUSTERING {
         ANICLUST(
            ANICALC.out.calculated_ani_tsv.join(sequences)
         )
-        ch_versions = ch_versions.mix(ANICLUST.out.versions)
 
         clusters_tsv = ANICLUST.out.clusters_tsv
     }
 
     emit:
     clusters_tsv   = clusters_tsv
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

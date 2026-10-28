@@ -42,7 +42,6 @@ workflow TAXONOMY_ASSIGNMENT {
 
     main:
 
-    ch_versions      = channel.empty()
     vitap_best       = channel.empty()
     genomad_taxonomy = channel.empty()
     viphogs_taxonomy = channel.empty()
@@ -70,12 +69,10 @@ workflow TAXONOMY_ASSIGNMENT {
             },
             combined_metadata
         )
-        ch_versions = ch_versions.mix(TAX_GENOMAD.out.versions)
 
         VIS_GENOMAD (
             TAX_GENOMAD.out.taxonomy_and_metadata
         )
-        ch_versions = ch_versions.mix(VIS_GENOMAD.out.versions)
 
         genomad_taxonomy = CONCATENATE_GENOMAD.out.csv
     }
@@ -102,12 +99,10 @@ workflow TAXONOMY_ASSIGNMENT {
             },
             combined_metadata
         )
-        ch_versions = ch_versions.mix(TAX_VIPHOGS.out.versions)
 
         VIS_VIPHOGS (
             TAX_VIPHOGS.out.taxonomy_and_metadata
         )
-        ch_versions = ch_versions.mix(VIS_VIPHOGS.out.versions)
 
         viphogs_taxonomy = VIPHOGS_ANNOTATION.out.assignment
     }
@@ -120,7 +115,6 @@ workflow TAXONOMY_ASSIGNMENT {
             ch_fna_chunks,
             params.vitap_db
         )
-        ch_versions = ch_versions.mix(VITAP.out.versions)
 
         CONCATENATE_VITAP (
             VITAP.out.best_lineages.groupTuple(),
@@ -135,12 +129,10 @@ workflow TAXONOMY_ASSIGNMENT {
             },
             combined_metadata
         )
-        ch_versions = ch_versions.mix(TAX_VITAP.out.versions)
 
         VIS_VITAP (
            TAX_VITAP.out.taxonomy_and_metadata
         )
-        ch_versions = ch_versions.mix(VIS_VITAP.out.versions)
 
         vitap_best = CONCATENATE_VITAP.out.file_out
     }
@@ -150,5 +142,4 @@ workflow TAXONOMY_ASSIGNMENT {
     vitap_best       = vitap_best
     genomad_taxonomy = genomad_taxonomy
     viphogs_taxonomy = viphogs_taxonomy
-    versions         = ch_versions
 }

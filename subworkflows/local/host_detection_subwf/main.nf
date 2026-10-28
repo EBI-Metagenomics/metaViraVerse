@@ -36,7 +36,6 @@ workflow HOST_DETECTION {
 
     main:
 
-    ch_versions = channel.empty()
     iphop_host_genome = channel.empty()
     iphop_host_genus = channel.empty()
     spacepharer_host = channel.empty()
@@ -47,14 +46,12 @@ workflow HOST_DETECTION {
             [],                                        // length: (disabled) max number of nucleotides per chunk
             params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
         )
-        ch_versions = ch_versions.mix(CHUNK_FNA_IPHOP.out.versions)
         def ch_fna_chunks = CHUNK_FNA_IPHOP.out.chunked_output.transpose()
 
         IPHOP_PREDICT (
             ch_fna_chunks,
             params.iphop_db
         )
-        ch_versions = ch_versions.mix(IPHOP_PREDICT.out.versions)
 
         CONCATENATE_IPHOP_GENOME (
             IPHOP_PREDICT.out.iphop_genome
@@ -97,19 +94,16 @@ workflow HOST_DETECTION {
 
     if (params.predict_host_from_custom_spacers) {
         CHANGE_SPACE_TO_UNDERSCORE(fna)
-        ch_versions = ch_versions.mix(CHANGE_SPACE_TO_UNDERSCORE.out.versions)
 
         SPACEPHARER_CREATEDB (
             CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
             "targetSetDB"
         )
-        ch_versions = ch_versions.mix(SPACEPHARER_CREATEDB.out.versions)
 
         SPACEPHARER_CREATEDB_REV (
             CHANGE_SPACE_TO_UNDERSCORE.out.sanitised_fasta,
             "targetSetDB_rev"
         )
-        ch_versions = ch_versions.mix(SPACEPHARER_CREATEDB_REV.out.versions)
 
         SPACEPHARER_EASYPREDICT(
             channel.of(params.custom_spacers_fasta).map{fasta -> [[id:'spacers'], fasta]},
@@ -117,7 +111,6 @@ workflow HOST_DETECTION {
             SPACEPHARER_CREATEDB.out.db.map { meta, db -> db },
             SPACEPHARER_CREATEDB_REV.out.db.map { meta, db -> db }
         )
-        ch_versions = ch_versions.mix(SPACEPHARER_EASYPREDICT.out.versions)
 
         COLLECT_HOST_INFO (
            SPACEPHARER_EASYPREDICT.out.predictions,
@@ -125,7 +118,6 @@ workflow HOST_DETECTION {
            mapfile,
            metadata
         )
-        ch_versions = ch_versions.mix(COLLECT_HOST_INFO.out.versions)
 
         SANKEY_SPACEPHARER_HOST (
             COLLECT_HOST_INFO.out.tsv
@@ -141,5 +133,4 @@ workflow HOST_DETECTION {
     iphop_host_genome   = iphop_host_genome
     iphop_host_genus    = iphop_host_genus
     spacepharer_host    = spacepharer_host
-    versions            = ch_versions                 // channel: [ path(versions.yml) ]
 }

@@ -33,8 +33,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     main:
 
-    ch_versions = channel.empty()
-
     //
     // ----------- Cluster sequences -----------
     //
@@ -52,7 +50,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
        false,
        0.95
     )
-    ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
@@ -65,7 +62,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
        faa,
        'viruses'
     )
-    ch_versions = ch_versions.mix(EXTRACT_CLUSTER_FILES.out.versions)
 
     //
     // ----------- Chunk nucleotide sequences for cluster reps -----------
@@ -76,7 +72,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
         [],                                        // length: (disabled) max number of nucleotides per chunk
         params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
     )
-    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
 
     //
@@ -89,7 +84,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
         params.custom_genomes_metadata,
         mapfile
     )
-    ch_versions = ch_versions.mix(HOST_DETECTION.out.versions)
 
     //
     // ----------- Lifestyle -----------
@@ -100,7 +94,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
     BACPHLIP(
         ch_fna_chunks
     )
-    ch_versions = ch_versions.mix(BACPHLIP.out.versions)
 
     CONCATENATE_BACPHLIP (
         BACPHLIP.out.bacphlip_table.groupTuple(),
@@ -124,7 +117,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
        params.ncbi_db,
        params.viphogs_factor_file ? params.viphogs_factor_file: []
     )
-    ch_versions = ch_versions.mix(TAXONOMY_ASSIGNMENT.out.versions)
 
     //
     // ----------- Proteins processing -----------
@@ -140,7 +132,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
        true,
        params.annotation_db
     )
-    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
     //
     // ----------- Build final aggregated GFF -----------
@@ -153,7 +144,6 @@ workflow PROCESS_VIRAL_SEQUENCES {
         PROTEINS_PROCESSING.out.hmmer_tables.ifEmpty([[:], []]),
         PROTEINS_PROCESSING.out.amr_gff.ifEmpty([[:], []])
     )
-    ch_versions = ch_versions.mix(BUILD_FINAL_GFF.out.versions)
 
     //
     // ----------- post-processing (indexing) for website -----------
@@ -178,6 +168,5 @@ workflow PROCESS_VIRAL_SEQUENCES {
     iphop_host_genome   = HOST_DETECTION.out.iphop_host_genome
     iphop_host_genus    = HOST_DETECTION.out.iphop_host_genus
     spacepharer_host    = HOST_DETECTION.out.spacepharer_host
-    versions            = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

@@ -12,7 +12,7 @@ process GENERATE_TAXONOMY_TABLE {
 
     output:
       tuple val(meta), path("*_taxonomy_counts.tsv"), path("*_metadata_table.tsv"), emit: taxonomy_and_metadata
-      path "versions.yml",                                                          emit: versions
+      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     def args = task.ext.args ?: ''
@@ -25,10 +25,5 @@ process GENERATE_TAXONOMY_TABLE {
         --output ${prefix}_taxonomy_counts.tsv \\
         --meta ${metadata_file} \\
         --meta-output ${prefix}_metadata_table.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

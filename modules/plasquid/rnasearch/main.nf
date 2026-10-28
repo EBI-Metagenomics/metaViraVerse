@@ -15,15 +15,10 @@ process RNASEARCH {
 
     output:
     tuple val(meta), path("rna_candidates.tsv"), emit: rna_candidates
-    path "versions.yml",                         emit: versions
+    tuple val("${task.process}"), val('infernal'), eval("cmsearch -h | sed -n 's/^# INFERNAL \\([0-9.]*\\).*/\\1/p'"), emit: versions_infernal, topic: versions
 
     script:
     """
     cmsearch --cpu ${task.cpus} --tblout rna_candidates.tsv ${rna_inc_db} ${fna}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        infernal: \$(cmsearch -h | sed -n 's/^# INFERNAL \\([0-9.]*\\).*/\\1/p')
-    END_VERSIONS
     """
 }

@@ -9,7 +9,8 @@ process SANKEY_PLOT {
 
     output:
       tuple val(meta), path("*sankey.html"), optional: true, emit: sankey_html
-      path "versions.yml",                                   emit: versions
+      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+      tuple val("${task.process}"), val('plotly'), eval('python -c "import plotly; print(plotly.__version__)"'), emit: versions_plotly, topic: versions
 
     script:
     def args = task.ext.args ?: ''
@@ -20,11 +21,5 @@ process SANKEY_PLOT {
         ${args} \\
         --input ${table} \\
         --output ${prefix}_sankey.html
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        plotly: \$(python -c "import plotly; print(plotly.__version__)")
-    END_VERSIONS
     """
 }
