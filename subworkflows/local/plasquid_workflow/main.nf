@@ -3,12 +3,12 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { MAP_PROTEIN_TO_CONTIG                  } from '../../../modules/plasquid/map_protein_to_contig'
-include { REPSEARCH                              } from '../../../modules/plasquid/repsearch'
-include { RNASEARCH                              } from '../../../modules/plasquid/rnasearch'
-include { INCSEARCH                              } from '../../../modules/plasquid/incsearch'
-include { MOBSEARCH                              } from '../../../modules/plasquid/mobsearch'
-include { EXTRACT_PLASMIDS_DATA                  } from '../../../modules/plasquid/extract_plasmids_data'
+include { MAP_PROTEIN_TO_CONTIG                  } from '../../../modules/local/plasquid/map_protein_to_contig'
+include { REPSEARCH                              } from '../../../modules/local/plasquid/repsearch'
+include { RNASEARCH                              } from '../../../modules/local/plasquid/rnasearch'
+include { INCSEARCH                              } from '../../../modules/local/plasquid/incsearch'
+include { MOBSEARCH                              } from '../../../modules/local/plasquid/mobsearch'
+include { EXTRACT_PLASMIDS_DATA                  } from '../../../modules/local/plasquid/extract_plasmids_data'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
