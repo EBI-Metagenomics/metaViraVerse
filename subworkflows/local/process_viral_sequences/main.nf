@@ -131,12 +131,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         def viruses = samples_seqs.reduce { a, _b -> a }
         def vjdb = VJDB_CLUSTERING(record(mode: 'initial', input: viruses.map { r -> r.fna }))
 
-        def vjdb_csv = viruses
-            .combine(clusters_csv: vjdb.clusters_csv)
-            .flatMap { r -> [record(meta: r.meta, clusters_csv: r.clusters_csv)] }
-
-        clusters = VJDB_CLUSTERS_TSV(vjdb_csv)
-            .join(vjdb_csv, by: 'meta')
+        clusters = VJDB_CLUSTERS_TSV(samples_seqs.map { r -> r.meta }, vjdb.clusters_csv)
             .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: null, ani_clusters_tsv: null, vjdb_clusters_csv: r.clusters_csv) }
     } else {
         clusters = CLUSTERING(
