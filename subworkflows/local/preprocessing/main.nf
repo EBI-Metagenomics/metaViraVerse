@@ -22,13 +22,17 @@ record Sample {
     faa: Path
 }
 
-record RenameParams {
+record PreprocessingParams {
     start_accession: Integer?
     end_accession: Integer?
     viral_sequence_identifier: String?
     prophage_identifier: String?
     plasmid_identifier: String?
     rename_accession: String
+    skip_checkv: Boolean
+    checkv_db: Path?
+    skip_rrna_detection: Boolean
+    nucleotide_fasta_chunksize: Integer
 }
 
 record Preprocessed {
@@ -56,7 +60,7 @@ workflow PREPROCESSING {
     take:
     samples: Channel<Sample>
     third_party: Channel<Sample>
-    rename_params: RenameParams
+    opts: PreprocessingParams
 
     main:
 
@@ -80,17 +84,17 @@ workflow PREPROCESSING {
         mgnify.map { ss -> ss.collect { s -> s.gff }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
-        rename_params.start_accession,
-        rename_params.end_accession,
+        opts.start_accession,
+        opts.end_accession,
         third_party_list.map { ss -> ss.collect { s -> s.fna }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.gff }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.meta.type as String }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
-        rename_params.viral_sequence_identifier,
-        rename_params.prophage_identifier,
-        rename_params.plasmid_identifier,
-        rename_params.rename_accession
+        opts.viral_sequence_identifier,
+        opts.prophage_identifier,
+        opts.plasmid_identifier,
+        opts.rename_accession
     )
 
     // Raw pool of protein sequences (original, unrenamed protein IDs) from both sources,
@@ -146,18 +150,18 @@ workflow PREPROCESSING {
     // (plasmids are not checked for viral quality/rRNA contamination)
     //
     def quality: Value<Path?> = channel.value(null)
-    if ( ! params.skip_checkv ) {
+    if ( ! opts.skip_checkv ) {
         chunks = CHUNK_FNA (
             ch_virus_prophage_fna,
             [],                                        // length: (disabled) max number of nucleotides per chunk
-            params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+            opts.nucleotide_fasta_chunksize,           // size: max number of sequences per chunk
         )
         // a single chunk is emitted as a path, several as a list: transpose handles both
         def ch_fna_chunks = chunks.chunked_output.transpose()
 
         checkv = CHECKV_ENDTOEND (
             ch_fna_chunks,
-            params.checkv_db
+            opts.checkv_db
         )
 
         checkv_quality = CONCATENATE_CHECKV (
@@ -179,7 +183,7 @@ workflow PREPROCESSING {
     // ----- Detect rRNA sequences ------
     //
     def rna_gff: Value<Path?> = channel.value(null)
-    if ( ! params.skip_rrna_detection ) {
+    if ( ! opts.skip_rrna_detection ) {
         barrnap = BARRNAP(
           ch_virus_prophage_fna.map { meta, fasta -> tuple(meta, fasta, "bac") }
         )

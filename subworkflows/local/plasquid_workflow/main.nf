@@ -17,6 +17,14 @@ include { EXTRACT_PLASMIDS_DATA                  } from '../../../modules/local/
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record PlasquidParams {
+    repsearch_db: Path
+    repfilter_db: Path
+    rna_inc_db: Path
+    incsearch_db: Path
+    mobsearch_db: Path
+}
+
 record PlasmidReps {
     meta: Map
     fna: Path
@@ -38,6 +46,7 @@ workflow PLASQUID_WORKFLOW {
 
     take:
     plasmids: Channel<PlasmidReps>
+    opts: PlasquidParams
 
     main:
 
@@ -57,24 +66,24 @@ workflow PLASQUID_WORKFLOW {
 
     rep = REPSEARCH(
         reps.map { r -> record(meta: r.meta, proteins: r.faa, protein_to_contig: r.protein_to_contig) },
-        file(params.repsearch_db),
-        file(params.repfilter_db)
+        opts.repsearch_db,
+        opts.repfilter_db
     )
 
     rna = RNASEARCH(
         plasmids.map { r -> record(meta: r.meta, fna: r.fna) },
-        file(params.rna_inc_db)
+        opts.rna_inc_db
     )
 
     inc = INCSEARCH(
         reps.join(rna, by: 'meta')
             .map { r -> record(meta: r.meta, proteins: r.faa, rna_candidates: r.rna_candidates, protein_to_contig: r.protein_to_contig) },
-        file(params.incsearch_db)
+        opts.incsearch_db
     )
 
     mob = MOBSEARCH(
         reps.map { r -> record(meta: r.meta, proteins: r.faa, protein_to_contig: r.protein_to_contig) },
-        file(params.mobsearch_db)
+        opts.mobsearch_db
     )
 
     plasquid = EXTRACT_PLASMIDS_DATA(

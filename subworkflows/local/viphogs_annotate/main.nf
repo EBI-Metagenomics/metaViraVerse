@@ -9,6 +9,15 @@ include { ASSIGN                             } from '../../../modules/local/assi
 include { HMM_POSTPROCESSING                 } from '../../../modules/local/hmm_postprocessing'
 include { RATIO_EVALUE                       } from '../../../modules/local/ratio_evalue'
 
+record ViphogsParams {
+    viphog_db: Path
+    additional_viphog_model_data: Path
+    ncbi_db: Path
+    viphogs_factor_file: Path?
+    viphogs_evalue: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
 record ViphogsInput {
     meta: Map
     faa: Path   // representative proteins, uncompressed
@@ -24,23 +33,20 @@ workflow VIPHOGS_ANNOTATION {
 
     take:
     proteins: Channel<ViphogsInput>
-    viphog_db: Path
-    additional_viphog_model_data: Path
-    ncbi_db: Path
-    viphogs_factor_file: Path?
+    opts: ViphogsParams
 
     main:
     // chunk big fasta file
     chunks = SEQKIT_SPLIT2(
         proteins.map { r -> tuple(r.meta, r.faa) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
+        opts.protein_annotation_fasta_chunksize,   // size: max number of sequences per chunk
     )
     // a single chunk is emitted as a path, several as a list: transpose handles both
     def ch_protein_chunks = chunks.chunked_output.transpose()
 
     hmmer = HMMER_VIPHOGS(
-        ch_protein_chunks.map { meta, faa -> tuple(meta, viphog_db, faa, false, false, true) }
+        ch_protein_chunks.map { meta, faa -> tuple(meta, opts.viphog_db, faa, false, false, true) }
     )
 
     hmmer_domtbl = FIND_CONCATENATE(
@@ -55,8 +61,8 @@ workflow VIPHOGS_ANNOTATION {
     // calculate hit qual per protein
     ratio = RATIO_EVALUE(
        postprocessed.map { r -> record(meta: r.meta, modified_table: r.modified_tsv) },
-       additional_viphog_model_data,
-       params.viphogs_evalue
+       opts.additional_viphog_model_data,
+       opts.viphogs_evalue
     )
 
     // annotate contigs based on ViPhOGs
@@ -68,8 +74,8 @@ workflow VIPHOGS_ANNOTATION {
     // assign lineages
     assignment = ASSIGN(
        annotation.map { r -> record(meta: r.meta, tab: r.annotations) },
-       ncbi_db,
-       viphogs_factor_file
+       opts.ncbi_db,
+       opts.viphogs_factor_file
     )
 
     emit:

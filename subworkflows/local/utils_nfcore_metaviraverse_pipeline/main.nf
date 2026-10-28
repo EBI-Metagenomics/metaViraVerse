@@ -69,19 +69,18 @@ workflow PIPELINE_INITIALISATION {
     //
     // Create channel from input file provided through params.input
     //
-    ch_samplesheet = Channel.empty()
-    if (input) {
-        ch_samplesheet = Channel
-            .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
-    }
+    // (`fromList([])` rather than `channel.empty()`: an empty channel created in this
+    // untyped workflow cannot be read by the typed workflows downstream)
     //
-    // Create channel from third party input file provided through params.input
+    ch_samplesheet = channel.fromList(
+        input ? samplesheetToList(input, "${projectDir}/assets/schema_input.json") : []
+    )
     //
-    ch_samplesheet_third_party = Channel.empty()
-    if (third_party_input) {
-        ch_samplesheet_third_party = Channel
-            .fromList(samplesheetToList(third_party_input, "${projectDir}/assets/schema_third_party_input.json"))
-    }
+    // Create channel from third party input file provided through params.third_party_input
+    //
+    ch_samplesheet_third_party = channel.fromList(
+        third_party_input ? samplesheetToList(third_party_input, "${projectDir}/assets/schema_third_party_input.json") : []
+    )
 
     emit:
     samplesheet             = ch_samplesheet

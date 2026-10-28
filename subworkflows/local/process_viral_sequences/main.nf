@@ -24,6 +24,46 @@ include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+// params of this workflow and of the subworkflows it calls
+record ViralParams {
+    cluster_vclust: Boolean
+    nucleotide_fasta_chunksize: Integer
+    skip_phammseqs: Boolean
+    skip_amrfinderplus_for_viruses: Boolean
+    skip_deeparg_for_viruses: Boolean
+    skip_rgi_for_viruses: Boolean
+    annotation_db: Path?
+    // taxonomy (see TaxonomyParams)
+    skip_vitap: Boolean
+    skip_genomad: Boolean
+    skip_viphogs: Boolean
+    vitap_db: Path?
+    genomad_db: Path?
+    viphog_db: Path?
+    additional_viphog_model_data: Path?
+    ncbi_db: Path?
+    viphogs_factor_file: Path?
+    viphogs_evalue: Float
+    // host detection (see HostParams)
+    skip_iphop: Boolean
+    iphop_db: Path?
+    nucleotide_fasta_chunksize_iphop: Integer
+    predict_host_from_custom_spacers: Boolean
+    custom_spacers_fasta: Path?
+    custom_spacers_metadata: Path?
+    custom_genomes_metadata: Path?
+    // proteins (see ProteinsParams)
+    amrfinderplus_db: String?
+    deeparg_db: String?
+    deeparg_db_version: String?
+    deeparg_model: String?
+    deeparg_tool_version: String?
+    rgi_db: String?
+    mmseqs_id_threshold: Float
+    mmseqs_cov_threshold: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
 record ViralSequences {
     meta: Map
     fna: Path
@@ -57,6 +97,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     faa: Value<Path>
     combined_metadata: Value<Path>
     mapfile: Value<Path>
+    opts: ViralParams
 
     main:
 
@@ -71,7 +112,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
        'ani',
        0,
        0,
-       0.95
+       0.95,
+       opts.cluster_vclust
     )
 
     //
@@ -93,7 +135,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     chunks = CHUNK_FNA (
         reps.map { r -> tuple(r.meta, r.fna) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+        opts.nucleotide_fasta_chunksize,           // size: max number of sequences per chunk
     )
     // a single chunk is emitted as a path, several as a list: transpose handles both
     def fna_chunks = chunks.chunked_output
@@ -107,8 +149,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     hosts = HOST_DETECTION (
         reps.map { r -> record(meta: r.meta, fna: r.fna) },
-        params.custom_genomes_metadata,
-        mapfile
+        mapfile,
+        opts
     )
 
     //
@@ -135,13 +177,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
        reps,
        fna_chunks,
        combined_metadata,
-       params.skip_vitap,
-       params.skip_genomad,
-       params.skip_viphogs,
-       params.viphog_db ? file(params.viphog_db) : null,
-       params.additional_viphog_model_data ? file(params.additional_viphog_model_data) : null,
-       params.ncbi_db ? file(params.ncbi_db) : null,
-       params.viphogs_factor_file ? file(params.viphogs_factor_file) : null
+       opts
     )
 
     //
@@ -151,12 +187,13 @@ workflow PROCESS_VIRAL_SEQUENCES {
 
     proteins = PROTEINS_PROCESSING(
        reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
-       params.skip_amrfinderplus_for_viruses,
-       params.skip_deeparg_for_viruses,
-       params.skip_rgi_for_viruses,
-       params.skip_phammseqs,
+       opts.skip_amrfinderplus_for_viruses,
+       opts.skip_deeparg_for_viruses,
+       opts.skip_rgi_for_viruses,
+       opts.skip_phammseqs,
        true,
-       params.annotation_db
+       opts.annotation_db,
+       opts
     )
 
     //

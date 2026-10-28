@@ -27,6 +27,33 @@ include { UPDATE_MOBILITY_STATS                                     } from '../.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+// params of this workflow and of the subworkflows it calls
+record PlasmidParams {
+    cluster_vclust: Boolean
+    nucleotide_fasta_chunksize: Integer
+    mobsuite_db: Path?
+    skip_mmseqs: Boolean
+    skip_amrfinderplus_for_plasmids: Boolean
+    skip_deeparg_for_plasmids: Boolean
+    skip_rgi_for_plasmids: Boolean
+    // plaSquid (see PlasquidParams)
+    repsearch_db: Path?
+    repfilter_db: Path?
+    rna_inc_db: Path?
+    incsearch_db: Path?
+    mobsearch_db: Path?
+    // proteins (see ProteinsParams)
+    amrfinderplus_db: String?
+    deeparg_db: String?
+    deeparg_db_version: String?
+    deeparg_model: String?
+    deeparg_tool_version: String?
+    rgi_db: String?
+    mmseqs_id_threshold: Float
+    mmseqs_cov_threshold: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
 record PlasmidSequences {
     meta: Map
     fna: Path
@@ -55,6 +82,7 @@ workflow PROCESS_PLASMIDS {
     sequences: Channel<PlasmidSequences>
     combined_faa: Value<Path>
     combined_gff: Value<Path>
+    opts: PlasmidParams
 
     main:
 
@@ -68,7 +96,8 @@ workflow PROCESS_PLASMIDS {
        'gani',
        0,
        0.35,
-       0
+       0,
+       opts.cluster_vclust
     )
 
     //
@@ -97,7 +126,8 @@ workflow PROCESS_PLASMIDS {
     //
 
     plasquid = PLASQUID_WORKFLOW(
-        reps.map { r -> record(meta: r.meta, fna: r.fna, faa: r.faa, gff: r.reps_gff) }
+        reps.map { r -> record(meta: r.meta, fna: r.fna, faa: r.faa, gff: r.reps_gff) },
+        opts
     )
 
 
@@ -108,14 +138,14 @@ workflow PROCESS_PLASMIDS {
     chunks = CHUNK_FNA (
         reps.map { r -> tuple(r.meta, r.fna) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.nucleotide_fasta_chunksize,   // size: max number of sequences per chunk
+        opts.nucleotide_fasta_chunksize,     // size: max number of sequences per chunk
     )
     // a single chunk is emitted as a path, several as a list: transpose handles both
     def ch_fna_chunks = chunks.chunked_output.transpose()
 
     mobsuite = MOBSUITE_TYPER(
         ch_fna_chunks,
-        params.mobsuite_db,
+        opts.mobsuite_db,
         [], [], [], [], [], [], [],
         true,
         true
@@ -163,12 +193,13 @@ workflow PROCESS_PLASMIDS {
 
     proteins = PROTEINS_PROCESSING(
        reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
-       params.skip_amrfinderplus_for_plasmids,
-       params.skip_deeparg_for_plasmids,
-       params.skip_rgi_for_plasmids,
+       opts.skip_amrfinderplus_for_plasmids,
+       opts.skip_deeparg_for_plasmids,
+       opts.skip_rgi_for_plasmids,
        true,
-       params.skip_mmseqs,
-       null
+       opts.skip_mmseqs,
+       null,
+       opts
     )
 
 

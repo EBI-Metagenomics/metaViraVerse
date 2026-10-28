@@ -13,6 +13,18 @@ include { FIND_CONCATENATE as CONCATENATE_HMMER_TBLOUT            } from '../../
 include { AMR_ANNOTATION                                          } from '../../ebi-metagenomics/amr_annotation'
 
 
+record ProteinsParams {
+    amrfinderplus_db: String?
+    deeparg_db: String?
+    deeparg_db_version: String?
+    deeparg_model: String?
+    deeparg_tool_version: String?
+    rgi_db: String?
+    mmseqs_id_threshold: Float
+    mmseqs_cov_threshold: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
 record ProteinsInput {
     meta: Map
     faa: Path   // representative proteins, uncompressed
@@ -44,7 +56,8 @@ workflow PROTEINS_PROCESSING {
     skip_rgi: Boolean
     skip_phammseqs: Boolean
     skip_mmseqs: Boolean
-    hmm_db: String?   // directory with *.hmm.gz and *.tsv; null to skip HMMER annotation
+    hmm_db: Path?     // directory with *.hmm.gz and *.tsv; null to skip HMMER annotation
+    opts: ProteinsParams
 
     main:
 
@@ -57,12 +70,12 @@ workflow PROTEINS_PROCESSING {
     if (!(skip_amrfinderplus && skip_deeparg && skip_rgi)) {
         amr = AMR_ANNOTATION (
             input.map { r -> tuple(r.meta, r.faa, r.gff) },
-            params.amrfinderplus_db,
-            params.deeparg_db,
-            params.deeparg_db_version,
-            params.deeparg_model,
-            params.deeparg_tool_version,
-            params.rgi_db,
+            opts.amrfinderplus_db,
+            opts.deeparg_db,
+            opts.deeparg_db_version,
+            opts.deeparg_model,
+            opts.deeparg_tool_version,
+            opts.rgi_db,
             skip_amrfinderplus,
             skip_deeparg,
             skip_rgi
@@ -89,8 +102,8 @@ workflow PROTEINS_PROCESSING {
     if ( !skip_mmseqs ) {
         mmseqs = MMSEQS (
             input.map { r -> record(meta: r.meta, faa_file: r.faa) },
-            params.mmseqs_id_threshold,
-            params.mmseqs_cov_threshold
+            opts.mmseqs_id_threshold,
+            opts.mmseqs_cov_threshold
         )
 
         // take functions from the protein FASTA headers
@@ -110,7 +123,7 @@ workflow PROTEINS_PROCESSING {
         chunks = SEQKIT_SPLIT2(
             input.map { r -> tuple(r.meta, r.faa) },
             [],                                        // length: (disabled) max number of nucleotides per chunk
-            params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
+            opts.protein_annotation_fasta_chunksize,   // size: max number of sequences per chunk
         )
 
         // a single chunk is emitted as a path, several as a list: transpose handles both
@@ -164,6 +177,7 @@ workflow PROTEINS_PROCESSING {
         def tables = hmmer_tblout.file_out
             .map { _meta, table -> table }
             .collect()
+            .map { ts -> ts.toList() }
         hmmer_tables = input
             .map { r -> record(meta: r.meta) }
             .combine(hmmer_tables: tables)

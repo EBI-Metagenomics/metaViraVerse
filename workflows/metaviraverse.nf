@@ -11,9 +11,9 @@ include { processVersionsFromYAML               } from '../subworkflows/nf-core/
 include { workflowVersionToYAML                 } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
-include { PREPROCESSING                         } from '../subworkflows/local/preprocessing/main'
-include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/process_viral_sequences'
-include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
+include { PREPROCESSING ; PreprocessingParams   } from '../subworkflows/local/preprocessing/main'
+include { PROCESS_VIRAL_SEQUENCES ; ViralParams } from '../subworkflows/local/process_viral_sequences'
+include { PROCESS_PLASMIDS ; PlasmidParams      } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 
 
@@ -28,6 +28,14 @@ include { MULTIQC                               } from '../modules/nf-core/multi
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+record MetaviraverseParams {
+    third_party_input: Path?
+    outdir: String
+    catalogues_metadata: Path
+    multiqc_config: Path?
+    multiqc_logo: String?
+}
 
 record Sample {
     meta: Map     // [id, source, biome]
@@ -53,6 +61,10 @@ workflow METAVIRAVERSE {
     take:
     samples: Channel<Sample>                       // samplesheet read in from --input
     third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input
+    opts: MetaviraverseParams
+    preprocessing_opts: PreprocessingParams
+    viral_opts: ViralParams
+    plasmid_opts: PlasmidParams
 
     main:
 
@@ -60,10 +72,10 @@ workflow METAVIRAVERSE {
     // ----------- Preprocess third party data (coming not from MGnify)
     //
     def third_party: Channel<ThirdPartySample> = channel.empty()
-    if (params.third_party_input) {
+    if (opts.third_party_input) {
         third_party = THIRD_PARTY_DATA(
             third_party_input,
-            params.outdir
+            opts.outdir
         )
     }
 
@@ -73,14 +85,7 @@ workflow METAVIRAVERSE {
     preprocessed = PREPROCESSING (
        samples,
        third_party,
-       record(
-           start_accession: params.start_accession,
-           end_accession: params.end_accession,
-           viral_sequence_identifier: params.viral_sequence_identifier,
-           prophage_identifier: params.prophage_identifier,
-           plasmid_identifier: params.plasmid_identifier,
-           rename_accession: params.rename_accession
-       )
+       preprocessing_opts
     )
 
     viruses = preprocessed
@@ -96,7 +101,8 @@ workflow METAVIRAVERSE {
        preprocessed.map { r -> r.filtered_gff },   // concatenated GFF built from all inputs
        preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
        preprocessed.map { r -> r.filtered_metadata },
-       preprocessed.map { r -> r.map_file }
+       preprocessed.map { r -> r.map_file },
+       viral_opts
     )
 
     // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
@@ -112,7 +118,8 @@ workflow METAVIRAVERSE {
     plasmid_catalogue = PROCESS_PLASMIDS (
        plasmids,
        preprocessed.map { r -> r.filtered_faa },
-       preprocessed.map { r -> r.filtered_gff }   // concatenated GFF built from all inputs
+       preprocessed.map { r -> r.filtered_gff },  // concatenated GFF built from all inputs
+       plasmid_opts
     )
 
     // one record with both catalogues and the preprocessing results
@@ -160,7 +167,7 @@ workflow METAVIRAVERSE {
                 spacepharer: r.viral.spacepharer
             )
         },
-        file(params.catalogues_metadata)
+        opts.catalogues_metadata
     )
 
 
@@ -188,7 +195,7 @@ workflow METAVIRAVERSE {
         .unique()
         .mix(channel.of(workflowVersionToYAML()))
         .collectFile(
-            storeDir: "${params.outdir}/pipeline_info",
+            storeDir: "${opts.outdir}/pipeline_info",
             name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
             sort: true,
             newLine: true
@@ -199,11 +206,11 @@ workflow METAVIRAVERSE {
     //
     ch_multiqc_config        = channel.fromPath(
         "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
-    ch_multiqc_custom_config = params.multiqc_config ?
-        channel.fromPath(params.multiqc_config, checkIfExists: true) :
+    ch_multiqc_custom_config = opts.multiqc_config ?
+        channel.of(opts.multiqc_config) :
         channel.empty()
-    ch_multiqc_logo          = params.multiqc_logo ?
-        channel.fromPath(params.multiqc_logo, checkIfExists: true) :
+    ch_multiqc_logo          = opts.multiqc_logo ?
+        channel.fromPath(opts.multiqc_logo, checkIfExists: true) :
         channel.empty()
 
     summary_params      = paramsSummaryMap(

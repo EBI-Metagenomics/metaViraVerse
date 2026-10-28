@@ -29,13 +29,14 @@ workflow CLUSTERING {
     vclust_tani_threshold: Float
     vclust_gani_threshold: Float
     vclust_ani_threshold: Float
+    cluster_vclust: Boolean   // vclust (true) or blastn + CheckV ANI clustering (false)
 
     main:
 
     def ch_clusters: Channel<Clusters> = channel.empty()
     def ch_fna = sequences.map { r -> tuple(r.meta, r.fna) }
 
-    if ( params.cluster_vclust ) {
+    if ( cluster_vclust ) {
         prefilter = VCLUST_PREFILTER (
             ch_fna
         )

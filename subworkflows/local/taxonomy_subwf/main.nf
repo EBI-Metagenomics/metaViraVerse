@@ -27,6 +27,21 @@ include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from '../taxonomy_visua
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record TaxonomyParams {
+    skip_vitap: Boolean
+    skip_genomad: Boolean
+    skip_viphogs: Boolean
+    vitap_db: Path?
+    genomad_db: Path?
+    // ViPhOGs (see ViphogsParams)
+    viphog_db: Path?
+    additional_viphog_model_data: Path?
+    ncbi_db: Path?
+    viphogs_factor_file: Path?
+    viphogs_evalue: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
 record TaxonomyInput {
     meta: Map
     faa: Path        // representative proteins, uncompressed
@@ -66,13 +81,7 @@ workflow TAXONOMY_ASSIGNMENT {
     reps: Channel<TaxonomyInput>
     fna_chunks: Channel<FnaChunk>
     combined_metadata: Value<Path>
-    skip_vitap: Boolean
-    skip_genomad: Boolean
-    skip_viphogs: Boolean
-    viphog_db: Path?
-    additional_viphog_model_data: Path?
-    ncbi_db: Path?
-    viphogs_factor_file: Path?
+    opts: TaxonomyParams
 
     main:
 
@@ -85,10 +94,10 @@ workflow TAXONOMY_ASSIGNMENT {
     //
     // Taxonomy genoMAD
     //
-    if ( !skip_genomad ) {
+    if ( !opts.skip_genomad ) {
         genomad = GENOMAD_ENDTOEND (
             ch_fna_chunks,
-            file(params.genomad_db)
+            opts.genomad_db
         )
 
         genomad_concat = CONCATENATE_GENOMAD (
@@ -112,13 +121,10 @@ workflow TAXONOMY_ASSIGNMENT {
     //
     // Taxonomy Viphogs
     //
-    if ( !skip_viphogs ) {
+    if ( !opts.skip_viphogs ) {
         viphogs = VIPHOGS_ANNOTATION (
             reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
-            viphog_db,
-            additional_viphog_model_data,
-            ncbi_db,
-            viphogs_factor_file
+            opts
         )
 
         tax_viphogs = TAX_VIPHOGS (
@@ -133,13 +139,13 @@ workflow TAXONOMY_ASSIGNMENT {
         viphogs_taxonomy = viphogs.map { r -> record(meta: r.meta, viphogs: r.taxonomy_tsv) }
     }
 
-    if ( !skip_vitap ) {
+    if ( !opts.skip_vitap ) {
         //
         // Taxonomy VITAP
         //
         vitap = VITAP (
             fna_chunks,
-            file(params.vitap_db)
+            opts.vitap_db
         )
 
         vitap_concat = CONCATENATE_VITAP (

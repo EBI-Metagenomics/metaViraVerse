@@ -29,6 +29,16 @@ include { SANKEY_PLOT as SANKEY_SPACEPHARER_HOST_REDUCED   } from '../../../modu
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record HostParams {
+    skip_iphop: Boolean
+    iphop_db: Path?
+    nucleotide_fasta_chunksize_iphop: Integer
+    predict_host_from_custom_spacers: Boolean
+    custom_spacers_fasta: Path?
+    custom_spacers_metadata: Path?
+    custom_genomes_metadata: Path?
+}
+
 record HostInput {
     meta: Map
     fna: Path   // representative sequences, uncompressed
@@ -60,8 +70,8 @@ workflow HOST_DETECTION {
 
     take:
     fna: Channel<HostInput>
-    metadata: String?       // --custom_genomes_metadata
     mapfile: Value<Path>
+    opts: HostParams
 
     main:
 
@@ -69,18 +79,18 @@ workflow HOST_DETECTION {
     def iphop_host_genus: Channel<IphopGenus> = channel.empty()
     def spacepharer_host: Channel<SpacepharerHost> = channel.empty()
 
-    if ( !params.skip_iphop) {
+    if ( !opts.skip_iphop ) {
         chunks = CHUNK_FNA_IPHOP (
             fna.map { r -> tuple(r.meta, r.fna) },
             [],                                        // length: (disabled) max number of nucleotides per chunk
-            params.nucleotide_fasta_chunksize_iphop,   // size: max number of sequences per chunk
+            opts.nucleotide_fasta_chunksize_iphop,     // size: max number of sequences per chunk
         )
         // a single chunk is emitted as a path, several as a list: transpose handles both
         def ch_fna_chunks = chunks.chunked_output.transpose()
 
         iphop = IPHOP_PREDICT (
             ch_fna_chunks,
-            params.iphop_db
+            opts.iphop_db
         )
 
         iphop_genome = CONCATENATE_IPHOP_GENOME (
@@ -121,7 +131,7 @@ workflow HOST_DETECTION {
             .map { r, host -> record(meta: r.meta, iphop_genus: host.iphop_genus) }
     }
 
-    if (params.predict_host_from_custom_spacers) {
+    if ( opts.predict_host_from_custom_spacers ) {
         sanitised = CHANGE_SPACE_TO_UNDERSCORE(
             fna.map { r -> record(meta: r.meta, fasta: r.fna) }
         )
@@ -143,7 +153,7 @@ workflow HOST_DETECTION {
                 .map { r ->
                     record(
                         meta: [id: 'spacers'],
-                        crispr_fasta: file(params.custom_spacers_fasta),
+                        crispr_fasta: opts.custom_spacers_fasta,
                         target_db: r.target_db,
                         target_db_rev: r.target_db_rev
                     )
@@ -153,9 +163,9 @@ workflow HOST_DETECTION {
 
         host_info = COLLECT_HOST_INFO (
            predictions,
-           file(params.custom_spacers_metadata),
+           opts.custom_spacers_metadata,
            mapfile,
-           file(metadata)
+           opts.custom_genomes_metadata
         )
 
         SANKEY_SPACEPHARER_HOST (
