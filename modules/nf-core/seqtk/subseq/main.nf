@@ -13,7 +13,7 @@ process SEQTK_SUBSEQ {
 
     output:
     tuple val(meta), path("*.gz"),  emit: sequences
-    tuple val("${task.process}"), val('seqtk'), eval("echo \$(seqtk 2>&1) | sed 's/^.*Version: //; s/ .*\$//'"), emit: versions_seqtk, topic: versions
+    tuple val("${task.process}"), val('seqtk'), eval("seqtk 2>&1 | sed -n 's/^.*Version: //p' | sed 's/ .*//' | head -n 1"), emit: versions_seqtk, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
