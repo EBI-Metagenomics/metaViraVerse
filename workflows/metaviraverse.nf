@@ -30,7 +30,6 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 */
 
 record MetaviraverseParams {
-    third_party_input: Path?
     catalogues_metadata: Path
     multiqc_config: Path?
     multiqc_logo: String?
@@ -70,7 +69,7 @@ workflow METAVIRAVERSE {
 
     take:
     samples: Channel<Sample>                       // samplesheet read in from --input
-    third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input
+    third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input (may be empty)
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -81,15 +80,12 @@ workflow METAVIRAVERSE {
     //
     // ----------- Preprocess third party data (coming not from MGnify)
     //
-    def third_party: Channel<ThirdPartySample> = channel.empty()
-    def ch_invalid_fastas: Channel<Path> = channel.empty()
-    if (opts.third_party_input) {
-        third_party_data = THIRD_PARTY_DATA(
-            third_party_input
-        )
-        third_party = third_party_data.third_party_data
-        ch_invalid_fastas = third_party_data.invalid_fastas
-    }
+    // (runs no tasks when there is no third-party input)
+    third_party_data = THIRD_PARTY_DATA(
+        third_party_input
+    )
+    third_party = third_party_data.third_party_data
+    ch_invalid_fastas = third_party_data.invalid_fastas
 
     //
     // Separate viral sequences and plasmids

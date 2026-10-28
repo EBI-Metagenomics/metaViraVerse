@@ -33,8 +33,8 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_meta
 
 params {
     // Input/output
-    input: Path?
-    third_party_input: Path?
+    input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
+    third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
     catalogues_metadata: Path
     outdir: String
 
@@ -123,6 +123,27 @@ params {
     validate_params: Boolean = true
 }
 
+// one row of --input
+record SamplesheetRow {
+    id: String
+    fna: Path
+    gff: Path
+    faa: Path
+    source: String?     // genome | metagenome
+    biome: String?
+}
+
+// one row of --third_party_input
+record ThirdPartyRow {
+    id: String
+    fasta: Path
+    type: String        // virus | plasmid | prophage
+    source: String?     // genome | metagenome
+    biome: String?
+    study_accession: String?
+    sample_accession: String?
+}
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
@@ -135,8 +156,8 @@ params {
 workflow EBIMETAGENOMICS_METAVIRAVERSE {
 
     take:
-    samplesheet             // channel: samplesheet read in from --input
-    samplesheet_third_party // channel: samplesheet read in from --third_party_input
+    samplesheet: Channel<SamplesheetRow>
+    samplesheet_third_party: Channel<ThirdPartyRow>
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -147,9 +168,21 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     //
     // WORKFLOW: Run pipeline
     //
+    // Rows become [meta, files] records. An empty optional column is passed on as '[]', the
+    // string the samplesheetToList value (an empty list) used to become in the rename map.
     metaviraverse = METAVIRAVERSE (
-        samplesheet.map { meta, fna, gff, faa -> record(meta: meta, fna: fna, gff: gff, faa: faa) },
-        samplesheet_third_party.map { meta, fasta -> record(meta: meta, fasta: fasta) },
+        samplesheet.map { s ->
+            checkSamplesheetRow(s)
+            record(meta: [id: s.id, source: s.source ?: '[]', biome: s.biome ?: '[]'], fna: s.fna, gff: s.gff, faa: s.faa)
+        },
+        samplesheet_third_party.map { s ->
+            checkThirdPartyRow(s)
+            def meta = [
+                id: s.id, type: s.type, source: s.source ?: '[]', biome: s.biome ?: '[]',
+                study_accession: s.study_accession ?: '[]', sample_accession: s.sample_accession ?: '[]'
+            ]
+            record(meta: meta, fasta: s.fasta)
+        },
         opts,
         preprocessing_opts,
         viral_opts,
@@ -186,22 +219,20 @@ workflow {
     //
     // SUBWORKFLOW: Run initialisation tasks
     //
-    init = PIPELINE_INITIALISATION (
+    PIPELINE_INITIALISATION (
         params.version,
         params.validate_params,
         params.monochrome_logs,
         args,
-        params.outdir,
-        params.input,
-        params.third_party_input
+        params.outdir
     )
 
     //
     // WORKFLOW: Run main workflow
     //
     metaviraverse = EBIMETAGENOMICS_METAVIRAVERSE (
-        init.samplesheet,
-        init.samplesheet_third_party,
+        params.input ?: channel.empty(),
+        params.third_party_input ?: channel.empty(),
         params,
         params,
         params,
@@ -226,6 +257,34 @@ workflow {
     multiqc = metaviraverse.multiqc
     versions = metaviraverse.versions
     invalid_fastas = metaviraverse.invalid_fastas
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    FUNCTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// Samplesheet checks beyond the record types (formerly assets/schema_input.json)
+def checkSamplesheetRow(s: SamplesheetRow) {
+    if( !(s.id ==~ /\S+/) )
+        error("Invalid --input row '${s.id}': id must not contain spaces")
+    if( s.source && !(s.source in ['genome', 'metagenome']) )
+        error("Invalid --input row '${s.id}': source must be 'genome' or 'metagenome', got '${s.source}'")
+    if( s.biome && !(s.biome ==~ /\S+/) )
+        error("Invalid --input row '${s.id}': biome must not contain spaces")
+}
+
+// (formerly assets/schema_third_party_input.json)
+def checkThirdPartyRow(s: ThirdPartyRow) {
+    if( !(s.id ==~ /\S+/) )
+        error("Invalid --third_party_input row '${s.id}': id must not contain spaces")
+    if( !(s.type in ['virus', 'plasmid', 'prophage']) )
+        error("Invalid --third_party_input row '${s.id}': type must be 'virus', 'plasmid' or 'prophage', got '${s.type}'")
+    if( s.source && !(s.source in ['genome', 'metagenome']) )
+        error("Invalid --third_party_input row '${s.id}': source must be 'genome' or 'metagenome', got '${s.source}'")
+    if( s.biome && !(s.biome ==~ /\S+/) )
+        error("Invalid --third_party_input row '${s.id}': biome must not contain spaces")
 }
 
 /*

@@ -74,12 +74,20 @@ def dumpParametersToJSON(outdir) {
     def timestamp = new java.util.Date().format('yyyy-MM-dd_HH-mm-ss')
     def filename  = "params_${timestamp}.json"
     def temp_pf   = new File(workflow.launchDir.toString(), ".${filename}")
-    // typed Path params are Iterable, which JsonOutput recurses into forever
-    def jsonStr   = groovy.json.JsonOutput.toJson(params.collectEntries { k, v -> [k, v instanceof java.nio.file.Path ? v.toString() : v] })
+    def jsonStr   = groovy.json.JsonOutput.toJson(params.collectEntries { k, v -> [k, jsonParamValue(v)] })
     temp_pf.text  = groovy.json.JsonOutput.prettyPrint(jsonStr)
 
     nextflow.extension.FilesEx.copyTo(temp_pf.toPath(), "${outdir}/pipeline_info/params_${timestamp}.json")
     temp_pf.delete()
+}
+
+//
+// Typed params: a Path is Iterable, which JsonOutput recurses into forever, and a
+// Channel (samplesheet param) blocks JsonOutput reading its value -- write both as text
+//
+def jsonParamValue(v) {
+    def plain = v == null || v instanceof CharSequence || v instanceof Number || v instanceof Boolean || v instanceof Map || v instanceof List
+    return plain ? v : v.toString()
 }
 
 //
