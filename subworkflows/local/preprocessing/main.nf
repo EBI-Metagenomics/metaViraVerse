@@ -35,12 +35,23 @@ record PreprocessingParams {
     nucleotide_fasta_chunksize: Integer
 }
 
+record CompressedFiles {
+    fna: Path
+    gff: Path
+    faa: Path
+}
+
 record Preprocessed {
     meta: Map                   // [id: 'combined']
     map_file: Path              // rename map
+    fna_renamed: Path           // all input sequences, renamed
+    gff_renamed: Path
     metadata: Path              // metadata of all records
     filtered_metadata: Path
     excluded_metadata: Path
+    checkv_report: Path?        // null with --skip_checkv
+    rrna_gff: Path?             // barrnap rRNA predictions; null with --skip_rrna_detection
+    filtered_fna: Path
     filtered_gff: Path          // concatenated GFF built from all inputs
     filtered_faa: Path          // concatenated FAA built from all inputs
     virus_fna: Path
@@ -52,6 +63,9 @@ record Preprocessed {
     plasmid_fna: Path
     plasmid_gff: Path
     plasmid_faa: Path
+    virus_gz: CompressedFiles   // chosen viral sequences, compressed
+    prophage_gz: CompressedFiles
+    plasmid_gz: CompressedFiles
     stats: Path
 }
 
@@ -215,17 +229,17 @@ workflow PREPROCESSING {
         rna_gff
     )
 
-    COMPRESS_VIRAL_SEQ_FILES (
+    virus_gz = COMPRESS_VIRAL_SEQ_FILES (
         chosen
             .flatMap { r -> [r.virus_fna, r.virus_gff, r.virus_faa].collect { f -> tuple(r.meta, f) } }
     )
 
-    COMPRESS_PLASMIDS_FILES (
+    plasmid_gz = COMPRESS_PLASMIDS_FILES (
         chosen
             .flatMap { r -> [r.plasmid_fna, r.plasmid_gff, r.plasmid_faa].collect { f -> tuple(r.meta, f) } }
     )
 
-    COMPRESS_PROPHAGES_FILES (
+    prophage_gz = COMPRESS_PROPHAGES_FILES (
         chosen
             .flatMap { r -> [r.prophage_fna, r.prophage_gff, r.prophage_faa].collect { f -> tuple(r.meta, f) } }
     )
@@ -235,7 +249,7 @@ workflow PREPROCESSING {
             record(
                 meta: r.meta,
                 metadata: r.metadata, filtered_metadata: r.filtered_metadata, excluded_metadata: r.excluded_metadata,
-                filtered_gff: r.filtered_gff, filtered_faa: r.filtered_faa,
+                filtered_fna: r.filtered_fna, filtered_gff: r.filtered_gff, filtered_faa: r.filtered_faa,
                 virus_fna: r.virus_fna, virus_gff: r.virus_gff, virus_faa: r.virus_faa,
                 prophage_fna: r.prophage_fna, prophage_gff: r.prophage_gff, prophage_faa: r.prophage_faa,
                 plasmid_fna: r.plasmid_fna, plasmid_gff: r.plasmid_gff, plasmid_faa: r.plasmid_faa,
@@ -243,7 +257,23 @@ workflow PREPROCESSING {
             )
         }
         .combine(map_file: map_file)
+        .combine(fna_renamed: renamed.map { r -> r.fna_renamed })
+        .combine(gff_renamed: renamed.map { r -> r.gff_renamed })
+        .combine(checkv_report: quality)
+        .combine(rrna_gff: rna_gff)
+        .combine(virus_gz: virus_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
+        .combine(prophage_gz: prophage_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
+        .combine(plasmid_gz: plasmid_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
 
     emit:
     preprocessed: Value<Preprocessed> = preprocessed
+}
+
+// The three compressed files of one category (one PIGZ task each, same meta), by extension
+def compressedFiles(files: List<Path>) -> CompressedFiles {
+    return record(
+        fna: files.find { f -> f.name.endsWith('.fna.gz') },
+        gff: files.find { f -> f.name.endsWith('.gff.gz') },
+        faa: files.find { f -> f.name.endsWith('.faa.gz') }
+    )
 }

@@ -11,9 +11,9 @@ include { processVersionsFromYAML               } from '../subworkflows/nf-core/
 include { workflowVersionToYAML                 } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
-include { PREPROCESSING ; PreprocessingParams   } from '../subworkflows/local/preprocessing/main'
-include { PROCESS_VIRAL_SEQUENCES ; ViralParams } from '../subworkflows/local/process_viral_sequences'
-include { PROCESS_PLASMIDS ; PlasmidParams      } from '../subworkflows/local/process_plasmids'
+include { PREPROCESSING ; PreprocessingParams ; Preprocessed } from '../subworkflows/local/preprocessing/main'
+include { PROCESS_VIRAL_SEQUENCES ; ViralParams ; ViralCatalogue } from '../subworkflows/local/process_viral_sequences'
+include { PROCESS_PLASMIDS ; PlasmidParams ; PlasmidCatalogue } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 
 
@@ -31,7 +31,6 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 
 record MetaviraverseParams {
     third_party_input: Path?
-    outdir: String
     catalogues_metadata: Path
     multiqc_config: Path?
     multiqc_logo: String?
@@ -56,6 +55,17 @@ record ThirdPartySample {
     faa: Path
 }
 
+record CatalogueSummary {
+    catalogue_json: Path            // statistics of the whole catalogue
+    viral_meta: Map
+    plasmid_meta: Map
+    viruses_metadata: Path
+    viruses_cluster_stats: Path
+    plasmids_metadata: Path
+    viruses_source_sankey: Path?    // taxonomy of the source genomes
+    plasmids_source_sankey: Path?
+}
+
 workflow METAVIRAVERSE {
 
     take:
@@ -72,11 +82,13 @@ workflow METAVIRAVERSE {
     // ----------- Preprocess third party data (coming not from MGnify)
     //
     def third_party: Channel<ThirdPartySample> = channel.empty()
+    def ch_invalid_fastas: Channel<Path> = channel.empty()
     if (opts.third_party_input) {
-        third_party = THIRD_PARTY_DATA(
-            third_party_input,
-            opts.outdir
+        third_party_data = THIRD_PARTY_DATA(
+            third_party_input
         )
+        third_party = third_party_data.third_party_data
+        ch_invalid_fastas = third_party_data.invalid_fastas
     }
 
     //
@@ -131,7 +143,7 @@ workflow METAVIRAVERSE {
     //
     // Collect stats for whole catalogue into JSON
     //
-    COLLECT_CATALOGUE_STATS (
+    catalogue_stats = COLLECT_CATALOGUE_STATS (
         catalogues.map { r ->
             record(
                 json: r.preprocessed.stats,
@@ -158,13 +170,13 @@ workflow METAVIRAVERSE {
                 plasmid_meta: r.plasmid.meta,
                 plasmid_clusters: r.plasmid.clusters_tsv,
                 // optional annotations and host predictions: null when the step was skipped
-                vitap_best: r.viral.vitap_best,
-                viphogs_taxonomy: r.viral.viphogs,
-                genomad: r.viral.genomad,
+                vitap_best: r.viral.taxonomy.vitap_best,
+                viphogs_taxonomy: r.viral.taxonomy.viphogs,
+                genomad: r.viral.taxonomy.genomad,
                 map_file: r.preprocessed.map_file,
-                iphop_genome: r.viral.iphop_genome,
-                iphop_genus: r.viral.iphop_genus,
-                spacepharer: r.viral.spacepharer
+                iphop_genome: r.viral.hosts.iphop_genome,
+                iphop_genus: r.viral.hosts.iphop_genus,
+                spacepharer: r.viral.hosts.spacepharer
             )
         },
         opts.catalogues_metadata
@@ -172,22 +184,40 @@ workflow METAVIRAVERSE {
 
 
     // Plot Sankey for hosts
-    SANKEY_PLASMIDS_HOST (
+    plasmids_sankey = SANKEY_PLASMIDS_HOST (
         final_metadata.map { r -> record(meta: r.plasmid_meta, table: r.plasmids_final_metadata) }
     )
 
     // Plot Sankey for hosts
-    SANKEY_VIRUSES_HOST (
+    viruses_sankey = SANKEY_VIRUSES_HOST (
         final_metadata.map { r -> record(meta: r.viral_meta, table: r.viruses_final_metadata) }
     )
+
+    // one record for the whole catalogue (each channel has a single item)
+    summary = final_metadata
+        .combine(catalogue_stats)
+        .map { m, s ->
+            record(
+                catalogue_json: s.catalogue_json,
+                viral_meta: m.viral_meta,
+                plasmid_meta: m.plasmid_meta,
+                viruses_metadata: m.viruses_final_metadata,
+                viruses_cluster_stats: m.viruses_reps_stats,
+                plasmids_metadata: m.plasmids_final_metadata
+            )
+        }
+        .combine(viruses_sankey)
+        .map { r, v -> r + record(viruses_source_sankey: v.sankey_html) }
+        .combine(plasmids_sankey)
+        .map { r, p -> r + record(plasmids_source_sankey: p.sankey_html) }
 
     //
     // Collate and save software versions
     //
     // Processes send (process, tool, version) to the `versions` topic. Rebuild
     // the per-process YAML that versions.yml files used to hold.
-    def versions = channel.topic('versions') as Channel<Tuple<String,String,String>>
-    collated_versions = versions
+    def version_topic = channel.topic('versions') as Channel<Tuple<String,String,String>>
+    collated_versions = version_topic
         .unique()
         .map { process, tool, version -> tuple(process.tokenize(':')[-1], "    ${tool}: ${version}") }
         .groupBy()
@@ -195,7 +225,6 @@ workflow METAVIRAVERSE {
         .unique()
         .mix(channel.of(workflowVersionToYAML()))
         .collectFile(
-            storeDir: "${opts.outdir}/pipeline_info",
             name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
             sort: true,
             newLine: true
@@ -229,9 +258,17 @@ workflow METAVIRAVERSE {
         []
     )
     multiqc_report = multiqc.report.collect() // channel: /path/to/multiqc_report.html
+    multiqc_files = multiqc.report.mix(multiqc.data, multiqc.plots)   // report, data and (optional) plots
 
     emit:
     multiqc_report = multiqc_report
+    preprocessed: Value<Preprocessed> = preprocessed
+    viruses: Channel<ViralCatalogue> = viral_catalogue
+    plasmids: Channel<PlasmidCatalogue> = plasmid_catalogue
+    summary: Channel<CatalogueSummary> = summary
+    multiqc: Channel<Path> = multiqc_files
+    versions: Channel<Path> = collated_versions
+    invalid_fastas: Channel<Path> = ch_invalid_fastas   // third-party FASTAs that failed validation
 
 }
 

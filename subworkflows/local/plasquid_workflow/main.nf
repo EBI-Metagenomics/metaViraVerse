@@ -40,6 +40,10 @@ record PlasquidResult {
     rip_seqs_faa: Path             // RIP protein sequences
     mobility_classification: Path  // per-contig conjugative/mobilizable/non_mobilizable
     mobility_stats: Path           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
+    rep_candidates: Path           // evidence: proteins vs replication initiator proteins
+    rna_candidates: Path           // evidence: RNA incompatibility candidates
+    inc_candidates: Path           // evidence: incompatibility candidates
+    mob_candidates: Path           // evidence: mobilisation candidates
 }
 
 workflow PLASQUID_WORKFLOW {
@@ -93,6 +97,21 @@ workflow PLASQUID_WORKFLOW {
             .map { r -> record(meta: r.meta, filt_classification: r.filt_classification, mob_table: r.mob_table, rep_domains: r.rep_domains, fna: r.fna, faa: r.faa) }
     )
 
+    result = plasquid
+        .join(rep.map { r -> record(meta: r.meta, rep_candidates: r.prots_vs_rep) }, by: 'meta')
+        .join(rna, by: 'meta')
+        .join(inc.map { r -> record(meta: r.meta, inc_candidates: r.inc_candidates) }, by: 'meta')
+        .join(mob.map { r -> record(meta: r.meta, mob_candidates: r.mob_candidates) }, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta, fasta: r.fasta, report: r.report, protein_report: r.protein_report,
+                rip_seqs_faa: r.rip_seqs_faa, mobility_classification: r.mobility_classification,
+                mobility_stats: r.mobility_stats,
+                rep_candidates: r.rep_candidates, rna_candidates: r.rna_candidates,
+                inc_candidates: r.inc_candidates, mob_candidates: r.mob_candidates
+            )
+        }
+
     emit:
-    plasquid: Channel<PlasquidResult> = plasquid
+    plasquid: Channel<PlasquidResult> = result
 }

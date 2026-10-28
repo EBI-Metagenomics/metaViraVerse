@@ -7,9 +7,9 @@ nextflow.enable.types = true
 */
 include { CLUSTERING                                                } from '../clustering/main'
 include { EXTRACT_CLUSTER_FILES                                     } from '../extract_cluster_files/main'
-include { INDEX_RESULTS                                             } from '../index_results/main'
-include { PLASQUID_WORKFLOW                                         } from '../plasquid_workflow/main'
-include { PROTEINS_PROCESSING                                       } from '../proteins_subwf/main'
+include { INDEX_RESULTS ; IndexedReps                               } from '../index_results/main'
+include { PLASQUID_WORKFLOW ; PlasquidResult                        } from '../plasquid_workflow/main'
+include { PROTEINS_PROCESSING ; ProteinsResult                      } from '../proteins_subwf/main'
 
 include { MOBSUITE_TYPER                                            } from '../../../modules/nf-core/mobsuite/typer/main'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                                } from '../../../modules/nf-core/seqkit/split2'
@@ -62,18 +62,25 @@ record PlasmidSequences {
 record MobsuiteReports {
     meta: Map
     biomarker_report: Path?   // null when MOB-suite found no biomarkers
+    mge_report: Path?
     mob_report: Path?
 }
 
 record PlasmidCatalogue {
     meta: Map
     clusters_tsv: Path
+    ani_tsv: Path?             // CheckV ANI clustering only
+    ani_clusters_tsv: Path?
     reps_list: Path
     fna_gz: Path               // representative sequences, compressed
     faa_gz: Path               // representative proteins, compressed
     reps_gff: Path
     annotated_gff: Path        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
     mobility_stats: Path       // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
+    index: IndexedReps         // bgzipped and indexed reps FNA/FAA/GFF
+    plasquid: PlasquidResult
+    mobsuite: MobsuiteReports
+    proteins: ProteinsResult
 }
 
 workflow PROCESS_PLASMIDS {
@@ -116,7 +123,7 @@ workflow PROCESS_PLASMIDS {
     // ----------- post-processing (indexing) for website -----------
     //
 
-    INDEX_RESULTS (
+    indexed = INDEX_RESULTS (
         reps.map { r -> record(meta: r.meta, reps_gff: r.reps_gff, fna: r.fna, faa: r.faa) },
         channel.empty()
     )
@@ -156,7 +163,7 @@ workflow PROCESS_PLASMIDS {
         1
     )
 
-    CONCATENATE_MOBSUITE_MGE_REPORT (
+    mge_report = CONCATENATE_MOBSUITE_MGE_REPORT (
         mobsuite.mge_report.groupTuple(),
         1
     )
@@ -171,8 +178,9 @@ workflow PROCESS_PLASMIDS {
     mobsuite_reports = reps
         .map { r -> record(meta: r.meta) }
         .join(biomarker_report.file_out.map { meta, f -> record(meta: meta, biomarker_report: f) }, by: 'meta', remainder: true)
+        .join(mge_report.file_out.map { meta, f -> record(meta: meta, mge_report: f) }, by: 'meta', remainder: true)
         .join(mob_report.file_out.map { meta, f -> record(meta: meta, mob_report: f) }, by: 'meta', remainder: true)
-        .map { r -> record(meta: r.meta, biomarker_report: r.biomarker_report, mob_report: r.mob_report) }
+        .map { r -> record(meta: r.meta, biomarker_report: r.biomarker_report, mge_report: r.mge_report, mob_report: r.mob_report) }
 
 
     //
@@ -228,11 +236,16 @@ workflow PROCESS_PLASMIDS {
         .join(reps, by: 'meta')
         .join(annotated_gff.map { r -> record(meta: r.meta, annotated_gff: r.gff) }, by: 'meta')
         .join(mobility, by: 'meta')
+        .join(indexed.map { r -> record(meta: r.meta, index: r) }, by: 'meta')
+        .join(plasquid.map { r -> record(meta: r.meta, plasquid: r) }, by: 'meta')
+        .join(mobsuite_reports.map { r -> record(meta: r.meta, mobsuite: r) }, by: 'meta')
+        .join(proteins.map { r -> record(meta: r.meta, proteins: r) }, by: 'meta')
         .map { r ->
             record(
-                meta: r.meta, clusters_tsv: r.clusters_tsv, reps_list: r.reps_list,
-                fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
-                annotated_gff: r.annotated_gff, mobility_stats: r.mobility_stats
+                meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                annotated_gff: r.annotated_gff, mobility_stats: r.mobility_stats,
+                index: r.index, plasquid: r.plasquid, mobsuite: r.mobsuite, proteins: r.proteins
             )
         }
 

@@ -34,7 +34,7 @@ Unit tests import scripts directly from `bin/` (`sys.path.insert(0, BIN_DIR)`); 
 - `workflows/metaviraverse.nf` — top level: `THIRD_PARTY_DATA` (optional) → `PREPROCESSING` → `PROCESS_VIRAL_SEQUENCES` and `PROCESS_PLASMIDS` → `COLLECT_CATALOGUE_STATS` (`catalogue.json`) and `COLLECT_METADATA` (`*-all-metadata.tsv.gz`, `viruses-cluster-stats.tsv.gz`).
 - `subworkflows/local/` — pipeline logic; `modules/local/` — thin wrappers that mostly call a script in `bin/`; `modules/nf-core/` — vendored nf-core modules (don't edit; tracked in `modules.json`).
 - `bin/` — Python (and plaSquid R) scripts run inside processes. `scripts/` — helper scripts run **outside** the pipeline on EBI NFS to prepare inputs (`collect_data_from_catalogues.py` builds the samplesheet; `collect_crispr_spacers_from_catalogues.py` builds `--custom_spacers_fasta/metadata`).
-- `conf/modules.config` — all `ext.args`/`ext.prefix` and every `publishDir`; output paths and file names are defined here, not in modules.
+- `conf/modules.config` — all `ext.args`/`ext.prefix`. Publishing uses workflow outputs: the `output` block in `main.nf` defines every published path and file name (no `publishDir`); `outputDir = params.outdir` in `nextflow.config`.
 - `development/` — local scratch data and HTML report prototypes; not part of the pipeline.
 
 ## Data flow and identifiers (needs several files to see)
@@ -51,9 +51,9 @@ Original MGnify sequence names look like `MGYG000519004_12|viral_sequence-1:3297
 
 - **Optional inputs/steps** (`--skip_*`, `--predict_host_from_custom_spacers`, `--annotation_db`): skipped steps emit `channel.empty()`. Before passing such a channel into a process, map to the file and add `.ifEmpty([])`; in the module build the flag conditionally (`def x_arg = x ? "--x ${x}" : ""`); in the script make the argument `required=False` and handle its absence. Otherwise the downstream process never runs.
 - After `.join(..., remainder: true)` the `.map { ... }` closure must take exactly as many values as the joined tuple has; update it whenever a join is added.
-- `FIND_CONCATENATE` (used to merge chunked outputs) names its output exactly `ext.prefix`, with no extension unless the prefix has one — `publishDir` patterns and `saveAs` must account for that.
-- When a module's output file name changes, update the matching `pattern`/`saveAs` in `conf/modules.config`; a mismatch silently stops publishing.
-- Intermediate files are published only with `--save_intermediates` (`enabled: params.save_intermediates` in `conf/modules.config`); keep `docs/output.md` in sync with which outputs are always published.
+- `FIND_CONCATENATE` (used to merge chunked outputs) names its output exactly `ext.prefix`, with no extension unless the prefix has one — publish targets that keep the source name (ending in `/`) inherit that.
+- To publish a new file, carry it up in the subworkflow's emitted record (`Preprocessed`, `ViralCatalogue`, `PlasmidCatalogue`, `CatalogueSummary`, and the nested `TaxonomyResult`, `HostResult`, `ProteinsResult`, …) and add a `field >> "target"` line to the `output` block. A null field is skipped, but the target expression is still evaluated, so use `?.` on nested optional records. Two files sent to the same target fail the run.
+- Intermediate files are published only with `--save_intermediates` (the `*_intermediates` outputs, `enabled params.save_intermediates`); keep `docs/output.md` in sync with which outputs are always published.
 - Missing values in final metadata tables are written as the string `missing` (upstream steps may write `NA` / `not-provided`).
 - Scripts must read both plain and gzip-compressed inputs; many intermediate files are `.gz`.
 - Chunked steps (CheckV, iPHoP, MOB-suite, VITAP) concatenate chunk outputs, which can repeat header lines — parsers should skip repeated headers.

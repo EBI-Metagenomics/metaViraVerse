@@ -34,7 +34,8 @@ process SANKEY_PLOT {
     """
 
     stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    echo stub > ${meta.id}_sankey.html
+    echo stub > ${prefix}_sankey.html
     """
 }

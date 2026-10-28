@@ -27,6 +27,9 @@ record ViphogsInput {
 record ViphogsAssignment {
     meta: Map
     taxonomy_tsv: Path
+    modified_tsv: Path           // HMMER hits, post-processed
+    informative_tsv: Path        // hits with informative e-value ratio
+    annotation_tsv: Path         // per-contig ViPhOG annotation
 }
 
 workflow VIPHOGS_ANNOTATION {
@@ -78,6 +81,20 @@ workflow VIPHOGS_ANNOTATION {
        opts.viphogs_factor_file
     )
 
+    result = assignment
+        .join(annotation, by: 'meta')
+        .join(ratio, by: 'meta')
+        .join(postprocessed, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta,
+                taxonomy_tsv: r.taxonomy_tsv,
+                modified_tsv: r.modified_tsv,
+                informative_tsv: r.informative_hits_tsv,
+                annotation_tsv: r.annotations
+            )
+        }
+
     emit:
-    assignment: Channel<ViphogsAssignment> = assignment
+    assignment: Channel<ViphogsAssignment> = result
 }

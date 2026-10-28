@@ -35,6 +35,11 @@ workflow AMR_ANNOTATION {
     }
     ch_gff = ch_inputs.map{ meta, _aminoacids, cds_gff -> tuple(meta, cds_gff) }
 
+    // per-tool reports, emitted for publishing (empty when the tool is skipped)
+    ch_amrfinderplus_results = channel.empty()
+    ch_rgi_results = channel.empty()
+    ch_deeparg_results = channel.empty()
+
     // RUNNING ANNOTATION TOOLS
     // AMRfinderplus run
     // Prepare channel for database
@@ -196,5 +201,8 @@ workflow AMR_ANNOTATION {
     AMRINTEGRATOR(ch_for_amrintegrator)
 
     emit:
-    gff      = AMRINTEGRATOR.out.gff            // channel: [ val(meta), [ gff ] ]
+    gff           = AMRINTEGRATOR.out.gff     // channel: [ val(meta), [ gff ] ]
+    amrfinderplus = ch_amrfinderplus_results  // channel: [ val(meta), [ tsv ] ] (meta with is_proteins)
+    rgi           = ch_rgi_results            // channel: [ val(meta), [ tsv ] ] hAMRonization report
+    deeparg       = ch_deeparg_results        // channel: [ val(meta), [ tsv ] ] hAMRonization report
 }

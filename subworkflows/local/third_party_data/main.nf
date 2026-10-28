@@ -23,7 +23,6 @@ record ThirdPartySample {
 workflow THIRD_PARTY_DATA {
     take:
     input: Channel<ThirdPartyInput>
-    outdir: String
 
     main:
     // Decompress input FASTA files
@@ -45,11 +44,10 @@ workflow THIRD_PARTY_DATA {
         .join(ch_fasta_ready, by: 0)
 
     // Report invalid FASTA entries
-    falint.error_log
+    invalid_fastas = falint.error_log
         .map { meta, log -> "${meta.id}\t${log}" }
         .collectFile(
             name: "invalid_fastas.tsv",
-            storeDir: "${outdir}",
             newLine: true,
             seed: "sample\tfasta\n",
         )
@@ -70,4 +68,5 @@ workflow THIRD_PARTY_DATA {
 
     emit:
     third_party_data: Channel<ThirdPartySample> = third_party_data
+    invalid_fastas: Channel<Path> = invalid_fastas   // one table, only when some FASTA failed validation
 }

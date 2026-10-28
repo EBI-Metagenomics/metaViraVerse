@@ -15,7 +15,7 @@ include { GENERATE_TAXONOMY_TABLE as TAX_GENOMAD       } from '../../../modules/
 include { VITAP                                        } from '../../../modules/local/vitap'
 
 include { VIPHOGS_ANNOTATION                           } from '../viphogs_annotate/main'
-include { TAXONOMY_VISUALISATION as VIS_VIPHOGS        } from '../taxonomy_visualisation/main'
+include { TAXONOMY_VISUALISATION as VIS_VIPHOGS ; TaxonomyPlots } from '../taxonomy_visualisation/main'
 include { TAXONOMY_VISUALISATION as VIS_VITAP          } from '../taxonomy_visualisation/main'
 include { TAXONOMY_VISUALISATION as VIS_GENOMAD        } from '../taxonomy_visualisation/main'
 
@@ -56,23 +56,47 @@ record FnaChunk {
 record VitapBest {
     meta: Map
     vitap_best: Path
+    vitap_counts: Path
+    vitap_plots: TaxonomyPlots
 }
 
 record GenomadTaxonomy {
     meta: Map
     genomad: Path
+    genomad_counts: Path
+    genomad_plots: TaxonomyPlots
 }
 
 record ViphogsTaxonomy {
     meta: Map
     viphogs: Path
+    viphogs_modified: Path
+    viphogs_informative: Path
+    viphogs_annotation: Path
+    viphogs_counts: Path
+    viphogs_plots: TaxonomyPlots
 }
 
+// Fields of a skipped tool are null
 record TaxonomyResult {
     meta: Map
-    vitap_best: Path?   // null when VITAP is skipped
-    genomad: Path?      // null when geNomad is skipped
-    viphogs: Path?      // null when ViPhOGs are skipped
+    vitap_best: Path?
+    vitap_counts: Path?            // taxonomy counts joined with metadata
+    vitap_plots: TaxonomyPlots?
+    genomad: Path?
+    genomad_counts: Path?
+    genomad_plots: TaxonomyPlots?
+    viphogs: Path?                 // ViPhOGs taxonomy assignment
+    viphogs_modified: Path?
+    viphogs_informative: Path?
+    viphogs_annotation: Path?
+    viphogs_counts: Path?
+    viphogs_plots: TaxonomyPlots?
+}
+
+// taxonomy tables and plots carry the tool in their meta: drop it to join with the input
+def withoutTool(meta: Map) -> Map {
+    return meta.subMap(meta.keySet().findAll { k -> k != 'tool' })
 }
 
 workflow TAXONOMY_ASSIGNMENT {
@@ -111,11 +135,14 @@ workflow TAXONOMY_ASSIGNMENT {
             combined_metadata
         )
 
-        VIS_GENOMAD (
+        vis_genomad = VIS_GENOMAD (
             tax_genomad
         )
 
         genomad_taxonomy = genomad_concat.csv.map { meta, table -> record(meta: meta, genomad: table) }
+            .join(tax_genomad.map { r -> record(meta: withoutTool(r.meta), genomad_counts: r.taxonomy_counts) }, by: 'meta')
+            .join(vis_genomad.map { r -> record(meta: withoutTool(r.meta), genomad_plots: r) }, by: 'meta')
+            .map { r -> record(meta: r.meta, genomad: r.genomad, genomad_counts: r.genomad_counts, genomad_plots: r.genomad_plots) }
     }
 
     //
@@ -132,11 +159,24 @@ workflow TAXONOMY_ASSIGNMENT {
             combined_metadata
         )
 
-        VIS_VIPHOGS (
+        vis_viphogs = VIS_VIPHOGS (
             tax_viphogs
         )
 
-        viphogs_taxonomy = viphogs.map { r -> record(meta: r.meta, viphogs: r.taxonomy_tsv) }
+        viphogs_taxonomy = viphogs
+            .join(tax_viphogs.map { r -> record(meta: withoutTool(r.meta), viphogs_counts: r.taxonomy_counts) }, by: 'meta')
+            .join(vis_viphogs.map { r -> record(meta: withoutTool(r.meta), viphogs_plots: r) }, by: 'meta')
+            .map { r ->
+                record(
+                    meta: r.meta,
+                    viphogs: r.taxonomy_tsv,
+                    viphogs_modified: r.modified_tsv,
+                    viphogs_informative: r.informative_tsv,
+                    viphogs_annotation: r.annotation_tsv,
+                    viphogs_counts: r.viphogs_counts,
+                    viphogs_plots: r.viphogs_plots
+                )
+            }
     }
 
     if ( !opts.skip_vitap ) {
@@ -158,11 +198,14 @@ workflow TAXONOMY_ASSIGNMENT {
             combined_metadata
         )
 
-        VIS_VITAP (
+        vis_vitap = VIS_VITAP (
            tax_vitap
         )
 
         vitap_best = vitap_concat.file_out.map { meta, table -> record(meta: meta, vitap_best: table) }
+            .join(tax_vitap.map { r -> record(meta: withoutTool(r.meta), vitap_counts: r.taxonomy_counts) }, by: 'meta')
+            .join(vis_vitap.map { r -> record(meta: withoutTool(r.meta), vitap_plots: r) }, by: 'meta')
+            .map { r -> record(meta: r.meta, vitap_best: r.vitap_best, vitap_counts: r.vitap_counts, vitap_plots: r.vitap_plots) }
     }
 
     // Steps above are optional: their fields are null when skipped
@@ -171,7 +214,15 @@ workflow TAXONOMY_ASSIGNMENT {
         .join(vitap_best, by: 'meta', remainder: true)
         .join(genomad_taxonomy, by: 'meta', remainder: true)
         .join(viphogs_taxonomy, by: 'meta', remainder: true)
-        .map { r -> record(meta: r.meta, vitap_best: r.vitap_best, genomad: r.genomad, viphogs: r.viphogs) }
+        .map { r ->
+            record(
+                meta: r.meta,
+                vitap_best: r.vitap_best, vitap_counts: r.vitap_counts, vitap_plots: r.vitap_plots,
+                genomad: r.genomad, genomad_counts: r.genomad_counts, genomad_plots: r.genomad_plots,
+                viphogs: r.viphogs, viphogs_modified: r.viphogs_modified, viphogs_informative: r.viphogs_informative,
+                viphogs_annotation: r.viphogs_annotation, viphogs_counts: r.viphogs_counts, viphogs_plots: r.viphogs_plots
+            )
+        }
 
     emit:
     taxonomy: Channel<TaxonomyResult> = taxonomy

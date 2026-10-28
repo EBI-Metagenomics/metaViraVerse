@@ -130,7 +130,7 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
     - `viruses_reps_annotated.gff.gz`: GFF of the representatives, enriched with lifestyle (BACPHLIP), HMMER (e.g. PVOG, TIGRFAM) and AMR annotations.
     - `functional_annotation/`
       - `amr/`
-        - `viruses.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi).
+        - `viruses_amrfinderplus.tsv`, `viruses_deeparg.tsv`, `viruses_rgi.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi) (DeepARG and RGI in [hAMRonization](https://github.com/pha4ge/hAMRonization) format), one file per tool that was run.
         - `integrated_viruses.gff`: GFF with the AMR annotations merged in.
       - `hmmer/`: [HMMER](http://hmmer.org/) hits against HMM profile databases (`*.tbl.gz`), with a per-accession function summary (`*_summary.tsv.gz`).
       - `lifestyle/`: virulent/temperate lifestyle prediction from [BACPHLIP](https://github.com/adamhockenberry/bacphlip) (`viruses.bacphlip.gz`).
@@ -171,7 +171,7 @@ Viral sequences and prophages are pooled and clustered, and one representative p
     - `functional_annotation/`
       - `mobility_stats_final.json`: summary counts combining plaSquid evidence (proteins with RIP, MOB and Inc hits) and MOB-suite predicted mobility (conjugative, mobilizable, non-mobilizable).
       - `amr/`: not produced when all `--skip_<tool>_for_plasmids` flags are set.
-        - `plasmids.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi).
+        - `plasmids_amrfinderplus.tsv`, `plasmids_deeparg.tsv`, `plasmids_rgi.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi) (DeepARG and RGI in [hAMRonization](https://github.com/pha4ge/hAMRonization) format), one file per tool that was run.
         - `integrated_plasmids.gff`: GFF with the AMR annotations merged in.
       - `mobsuite-typer/`: results of [MOB-suite `mob_typer`](https://github.com/phac-nml/mob-suite#mob-typer).
         - `plasmids_report.txt`: per-plasmid typing report, including predicted mobility.

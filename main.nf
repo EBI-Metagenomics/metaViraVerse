@@ -15,10 +15,10 @@ nextflow.enable.types = true
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { METAVIRAVERSE ; MetaviraverseParams } from './workflows/metaviraverse'
-include { PreprocessingParams     } from './subworkflows/local/preprocessing/main'
-include { ViralParams             } from './subworkflows/local/process_viral_sequences'
-include { PlasmidParams           } from './subworkflows/local/process_plasmids'
+include { METAVIRAVERSE ; MetaviraverseParams ; CatalogueSummary } from './workflows/metaviraverse'
+include { PreprocessingParams ; Preprocessed } from './subworkflows/local/preprocessing/main'
+include { ViralParams ; ViralCatalogue } from './subworkflows/local/process_viral_sequences'
+include { PlasmidParams ; PlasmidCatalogue } from './subworkflows/local/process_plasmids'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 /*
@@ -114,6 +114,9 @@ params {
     multiqc_config: Path?
     multiqc_logo: String?
 
+    // Publishing
+    save_intermediates: Boolean = false
+
     // Boilerplate
     monochrome_logs: Boolean = false
     version: Boolean = false
@@ -144,7 +147,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     //
     // WORKFLOW: Run pipeline
     //
-    multiqc_report = METAVIRAVERSE (
+    metaviraverse = METAVIRAVERSE (
         samplesheet.map { meta, fna, gff, faa -> record(meta: meta, fna: fna, gff: gff, faa: faa) },
         samplesheet_third_party.map { meta, fasta -> record(meta: meta, fasta: fasta) },
         opts,
@@ -152,9 +155,24 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
         viral_opts,
         plasmid_opts
     )
+    multiqc_report = metaviraverse.multiqc_report
+    preprocessed = metaviraverse.preprocessed
+    viruses = metaviraverse.viruses
+    plasmids = metaviraverse.plasmids
+    summary = metaviraverse.summary
+    multiqc = metaviraverse.multiqc
+    versions = metaviraverse.versions
+    invalid_fastas = metaviraverse.invalid_fastas
 
     emit:
     multiqc_report = multiqc_report // channel: /path/to/multiqc_report.html
+    preprocessed: Value<Preprocessed> = preprocessed
+    viruses: Channel<ViralCatalogue> = viruses
+    plasmids: Channel<PlasmidCatalogue> = plasmids
+    summary: Channel<CatalogueSummary> = summary
+    multiqc: Channel<Path> = multiqc
+    versions: Channel<Path> = versions
+    invalid_fastas: Channel<Path> = invalid_fastas
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -181,7 +199,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    multiqc_report = EBIMETAGENOMICS_METAVIRAVERSE (
+    metaviraverse = EBIMETAGENOMICS_METAVIRAVERSE (
         init.samplesheet,
         init.samplesheet_third_party,
         params,
@@ -195,8 +213,238 @@ workflow {
     PIPELINE_COMPLETION (
         params.outdir,
         params.monochrome_logs,
-        multiqc_report
+        metaviraverse.multiqc_report
     )
+
+    publish:
+    preprocessed = metaviraverse.preprocessed
+    preprocessed_intermediates = metaviraverse.preprocessed
+    viruses = metaviraverse.viruses
+    plasmids = metaviraverse.plasmids
+    plasmids_intermediates = metaviraverse.plasmids
+    summary = metaviraverse.summary
+    multiqc = metaviraverse.multiqc
+    versions = metaviraverse.versions
+    invalid_fastas = metaviraverse.invalid_fastas
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    WORKFLOW OUTPUTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Published into `outputDir` (--outdir); see docs/output.md for the layout.
+    `*_intermediates` outputs are published only with --save_intermediates.
+    Null fields (skipped steps, missing optional files) are not published.
+*/
+
+output {
+    // rename map, catalogue metadata tables and the chosen sequences (before clustering)
+    preprocessed: Preprocessed {
+        path { r ->
+            r.map_file >> "additional_data/rename_mapfile.tsv"
+            r.excluded_metadata >> "additional_data/catalogue_excluded_records_metadata.tsv"
+            r.metadata >> "additional_data/catalogue_filtered_metadata.tsv"
+            r.virus_gz.fna >> "viruses/viral_sequences.fna.gz"
+            r.virus_gz.gff >> "viruses/viral_sequences.gff.gz"
+            r.virus_gz.faa >> "viruses/viral_sequences.faa.gz"
+            r.prophage_gz.fna >> "viruses/prophages.fna.gz"
+            r.prophage_gz.gff >> "viruses/prophages.gff.gz"
+            r.prophage_gz.faa >> "viruses/prophages.faa.gz"
+            r.plasmid_gz.fna >> "plasmids/plasmids.fna.gz"
+            r.plasmid_gz.gff >> "plasmids/plasmids.gff.gz"
+            r.plasmid_gz.faa >> "plasmids/plasmids.faa.gz"
+        }
+    }
+
+    preprocessed_intermediates: Preprocessed {
+        enabled params.save_intermediates
+        path { r ->
+            r.fna_renamed >> "additional_data/rename/"
+            r.gff_renamed >> "additional_data/rename/"
+            r.checkv_report >> "additional_data/viruses_checkv_report.tsv"
+            r.rrna_gff >> "additional_data/barrnap/"
+            r.filtered_metadata >> "additional_data/choose_sequences/"
+            r.filtered_fna >> "additional_data/choose_sequences/"
+            r.filtered_gff >> "additional_data/choose_sequences/"
+            r.filtered_faa >> "additional_data/choose_sequences/"
+            r.virus_fna >> "additional_data/choose_sequences/"
+            r.virus_gff >> "additional_data/choose_sequences/"
+            r.virus_faa >> "additional_data/choose_sequences/"
+            r.prophage_fna >> "additional_data/choose_sequences/"
+            r.prophage_gff >> "additional_data/choose_sequences/"
+            r.prophage_faa >> "additional_data/choose_sequences/"
+            r.plasmid_fna >> "additional_data/choose_sequences/"
+            r.plasmid_gff >> "additional_data/choose_sequences/"
+            r.plasmid_faa >> "additional_data/choose_sequences/"
+        }
+    }
+
+    // viral cluster representatives and their annotations
+    viruses: Channel<ViralCatalogue> {
+        path { r ->
+            // CheckV ANI clustering (--cluster_vclust false)
+            r.ani_tsv >> "${r.meta.id}/clustering/"
+            r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
+
+            r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
+            r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.fna_fai >> "${r.meta.id}/cluster_representatives/"
+            r.index.fna_gzi >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_fai >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_gzi >> "${r.meta.id}/cluster_representatives/"
+            r.index.gff_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.gff_tbi >> "${r.meta.id}/cluster_representatives/"
+            r.index.bacphlip_gz >> "${r.meta.id}/cluster_representatives/functional_annotation/lifestyle/"
+            r.index.bacphlip_tbi >> "${r.meta.id}/cluster_representatives/functional_annotation/lifestyle/"
+
+            // taxonomy: geNomad
+            r.taxonomy.genomad >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
+            r.taxonomy.genomad_counts >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
+            r.taxonomy.genomad_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
+            r.taxonomy.genomad_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
+            r.taxonomy.genomad_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
+            r.taxonomy.genomad_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
+            r.taxonomy.genomad_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
+            r.taxonomy.genomad_plots?.itol_types >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
+            r.taxonomy.genomad_plots?.itol_biomes >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
+            // taxonomy: ViPhOGs
+            r.taxonomy.viphogs >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_modified >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_informative >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_annotation >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_counts >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
+            r.taxonomy.viphogs_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
+            r.taxonomy.viphogs_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
+            r.taxonomy.viphogs_plots?.itol_types >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
+            r.taxonomy.viphogs_plots?.itol_biomes >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
+            // taxonomy: VITAP
+            r.taxonomy.vitap_best >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
+            r.taxonomy.vitap_counts >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
+            r.taxonomy.vitap_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
+            r.taxonomy.vitap_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
+            r.taxonomy.vitap_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
+            r.taxonomy.vitap_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
+            r.taxonomy.vitap_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
+            r.taxonomy.vitap_plots?.itol_types >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
+            r.taxonomy.vitap_plots?.itol_biomes >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
+
+            // host prediction: iPHoP
+            r.hosts.iphop_genome >> "${r.meta.id}/cluster_representatives/host_detection/iphop/${r.hosts.iphop_genome?.name}.csv"
+            r.hosts.iphop_genus >> "${r.meta.id}/cluster_representatives/host_detection/iphop/${r.hosts.iphop_genus?.name}.csv"
+            r.hosts.iphop_genome_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genome_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genus_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genus_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            // host prediction: SpacePHARER (--predict_host_from_custom_spacers)
+            r.hosts.spacepharer_predictions >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer_lineage_json >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer_sankey >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+
+            // proteins: AMR (one report per tool), HMMER, phams
+            r.proteins.amrfinderplus_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_amrfinderplus.tsv"
+            r.proteins.deeparg_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_deeparg.tsv"
+            r.proteins.rgi_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_rgi.tsv"
+            r.proteins.amr_gff >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/"
+            r.proteins.hmmer_tables >> "${r.meta.id}/cluster_representatives/functional_annotation/hmmer/"
+            r.proteins.hmmer_summaries >> "${r.meta.id}/cluster_representatives/functional_annotation/hmmer/"
+            r.proteins.phams_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.size_distribution_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.size_distribution_png >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.rank_abundance >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.top_functions_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.top_functions_png >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.purity_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.purity_png >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+            r.proteins.phams_plots?.stats >> "${r.meta.id}/cluster_representatives/protein_clusters_phammseqs/"
+        }
+    }
+
+    // plasmid cluster representatives and their annotations
+    plasmids: Channel<PlasmidCatalogue> {
+        path { r ->
+            // CheckV ANI clustering (--cluster_vclust false)
+            r.ani_tsv >> "${r.meta.id}/clustering/"
+            r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
+
+            r.annotated_gff >> "${r.meta.id}/cluster_representatives/plasmids_annotated.gff.gz"
+            r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.fna_fai >> "${r.meta.id}/cluster_representatives/"
+            r.index.fna_gzi >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_fai >> "${r.meta.id}/cluster_representatives/"
+            r.index.faa_gzi >> "${r.meta.id}/cluster_representatives/"
+            r.index.gff_gz >> "${r.meta.id}/cluster_representatives/"
+            r.index.gff_tbi >> "${r.meta.id}/cluster_representatives/"
+
+            // mobility: plaSquid + MOB-suite
+            r.mobility_stats >> "${r.meta.id}/cluster_representatives/functional_annotation/"
+            r.plasquid.report >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/final_report_per_contig.tsv"
+            r.plasquid.protein_report >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/final_report_per_protein.tsv"
+            r.plasquid.mobility_classification >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/"
+            r.plasquid.mobility_stats >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/mobility_stats_base.json"
+            r.mobsuite.biomarker_report >> "${r.meta.id}/cluster_representatives/functional_annotation/mobsuite-typer/"
+            r.mobsuite.mge_report >> "${r.meta.id}/cluster_representatives/functional_annotation/mobsuite-typer/"
+            r.mobsuite.mob_report >> "${r.meta.id}/cluster_representatives/functional_annotation/mobsuite-typer/"
+
+            // proteins: AMR (one report per tool), MMseqs2 clusters
+            r.proteins.amrfinderplus_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_amrfinderplus.tsv"
+            r.proteins.deeparg_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_deeparg.tsv"
+            r.proteins.rgi_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_rgi.tsv"
+            r.proteins.amr_gff >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/"
+            r.proteins.mmseqs_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.size_distribution_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.size_distribution_png >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.rank_abundance >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.top_functions_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.top_functions_png >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.purity_tsv >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.purity_png >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+            r.proteins.mmseqs_plots?.stats >> "${r.meta.id}/cluster_representatives/protein_clusters_mmseqs/"
+        }
+    }
+
+    // plaSquid evidence tables
+    plasmids_intermediates: Channel<PlasmidCatalogue> {
+        enabled params.save_intermediates
+        path { r ->
+            r.plasquid.mob_candidates >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/evidence/mobilisation_candidates.tsv"
+            r.plasquid.rep_candidates >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/evidence/replication_initiator_proteins.tsv"
+            r.plasquid.rna_candidates >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/evidence/"
+            r.plasquid.inc_candidates >> "${r.meta.id}/cluster_representatives/functional_annotation/plasquid/evidence/incompatibility_candidates.tsv"
+        }
+    }
+
+    // catalogue statistics, final metadata tables and source taxonomy plots
+    summary: Channel<CatalogueSummary> {
+        path { r ->
+            r.catalogue_json >> "./"
+            r.viruses_metadata >> "viruses/"
+            r.viruses_cluster_stats >> "viruses/"
+            r.plasmids_metadata >> "plasmids/"
+            r.viruses_source_sankey >> "${r.viral_meta.id}/"
+            r.plasmids_source_sankey >> "${r.plasmid_meta.id}/"
+        }
+    }
+
+    multiqc: Channel<Path> {
+        enabled params.save_intermediates
+        path 'multiqc'
+    }
+
+    versions: Channel<Path> {
+        path 'pipeline_info'
+    }
+
+    // third-party FASTAs that failed validation
+    invalid_fastas: Channel<Path> {
+        path '.'
+    }
 }
 
 /*

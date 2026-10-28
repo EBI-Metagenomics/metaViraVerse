@@ -13,10 +13,10 @@ include { BUILD_FINAL_GFF                              } from '../../../modules/
 
 include { EXTRACT_CLUSTER_FILES                        } from '../extract_cluster_files/main'
 include { CLUSTERING                                   } from '../clustering/main'
-include { HOST_DETECTION                               } from '../host_detection_subwf/main'
-include { INDEX_RESULTS                                } from '../index_results/main'
-include { PROTEINS_PROCESSING                          } from '../proteins_subwf/main'
-include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf/main'
+include { HOST_DETECTION ; HostResult                  } from '../host_detection_subwf/main'
+include { INDEX_RESULTS ; IndexedReps                  } from '../index_results/main'
+include { PROTEINS_PROCESSING ; ProteinsResult         } from '../proteins_subwf/main'
+include { TAXONOMY_ASSIGNMENT ; TaxonomyResult         } from '../taxonomy_subwf/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -77,16 +77,17 @@ record LifestyleTable {
 record ViralCatalogue {
     meta: Map
     clusters_tsv: Path
+    ani_tsv: Path?             // CheckV ANI clustering only
+    ani_clusters_tsv: Path?
     reps_list: Path
     fna_gz: Path               // representative sequences, compressed
     faa_gz: Path               // representative proteins, compressed
     reps_gff: Path
-    vitap_best: Path?
-    viphogs: Path?
-    genomad: Path?
-    iphop_genome: Path?
-    iphop_genus: Path?
-    spacepharer: Path?
+    final_gff: Path            // reps GFF with lifestyle, HMMER and AMR annotations
+    index: IndexedReps         // bgzipped and indexed reps FNA/FAA/GFF and lifestyle table
+    taxonomy: TaxonomyResult
+    hosts: HostResult
+    proteins: ProteinsResult
 }
 
 workflow PROCESS_VIRAL_SEQUENCES {
@@ -200,7 +201,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- Build final aggregated GFF -----------
     //
 
-    BUILD_FINAL_GFF (
+    final_gff = BUILD_FINAL_GFF (
         reps.join(bacphlip_table, by: 'meta')
             .join(proteins, by: 'meta')
             .map { r ->
@@ -218,21 +219,24 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- post-processing (indexing) for website -----------
     //
 
-    INDEX_RESULTS (
+    indexed = INDEX_RESULTS (
         reps.map { r -> record(meta: r.meta, reps_gff: r.reps_gff, fna: r.fna, faa: r.faa) },
         bacphlip_table
     )
 
     catalogue = clusters
         .join(reps, by: 'meta')
-        .join(taxonomy, by: 'meta')
-        .join(hosts, by: 'meta')
+        .join(final_gff, by: 'meta')
+        .join(indexed.map { r -> record(meta: r.meta, index: r) }, by: 'meta')
+        .join(taxonomy.map { r -> record(meta: r.meta, taxonomy: r) }, by: 'meta')
+        .join(hosts.map { r -> record(meta: r.meta, hosts: r) }, by: 'meta')
+        .join(proteins.map { r -> record(meta: r.meta, proteins: r) }, by: 'meta')
         .map { r ->
             record(
-                meta: r.meta, clusters_tsv: r.clusters_tsv, reps_list: r.reps_list,
-                fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
-                vitap_best: r.vitap_best, viphogs: r.viphogs, genomad: r.genomad,
-                iphop_genome: r.iphop_genome, iphop_genus: r.iphop_genus, spacepharer: r.spacepharer
+                meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                final_gff: r.final_gff, index: r.index,
+                taxonomy: r.taxonomy, hosts: r.hosts, proteins: r.proteins
             )
         }
 

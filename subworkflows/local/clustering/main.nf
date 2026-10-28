@@ -18,6 +18,8 @@ record ClusteringInput {
 record Clusters {
     meta: Map
     clusters_tsv: Path
+    ani_tsv: Path?            // CheckV pairwise ANI (blastn clustering only)
+    ani_clusters_tsv: Path?   // CheckV ANI clusters (blastn clustering only)
 }
 
 workflow CLUSTERING {
@@ -56,13 +58,13 @@ workflow CLUSTERING {
             vclust_ani_threshold
         )
 
-        ch_clusters = vclust.clusters.map { meta, tsv -> record(meta: meta, clusters_tsv: tsv) }
+        ch_clusters = vclust.clusters.map { meta, tsv -> record(meta: meta, clusters_tsv: tsv, ani_tsv: null, ani_clusters_tsv: null) }
 
     } else {
         // Creation of a blast+ database
         blastdb = BLAST_MAKEBLASTDB(
             ch_fna,
-            'nucl'
+            []          // taxid_map: none (-dbtype nucl comes from ext.args)
         )
 
         // Using megablast from blast+ package to perform all-vs-all blastn of sequences
@@ -82,10 +84,13 @@ workflow CLUSTERING {
         // UCLUST-like clustering
         // simple greedy, centroid-based clustering
         // sometimes called leader clustering or single-pass centroid clustering
-        ch_clusters = ANICLUST(
+        aniclust = ANICLUST(
            ani.join(sequences, by: 'meta')
                .map { r -> record(meta: r.meta, ani_tsv: r.calculated_ani_tsv, sequences: r.fna) }
         )
+
+        ch_clusters = aniclust.join(ani, by: 'meta')
+            .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.calculated_ani_tsv, ani_clusters_tsv: r.clusters_tsv) }
     }
 
     clusters = ch_clusters

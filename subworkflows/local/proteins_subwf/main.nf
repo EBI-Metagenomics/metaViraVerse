@@ -36,15 +36,54 @@ record AmrGff {
     amr_gff: Path
 }
 
+record AmrReport {
+    meta: Map
+    report: Path
+}
+
 record HmmerTables {
     meta: Map
     hmmer_tables: List<Path>
+    hmmer_summaries: List<Path>
 }
 
+record ClusterPlots {
+    meta: Map
+    size_distribution_tsv: Path
+    size_distribution_png: Path
+    rank_abundance: Path
+    top_functions_tsv: Path
+    top_functions_png: Path?
+    purity_tsv: Path
+    purity_png: Path?
+    stats: Path
+}
+
+record Phams {
+    meta: Map
+    phams_tsv: Path
+    phams_plots: ClusterPlots
+}
+
+record MmseqsClusters {
+    meta: Map
+    mmseqs_tsv: Path
+    mmseqs_plots: ClusterPlots
+}
+
+// Optional steps leave their fields null
 record ProteinsResult {
     meta: Map
-    hmmer_tables: List<Path>?   // null when --annotation_db is not set
-    amr_gff: Path?              // null when all AMR tools are skipped
+    hmmer_tables: List<Path>?      // null when --annotation_db is not set
+    hmmer_summaries: List<Path>?   // per-database function summaries
+    amr_gff: Path?                 // null when all AMR tools are skipped
+    amrfinderplus_tsv: Path?
+    deeparg_tsv: Path?             // hAMRonization report
+    rgi_tsv: Path?                 // hAMRonization report
+    phams_tsv: Path?
+    phams_plots: ClusterPlots?
+    mmseqs_tsv: Path?
+    mmseqs_plots: ClusterPlots?
 }
 
 workflow PROTEINS_PROCESSING {
@@ -62,7 +101,12 @@ workflow PROTEINS_PROCESSING {
     main:
 
     def amr_gff: Channel<AmrGff> = channel.empty()
+    def amrfinderplus: Channel<AmrReport> = channel.empty()
+    def deeparg: Channel<AmrReport> = channel.empty()
+    def rgi: Channel<AmrReport> = channel.empty()
     def hmmer_tables: Channel<HmmerTables> = channel.empty()
+    def phams: Channel<Phams> = channel.empty()
+    def mmseqs_clusters: Channel<MmseqsClusters> = channel.empty()
 
     //
     // -------- Antimicrobial resistence detection
@@ -80,23 +124,35 @@ workflow PROTEINS_PROCESSING {
             skip_deeparg,
             skip_rgi
         )
-        // a single-emit (untyped) workflow returns that channel itself
-        amr_gff = amr.map { meta, gff -> record(meta: meta, amr_gff: gff) }
+        amr_gff = amr.gff.map { meta, gff -> record(meta: meta, amr_gff: gff) }
+        // tool reports carry `is_proteins` in their meta; read them only when the tool ran
+        // (an empty channel from the untyped subworkflow cannot be read here)
+        if ( !skip_amrfinderplus ) {
+            amrfinderplus = amr.amrfinderplus.map { meta, f -> record(meta: meta.subMap(meta.keySet().findAll { k -> k != 'is_proteins' }), report: f) }
+        }
+        if ( !skip_deeparg ) {
+            deeparg = amr.deeparg.map { meta, f -> record(meta: meta.subMap(meta.keySet().findAll { k -> k != 'is_proteins' }), report: f) }
+        }
+        if ( !skip_rgi ) {
+            rgi = amr.rgi.map { meta, f -> record(meta: meta.subMap(meta.keySet().findAll { k -> k != 'is_proteins' }), report: f) }
+        }
     }
 
     if ( !skip_phammseqs ) {
         //
         // -------- Assort phage protein sequences into phamilies using MMseqs2
         //
-        phams = PHAMMSEQS(
+        phammseqs = PHAMMSEQS(
            input.map { r -> record(meta: r.meta, faa: r.faa) }
         )
 
-        PLOT_PHAMS_STATS (
+        phams_plots = PLOT_PHAMS_STATS (
             // functions are already in the phams TSV; no reference labelling: compare phams with protein functions
-            phams.map { r -> record(meta: r.meta, clusters: r.phams_tsv, fasta: null, reference: null) },
+            phammseqs.map { r -> record(meta: r.meta, clusters: r.phams_tsv, fasta: null, reference: null) },
             'phammseqs'
         )
+        phams = phammseqs.join(phams_plots.map { r -> record(meta: r.meta, phams_plots: r) }, by: 'meta')
+            .map { r -> record(meta: r.meta, phams_tsv: r.phams_tsv, phams_plots: r.phams_plots) }
     }
 
     if ( !skip_mmseqs ) {
@@ -107,11 +163,13 @@ workflow PROTEINS_PROCESSING {
         )
 
         // take functions from the protein FASTA headers
-        PLOT_MMSEQS_STATS (
+        mmseqs_plots = PLOT_MMSEQS_STATS (
             mmseqs.join(input, by: 'meta')
                 .map { r -> record(meta: r.meta, clusters: r.mmseq_cluster_tsv, fasta: r.faa, reference: null) },
             'mmseqs'
         )
+        mmseqs_clusters = mmseqs.join(mmseqs_plots.map { r -> record(meta: r.meta, mmseqs_plots: r) }, by: 'meta')
+            .map { r -> record(meta: r.meta, mmseqs_tsv: r.mmseq_cluster_tsv, mmseqs_plots: r.mmseqs_plots) }
     }
 
     if (hmm_db) {
@@ -167,7 +225,7 @@ workflow PROTEINS_PROCESSING {
                  tuple(meta, hmm_file)
             }
 
-        SUMMARISE_ANNOTATIONS(
+        summaries = SUMMARISE_ANNOTATIONS(
             hmmer_tblout.file_out
                 .join(hmm_metadata, by: 0)
                 .map { meta, tbl, metadata -> record(meta: meta, tbl: tbl, metadata: metadata) }
@@ -178,9 +236,14 @@ workflow PROTEINS_PROCESSING {
             .map { _meta, table -> table }
             .collect()
             .map { ts -> ts.toList() }
+        def summary_tables = summaries
+            .map { r -> r.summary_tsv }
+            .collect()
+            .map { ts -> ts.toList() }
         hmmer_tables = input
             .map { r -> record(meta: r.meta) }
             .combine(hmmer_tables: tables)
+            .combine(hmmer_summaries: summary_tables)
     }
 
     // Steps above are optional: their fields are null when skipped
@@ -188,7 +251,20 @@ workflow PROTEINS_PROCESSING {
         .map { r -> record(meta: r.meta) }
         .join(hmmer_tables, by: 'meta', remainder: true)
         .join(amr_gff, by: 'meta', remainder: true)
-        .map { r -> record(meta: r.meta, hmmer_tables: r.hmmer_tables, amr_gff: r.amr_gff) }
+        .join(amrfinderplus.map { r -> record(meta: r.meta, amrfinderplus_tsv: r.report) }, by: 'meta', remainder: true)
+        .join(deeparg.map { r -> record(meta: r.meta, deeparg_tsv: r.report) }, by: 'meta', remainder: true)
+        .join(rgi.map { r -> record(meta: r.meta, rgi_tsv: r.report) }, by: 'meta', remainder: true)
+        .join(phams, by: 'meta', remainder: true)
+        .join(mmseqs_clusters, by: 'meta', remainder: true)
+        .map { r ->
+            record(
+                meta: r.meta,
+                hmmer_tables: r.hmmer_tables, hmmer_summaries: r.hmmer_summaries,
+                amr_gff: r.amr_gff, amrfinderplus_tsv: r.amrfinderplus_tsv, deeparg_tsv: r.deeparg_tsv, rgi_tsv: r.rgi_tsv,
+                phams_tsv: r.phams_tsv, phams_plots: r.phams_plots,
+                mmseqs_tsv: r.mmseqs_tsv, mmseqs_plots: r.mmseqs_plots
+            )
+        }
 
     emit:
     result: Channel<ProteinsResult> = result

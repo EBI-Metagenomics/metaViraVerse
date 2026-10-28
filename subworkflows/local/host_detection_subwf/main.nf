@@ -47,23 +47,40 @@ record HostInput {
 record IphopGenome {
     meta: Map
     iphop_genome: Path
+    iphop_genome_sankey: Path?
+    iphop_genome_reduced_sankey: Path?
 }
 
 record IphopGenus {
     meta: Map
     iphop_genus: Path
+    iphop_genus_sankey: Path?
+    iphop_genus_reduced_sankey: Path?
 }
 
 record SpacepharerHost {
     meta: Map
     spacepharer: Path
+    spacepharer_predictions: Path
+    spacepharer_lineage_json: Path
+    spacepharer_sankey: Path?
+    spacepharer_reduced_sankey: Path?
 }
 
+// iPHoP fields are null when iPHoP is skipped, SpacePHARER fields without --predict_host_from_custom_spacers
 record HostResult {
     meta: Map
-    iphop_genome: Path?   // null when iPHoP is skipped
-    iphop_genus: Path?    // null when iPHoP is skipped
-    spacepharer: Path?    // null without --predict_host_from_custom_spacers
+    iphop_genome: Path?
+    iphop_genome_sankey: Path?
+    iphop_genome_reduced_sankey: Path?
+    iphop_genus: Path?
+    iphop_genus_sankey: Path?
+    iphop_genus_reduced_sankey: Path?
+    spacepharer: Path?                  // host chosen per virus
+    spacepharer_predictions: Path?
+    spacepharer_lineage_json: Path?
+    spacepharer_sankey: Path?
+    spacepharer_reduced_sankey: Path?
 }
 
 workflow HOST_DETECTION {
@@ -108,27 +125,48 @@ workflow HOST_DETECTION {
         )
 
         // Plot Sankey for hosts reduced to genus and top 20 hits for website
-        SANKEY_IPHOP_GENUS_HOST_REDUCED (
+        genus_reduced = SANKEY_IPHOP_GENUS_HOST_REDUCED (
             iphop_genus.file_out.map { meta, table -> record(meta: meta, table: table) }
         )
-        SANKEY_IPHOP_GENOME_HOST_REDUCED (
+        genome_reduced = SANKEY_IPHOP_GENOME_HOST_REDUCED (
             iphop_genome.file_out.map { meta, table -> record(meta: meta, table: table) }
         )
         // Plot Sankey for hosts
-        SANKEY_IPHOP_GENUS_HOST (
+        genus_sankey = SANKEY_IPHOP_GENUS_HOST (
             iphop_genus.file_out.map { meta, table -> record(meta: meta, table: table) }
         )
-        SANKEY_IPHOP_GENOME_HOST (
+        genome_sankey = SANKEY_IPHOP_GENOME_HOST (
             iphop_genome.file_out.map { meta, table -> record(meta: meta, table: table) }
         )
 
-        // the tables carry a renamed meta (<id>_genome / <id>_genus): attach the input's meta
+        // the tables carry a renamed meta (<id>_genome / <id>_genus): join on it, then attach the input's meta
+        def genome_files = iphop_genome.file_out.map { meta, table -> record(meta: meta, iphop_genome: table) }
+            .join(genome_sankey.map { r -> record(meta: r.meta, iphop_genome_sankey: r.sankey_html) }, by: 'meta')
+            .join(genome_reduced.map { r -> record(meta: r.meta, iphop_genome_reduced_sankey: r.sankey_html) }, by: 'meta')
+        def genus_files = iphop_genus.file_out.map { meta, table -> record(meta: meta, iphop_genus: table) }
+            .join(genus_sankey.map { r -> record(meta: r.meta, iphop_genus_sankey: r.sankey_html) }, by: 'meta')
+            .join(genus_reduced.map { r -> record(meta: r.meta, iphop_genus_reduced_sankey: r.sankey_html) }, by: 'meta')
+
         iphop_host_genome = fna
-            .combine(iphop_genome.file_out.map { _meta, table -> record(iphop_genome: table) })
-            .map { r, host -> record(meta: r.meta, iphop_genome: host.iphop_genome) }
+            .combine(genome_files)
+            .map { r, host ->
+                record(
+                    meta: r.meta,
+                    iphop_genome: host.iphop_genome,
+                    iphop_genome_sankey: host.iphop_genome_sankey,
+                    iphop_genome_reduced_sankey: host.iphop_genome_reduced_sankey
+                )
+            }
         iphop_host_genus = fna
-            .combine(iphop_genus.file_out.map { _meta, table -> record(iphop_genus: table) })
-            .map { r, host -> record(meta: r.meta, iphop_genus: host.iphop_genus) }
+            .combine(genus_files)
+            .map { r, host ->
+                record(
+                    meta: r.meta,
+                    iphop_genus: host.iphop_genus,
+                    iphop_genus_sankey: host.iphop_genus_sankey,
+                    iphop_genus_reduced_sankey: host.iphop_genus_reduced_sankey
+                )
+            }
     }
 
     if ( opts.predict_host_from_custom_spacers ) {
@@ -168,18 +206,32 @@ workflow HOST_DETECTION {
            opts.custom_genomes_metadata
         )
 
-        SANKEY_SPACEPHARER_HOST (
+        spacepharer_sankey = SANKEY_SPACEPHARER_HOST (
             host_info.map { r -> record(meta: r.meta, table: r.tsv) }
         )
 
-        SANKEY_SPACEPHARER_HOST_REDUCED (
+        spacepharer_reduced = SANKEY_SPACEPHARER_HOST_REDUCED (
             host_info.map { r -> record(meta: r.meta, table: r.tsv) }
         )
 
-        // predictions carry the spacers' meta: attach the input's meta
+        // predictions carry the spacers' meta: join on it, then attach the input's meta
+        def spacepharer_files = host_info
+            .join(predictions, by: 'meta')
+            .join(spacepharer_sankey.map { r -> record(meta: r.meta, spacepharer_sankey: r.sankey_html) }, by: 'meta')
+            .join(spacepharer_reduced.map { r -> record(meta: r.meta, spacepharer_reduced_sankey: r.sankey_html) }, by: 'meta')
+
         spacepharer_host = fna
-            .combine(host_info)
-            .map { r, host -> record(meta: r.meta, spacepharer: host.tsv) }
+            .combine(spacepharer_files)
+            .map { r, host ->
+                record(
+                    meta: r.meta,
+                    spacepharer: host.tsv,
+                    spacepharer_predictions: host.predictions,
+                    spacepharer_lineage_json: host.lineage_comparison_json,
+                    spacepharer_sankey: host.spacepharer_sankey,
+                    spacepharer_reduced_sankey: host.spacepharer_reduced_sankey
+                )
+            }
     }
 
     // Steps above are optional: their fields are null when skipped
@@ -188,7 +240,16 @@ workflow HOST_DETECTION {
         .join(iphop_host_genome, by: 'meta', remainder: true)
         .join(iphop_host_genus, by: 'meta', remainder: true)
         .join(spacepharer_host, by: 'meta', remainder: true)
-        .map { r -> record(meta: r.meta, iphop_genome: r.iphop_genome, iphop_genus: r.iphop_genus, spacepharer: r.spacepharer) }
+        .map { r ->
+            record(
+                meta: r.meta,
+                iphop_genome: r.iphop_genome, iphop_genome_sankey: r.iphop_genome_sankey, iphop_genome_reduced_sankey: r.iphop_genome_reduced_sankey,
+                iphop_genus: r.iphop_genus, iphop_genus_sankey: r.iphop_genus_sankey, iphop_genus_reduced_sankey: r.iphop_genus_reduced_sankey,
+                spacepharer: r.spacepharer, spacepharer_predictions: r.spacepharer_predictions,
+                spacepharer_lineage_json: r.spacepharer_lineage_json,
+                spacepharer_sankey: r.spacepharer_sankey, spacepharer_reduced_sankey: r.spacepharer_reduced_sankey
+            )
+        }
 
     emit:
     hosts: Channel<HostResult> = hosts
