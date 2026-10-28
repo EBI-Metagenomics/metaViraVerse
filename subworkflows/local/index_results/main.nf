@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -13,54 +15,66 @@ include { TABIX_BGZIPTABIX as INDEX_COMPRESS_BACPHLIP  } from '../../../modules/
 include { SORT_GFF                                     } from '../../../modules/local/sort_gff'
 
 
+record IndexInput {
+    meta: Map
+    reps_gff: Path
+    fna: Path   // uncompressed
+    faa: Path   // uncompressed
+}
+
+record BacphlipTable {
+    meta: Map
+    bacphlip: Path
+}
+
 workflow INDEX_RESULTS {
 
     take:
-    reps_gff
-    fna_uncompressed
-    faa_uncompressed
-    bacphlip_concatenated
+    reps: Channel<IndexInput>
+    bacphlip: Channel<BacphlipTable>   // empty for plasmids
 
     main :
 
     //
     // ----------- viral reps GFF -----------
     //
-    SORT_GFF (
-        reps_gff.map { meta, gff -> record(meta: meta, gff: gff) }
+    sorted_gff = SORT_GFF (
+        reps.map { r -> record(meta: r.meta, gff: r.reps_gff) }
     )
 
     // Index and compress GFF
     INDEX_COMPRESS_GFF (
-        SORT_GFF.out.map { r -> [r.meta, r.sorted_gff] }
+        sorted_gff.map { r -> tuple(r.meta, r.sorted_gff) }
     )
 
     //
     // ----------- FNA (nucleotides) -----------
     //
-    BGZIP_FNA (fna_uncompressed)
+    bgzip_fna = BGZIP_FNA (
+        reps.map { r -> tuple(r.meta, r.fna) }
+    )
 
     INDEX_FNA (
-        BGZIP_FNA.out.gz_index.map{ meta, fasta, index -> [meta, fasta, []] },
+        bgzip_fna.gz_index.map { meta, fasta, _index -> tuple(meta, fasta, []) },
         false
     )
 
     //
     // ----------- FAA (proteins) -----------
     //
-    BGZIP_FAA (faa_uncompressed)
+    bgzip_faa = BGZIP_FAA (
+        reps.map { r -> tuple(r.meta, r.faa) }
+    )
 
     INDEX_FAA (
-        BGZIP_FAA.out.gz_index.map{ meta, fasta, index -> [meta, fasta, []] },
+        bgzip_faa.gz_index.map { meta, fasta, _index -> tuple(meta, fasta, []) },
         false
     )
 
     //
     // ----------- bacphlip -----------
     //
-    if ( bacphlip_concatenated ) {
-        INDEX_COMPRESS_BACPHLIP (
-            bacphlip_concatenated
-        )
-    }
+    INDEX_COMPRESS_BACPHLIP (
+        bacphlip.map { r -> tuple(r.meta, r.bacphlip) }
+    )
 }

@@ -81,4 +81,24 @@ process CHOOSE_SEQUENCES {
         ${mapping_arg} \\
         --output-prefix ${meta.id}
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_metadata.tsv
+    echo stub > ${meta.id}_filtered.tsv
+    echo stub > ${meta.id}_excluded.tsv
+    echo stub > ${meta.id}_filtered.fna
+    echo stub > ${meta.id}_filtered.gff
+    echo stub > ${meta.id}_filtered.faa
+    echo stub > ${meta.id}_virus_filtered.fna
+    echo stub > ${meta.id}_virus_filtered.gff
+    echo stub > ${meta.id}_virus_filtered.faa
+    echo stub > ${meta.id}_prophage_filtered.fna
+    echo stub > ${meta.id}_prophage_filtered.gff
+    echo stub > ${meta.id}_prophage_filtered.faa
+    echo stub > ${meta.id}_plasmid_filtered.fna
+    echo stub > ${meta.id}_plasmid_filtered.gff
+    echo stub > ${meta.id}_plasmid_filtered.faa
+    echo stub > ${meta.id}_stats.json
+    """
 }

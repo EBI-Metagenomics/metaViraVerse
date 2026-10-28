@@ -41,4 +41,11 @@ process SEPARATE_SEQUENCES {
        --category ${category} \\
        --output-prefix ${category}
     """
+
+    stub:
+    """
+    echo stub > ${category}.fna
+    echo stub > ${category}.gff
+    echo stub > ${category}.faa
+    """
 }

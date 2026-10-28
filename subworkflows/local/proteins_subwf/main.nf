@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 include { MMSEQS                                                  } from '../../../modules/local/mmseqs'
 include { PHAMMSEQS                                               } from '../../../modules/local/phammseqs'
 include { SUMMARISE_ANNOTATIONS                                   } from '../../../modules/local/summarise_annotations'
@@ -11,30 +13,50 @@ include { FIND_CONCATENATE as CONCATENATE_HMMER_TBLOUT            } from '../../
 include { AMR_ANNOTATION                                          } from '../../ebi-metagenomics/amr_annotation'
 
 
+record ProteinsInput {
+    meta: Map
+    faa: Path   // representative proteins, uncompressed
+    gff: Path   // representative GFF
+}
+
+record AmrGff {
+    meta: Map
+    amr_gff: Path
+}
+
+record HmmerTables {
+    meta: Map
+    hmmer_tables: List<Path>
+}
+
+record ProteinsResult {
+    meta: Map
+    hmmer_tables: List<Path>?   // null when --annotation_db is not set
+    amr_gff: Path?              // null when all AMR tools are skipped
+}
+
 workflow PROTEINS_PROCESSING {
 
     take:
-    input  // (meta, reps_faa.uncompressed, reps_gff)
-    skip_amrfinderplus
-    skip_deeparg
-    skip_rgi
-    skip_phammseqs
-    skip_mmseqs
-    hmm_db
+    input: Channel<ProteinsInput>
+    skip_amrfinderplus: Boolean
+    skip_deeparg: Boolean
+    skip_rgi: Boolean
+    skip_phammseqs: Boolean
+    skip_mmseqs: Boolean
+    hmm_db: String?   // directory with *.hmm.gz and *.tsv; null to skip HMMER annotation
 
     main:
 
-    hmmer_tables = channel.empty()
-    amr_gff      = channel.empty()
-
-    ch_proteins  = input.map{ meta, faa, _gff -> tuple(meta, faa) }
+    def amr_gff: Channel<AmrGff> = channel.empty()
+    def hmmer_tables: Channel<HmmerTables> = channel.empty()
 
     //
     // -------- Antimicrobial resistence detection
     //
     if (!(skip_amrfinderplus && skip_deeparg && skip_rgi)) {
-        AMR_ANNOTATION (
-            input,
+        amr = AMR_ANNOTATION (
+            input.map { r -> tuple(r.meta, r.faa, r.gff) },
             params.amrfinderplus_db,
             params.deeparg_db,
             params.deeparg_db_version,
@@ -45,41 +67,37 @@ workflow PROTEINS_PROCESSING {
             skip_deeparg,
             skip_rgi
         )
-        amr_gff = AMR_ANNOTATION.out.gff
+        // a single-emit (untyped) workflow returns that channel itself
+        amr_gff = amr.map { meta, gff -> record(meta: meta, amr_gff: gff) }
     }
 
     if ( !skip_phammseqs ) {
         //
         // -------- Assort phage protein sequences into phamilies using MMseqs2
         //
-        PHAMMSEQS(
-           ch_proteins.map { meta, faa -> record(meta: meta, faa: faa) }
+        phams = PHAMMSEQS(
+           input.map { r -> record(meta: r.meta, faa: r.faa) }
         )
 
         PLOT_PHAMS_STATS (
-            PHAMMSEQS.out.map { r -> record(meta: r.meta, clusters: r.phams_tsv) },
-            'phammseqs',
-            [],   // functions are already in the phams TSV
-            []    // no reference labelling: compare phams with protein functions
+            // functions are already in the phams TSV; no reference labelling: compare phams with protein functions
+            phams.map { r -> record(meta: r.meta, clusters: r.phams_tsv, fasta: null, reference: null) },
+            'phammseqs'
         )
     }
 
     if ( !skip_mmseqs ) {
-        MMSEQS (
-            ch_proteins.map { meta, faa -> record(meta: meta, faa_file: faa) },
-            channel.value(params.mmseqs_id_threshold),
-            channel.value(params.mmseqs_cov_threshold)
+        mmseqs = MMSEQS (
+            input.map { r -> record(meta: r.meta, faa_file: r.faa) },
+            params.mmseqs_id_threshold,
+            params.mmseqs_cov_threshold
         )
 
-        // MMSEQS emits the cluster TSV without meta: attach the proteins' meta,
-        // and take functions from the protein FASTA headers
+        // take functions from the protein FASTA headers
         PLOT_MMSEQS_STATS (
-            ch_proteins.map { meta, _faa -> meta }
-                .combine(MMSEQS.out.map { r -> r.mmseq_cluster_tsv })
-                .map { meta, clusters -> record(meta: meta, clusters: clusters) },
-            'mmseqs',
-            ch_proteins.map { _meta, faa -> faa },
-            []
+            mmseqs.join(input, by: 'meta')
+                .map { r -> record(meta: r.meta, clusters: r.mmseq_cluster_tsv, fasta: r.faa, reference: null) },
+            'mmseqs'
         )
     }
 
@@ -89,36 +107,38 @@ workflow PROTEINS_PROCESSING {
         // Default: 50,000 sequences per chunk (override with --protein_annotation_fasta_chunksize)
         //
 
-        SEQKIT_SPLIT2(
-            ch_proteins,
+        chunks = SEQKIT_SPLIT2(
+            input.map { r -> tuple(r.meta, r.faa) },
             [],                                        // length: (disabled) max number of nucleotides per chunk
             params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
         )
 
-        def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
+        // a single chunk is emitted as a path, several as a list: transpose handles both
+        def ch_protein_chunks = chunks.chunked_output.transpose()
 
         //
         // -------- Functional annotation with HMMER
         //
-        def hmm_ch = channel
-            .fromPath("${hmm_db}/*.hmm.gz")
-            .map { hmm_file -> tuple(hmm_file.baseName, hmm_file) }
+        def hmm_files = channel.fromPath("${hmm_db}/*.hmm.gz").collect()
 
-        def hmmsearch_input = hmm_ch
-            .combine(ch_protein_chunks)
-            .map { hmm_id, hmm_file, faa_id, faa_file ->
-                def meta = [
-                    id: hmm_id.replace('.hmm', '')
-                ]
-                tuple(meta, hmm_file, faa_file, false, true, false)
+        def hmmsearch_input = ch_protein_chunks
+            .map { _meta, faa_file -> record(faa_file: faa_file) }
+            .combine(hmm_files: hmm_files)
+            .flatMap { r ->
+                r.hmm_files.collect { hmm_file ->
+                    def meta = [
+                        id: hmm_file.baseName.replace('.hmm', '')
+                    ]
+                    tuple(meta, hmm_file, r.faa_file, false, true, false)
+                }
             }
 
-        HMMER_HMMSEARCH (
+        hmmsearch = HMMER_HMMSEARCH (
             hmmsearch_input
         )
 
-        CONCATENATE_HMMER_TBLOUT (
-            HMMER_HMMSEARCH.out.target_summary.groupTuple(),
+        hmmer_tblout = CONCATENATE_HMMER_TBLOUT (
+            hmmsearch.target_summary.groupTuple(),
             3
         )
 
@@ -135,21 +155,27 @@ workflow PROTEINS_PROCESSING {
             }
 
         SUMMARISE_ANNOTATIONS(
-            CONCATENATE_HMMER_TBLOUT.out.file_out
-                .join(hmm_metadata)
+            hmmer_tblout.file_out
+                .join(hmm_metadata, by: 0)
                 .map { meta, tbl, metadata -> record(meta: meta, tbl: tbl, metadata: metadata) }
         )
 
-        hmmer_tables = CONCATENATE_HMMER_TBLOUT.out.file_out
-            .map { _meta, table -> table }                                      // Extract just the table files
-            .collect()                                                          // Gather all tables into a list
-            .combine(ch_proteins.map { meta, _faa -> meta })                    // keep the input's meta (viruses/plasmids)
-            .map { items -> [items.last(), items[0..-2]] }                      // [meta, [.tbl.gz, ...]]
+        // all tables, under the input's meta (viruses/plasmids)
+        def tables = hmmer_tblout.file_out
+            .map { _meta, table -> table }
+            .collect()
+        hmmer_tables = input
+            .map { r -> record(meta: r.meta) }
+            .combine(hmmer_tables: tables)
     }
 
-    // Steps above are optional: hmmer_tables / amr_gff stay channel.empty() when skipped,
-    // so callers must not depend on them being emitted (use .ifEmpty).
+    // Steps above are optional: their fields are null when skipped
+    result = input
+        .map { r -> record(meta: r.meta) }
+        .join(hmmer_tables, by: 'meta', remainder: true)
+        .join(amr_gff, by: 'meta', remainder: true)
+        .map { r -> record(meta: r.meta, hmmer_tables: r.hmmer_tables, amr_gff: r.amr_gff) }
+
     emit:
-    hmmer_tables   = hmmer_tables                // channel: [ meta, [ tbl.gz, ... ] ]
-    amr_gff        = amr_gff                     // channel: [ meta, gff ]
+    result: Channel<ProteinsResult> = result
 }

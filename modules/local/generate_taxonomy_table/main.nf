@@ -37,4 +37,10 @@ process GENERATE_TAXONOMY_TABLE {
         --meta ${metadata_file} \\
         --meta-output ${prefix}_metadata_table.tsv
     """
+
+    stub:
+    """
+    echo stub > stub_taxonomy_counts.tsv
+    echo stub > stub_metadata_table.tsv
+    """
 }

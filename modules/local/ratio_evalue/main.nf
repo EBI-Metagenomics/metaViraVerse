@@ -32,4 +32,9 @@ process RATIO_EVALUE {
     """
     ratio_evalue_table.py -i ${modified_table} -t ${model_metadata} -o ${meta.id}_modified_informative.tsv -e ${evalue}
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_modified_informative.tsv
+    """
 }

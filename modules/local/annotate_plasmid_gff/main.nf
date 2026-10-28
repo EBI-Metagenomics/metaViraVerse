@@ -21,12 +21,12 @@ process ANNOTATE_PLASMID_GFF {
     input:
     record(
         meta: Map,
-        gff: Path
+        gff: Path,
+        protein_report: Path?,
+        biomarker_report: Path?,
+        mob_report: Path?,
+        amr_gff: Path?
     )
-    protein_report: Path?
-    biomarker_report: Path?
-    mob_report: Path?
-    amr_gff: Path?
 
     output:
     record(
@@ -50,5 +50,10 @@ process ANNOTATE_PLASMID_GFF {
         ${amr_gff_arg} \\
         ${mob_report_arg} \\
         --output ${meta.id}_annotated.gff.gz
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_annotated.gff.gz
     """
 }

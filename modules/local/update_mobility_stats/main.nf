@@ -38,4 +38,9 @@ process UPDATE_MOBILITY_STATS {
         ${mob_report_arg} \\
         --output mobility_stats_final.json
     """
+
+    stub:
+    """
+    echo stub > mobility_stats_final.json
+    """
 }

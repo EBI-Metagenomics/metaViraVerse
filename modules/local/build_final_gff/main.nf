@@ -11,11 +11,11 @@ process BUILD_FINAL_GFF {
     input:
     record(
         meta: Map,
-        input_gff: Path
+        input_gff: Path,
+        bacphlip: Path,
+        hmmfiles: List<Path>,    // hmmer tables, empty when --annotation_db is not set
+        additional_gff: Path?    // AMR GFF, null when all AMR tools are skipped
     )
-    bacphlip: Path
-    hmmfiles: List<Path>    // hmmer tables, empty when --annotation_db is not set
-    additional_gff: Path?   // AMR GFF, null when all AMR tools are skipped
 
     output:
     record(
@@ -38,5 +38,10 @@ process BUILD_FINAL_GFF {
         ${hmmer_arg} \\
         ${gff_arg} \\
         --compress-output
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_final.gff.gz
     """
 }

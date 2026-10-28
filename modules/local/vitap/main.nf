@@ -53,4 +53,9 @@ process VITAP {
     # version is hardcoded because Docker container has version 1.7 installed
     # but tool itself still prints version 1.3 (which is a bug in tool)
     """
+
+    stub:
+    """
+    echo stub > stub_vitap_best.tsv
+    """
 }

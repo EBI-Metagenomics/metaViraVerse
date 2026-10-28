@@ -32,4 +32,9 @@ process SANKEY_PLOT {
         --input ${table} \\
         --output ${prefix}_sankey.html
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_sankey.html
+    """
 }

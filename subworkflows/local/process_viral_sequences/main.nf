@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -22,14 +24,39 @@ include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record ViralSequences {
+    meta: Map
+    fna: Path
+}
+
+record LifestyleTable {
+    meta: Map
+    bacphlip: Path
+}
+
+record ViralCatalogue {
+    meta: Map
+    clusters_tsv: Path
+    reps_list: Path
+    fna_gz: Path               // representative sequences, compressed
+    faa_gz: Path               // representative proteins, compressed
+    reps_gff: Path
+    vitap_best: Path?
+    viphogs: Path?
+    genomad: Path?
+    iphop_genome: Path?
+    iphop_genus: Path?
+    spacepharer: Path?
+}
+
 workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
-    sequences
-    gff
-    faa
-    combined_metadata
-    mapfile
+    sequences: Channel<ViralSequences>
+    gff: Value<Path>
+    faa: Value<Path>
+    combined_metadata: Value<Path>
+    mapfile: Value<Path>
 
     main:
 
@@ -37,29 +64,25 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- Cluster sequences -----------
     //
 
-    sequences
-        .filter { meta, seqs ->
-            seqs && seqs.size() > 0
-        }
-        .set { samples_seqs }
+    samples_seqs = sequences.filter { r -> r.fna && r.fna.size() > 0 }
 
-    CLUSTERING(
+    clusters = CLUSTERING(
        samples_seqs,
        'ani',
-       false,
-       false,
+       0,
+       0,
        0.95
     )
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
     //
-    EXTRACT_CLUSTER_FILES (
-       CLUSTERING.out.clusters_tsv,
-       gff,
-       mapfile,
+    reps = EXTRACT_CLUSTER_FILES (
+       clusters,
        sequences,
+       gff,
        faa,
+       mapfile,
        'viruses'
     )
 
@@ -67,20 +90,23 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- Chunk nucleotide sequences for cluster reps -----------
     //
 
-    CHUNK_FNA (
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+    chunks = CHUNK_FNA (
+        reps.map { r -> tuple(r.meta, r.fna) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
         params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
     )
-    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+    // a single chunk is emitted as a path, several as a list: transpose handles both
+    def fna_chunks = chunks.chunked_output
+        .transpose()
+        .map { meta, fasta -> record(meta: meta, fasta: fasta) }
 
     //
     // ----------- Host assignment -----------
     // IPHOP process has chunking with another fasta size
     //
 
-    HOST_DETECTION (
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+    hosts = HOST_DETECTION (
+        reps.map { r -> record(meta: r.meta, fna: r.fna) },
         params.custom_genomes_metadata,
         mapfile
     )
@@ -91,31 +117,31 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // running on chunked FNA file
     //
 
-    BACPHLIP(
-        ch_fna_chunks.map { meta, fasta -> record(meta: meta, fasta: fasta) }
+    bacphlip = BACPHLIP(
+        fna_chunks
     )
 
-    CONCATENATE_BACPHLIP (
-        BACPHLIP.out.map { r -> [r.meta, r.bacphlip_table] }.groupTuple(),
+    bacphlip_concat = CONCATENATE_BACPHLIP (
+        bacphlip.map { r -> tuple(r.meta, r.bacphlip_table) }.groupTuple(),
         1
     )
+    def bacphlip_table: Channel<LifestyleTable> = bacphlip_concat.file_out.map { meta, table -> record(meta: meta, bacphlip: table) }
 
     //
     // ----------- Taxonomy ViPhOGs and VITAP -----------
     //
 
-    TAXONOMY_ASSIGNMENT (
+    taxonomy = TAXONOMY_ASSIGNMENT (
+       reps,
+       fna_chunks,
        combined_metadata,
-       ch_fna_chunks,
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-       EXTRACT_CLUSTER_FILES.out.reps_gff,
        params.skip_vitap,
        params.skip_genomad,
        params.skip_viphogs,
-       params.viphog_db,
-       params.additional_viphog_model_data,
-       params.ncbi_db,
-       params.viphogs_factor_file ? params.viphogs_factor_file: []
+       params.viphog_db ? file(params.viphog_db) : null,
+       params.additional_viphog_model_data ? file(params.additional_viphog_model_data) : null,
+       params.ncbi_db ? file(params.ncbi_db) : null,
+       params.viphogs_factor_file ? file(params.viphogs_factor_file) : null
     )
 
     //
@@ -123,8 +149,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // AMR detection, hmmer annotation, protein clustering with phammseqs
     //
 
-    PROTEINS_PROCESSING(
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
+    proteins = PROTEINS_PROCESSING(
+       reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
        params.skip_amrfinderplus_for_viruses,
        params.skip_deeparg_for_viruses,
        params.skip_rgi_for_viruses,
@@ -138,11 +164,17 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
 
     BUILD_FINAL_GFF (
-        EXTRACT_CLUSTER_FILES.out.reps_gff.map { meta, reps_gff -> record(meta: meta, input_gff: reps_gff) },
-        CONCATENATE_BACPHLIP.out.file_out.map { _meta, bacphlip -> bacphlip },
-        // optional: empty when --annotation_db is not set / all AMR tools are skipped
-        PROTEINS_PROCESSING.out.hmmer_tables.map { _meta, tables -> tables }.ifEmpty([]),
-        PROTEINS_PROCESSING.out.amr_gff.map { _meta, amr_gff -> amr_gff }.ifEmpty([])
+        reps.join(bacphlip_table, by: 'meta')
+            .join(proteins, by: 'meta')
+            .map { r ->
+                record(
+                    meta: r.meta,
+                    input_gff: r.reps_gff,
+                    bacphlip: r.bacphlip,
+                    hmmfiles: r.hmmer_tables ?: [],   // null when --annotation_db is not set
+                    additional_gff: r.amr_gff         // null when all AMR tools are skipped
+                )
+            }
     )
 
     //
@@ -150,23 +182,23 @@ workflow PROCESS_VIRAL_SEQUENCES {
     //
 
     INDEX_RESULTS (
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-        CONCATENATE_BACPHLIP.out.file_out
+        reps.map { r -> record(meta: r.meta, reps_gff: r.reps_gff, fna: r.fna, faa: r.faa) },
+        bacphlip_table
     )
 
+    catalogue = clusters
+        .join(reps, by: 'meta')
+        .join(taxonomy, by: 'meta')
+        .join(hosts, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta, clusters_tsv: r.clusters_tsv, reps_list: r.reps_list,
+                fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                vitap_best: r.vitap_best, viphogs: r.viphogs, genomad: r.genomad,
+                iphop_genome: r.iphop_genome, iphop_genus: r.iphop_genus, spacepharer: r.spacepharer
+            )
+        }
+
     emit:
-
-    clustering_tsv      = CLUSTERING.out.clusters_tsv  // [meta, tsv]
-    reps_tsv            = EXTRACT_CLUSTER_FILES.out.reps_list
-    reps_seqs           = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed  // compressed
-    reps_proteins       = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed  // compressed
-    vitap_best          = TAXONOMY_ASSIGNMENT.out.vitap_best
-    viphogs_assign      = TAXONOMY_ASSIGNMENT.out.viphogs_taxonomy
-    genomad_assign      = TAXONOMY_ASSIGNMENT.out.genomad_taxonomy
-    iphop_host_genome   = HOST_DETECTION.out.iphop_host_genome
-    iphop_host_genus    = HOST_DETECTION.out.iphop_host_genus
-    spacepharer_host    = HOST_DETECTION.out.spacepharer_host
-
+    catalogue: Channel<ViralCatalogue> = catalogue
 }

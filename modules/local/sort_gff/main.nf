@@ -21,4 +21,9 @@ process SORT_GFF {
     """
     sort -k1,1V -k4,4n ${gff} > ${gff.baseName}.sorted.gff
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_sorted.gff
+    """
 }

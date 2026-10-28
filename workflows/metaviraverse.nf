@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -14,6 +16,7 @@ include { PROCESS_VIRAL_SEQUENCES               } from '../subworkflows/local/pr
 include { PROCESS_PLASMIDS                      } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 
+
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
@@ -26,119 +29,149 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record Sample {
+    meta: Map     // [id, source, biome]
+    fna: Path
+    gff: Path
+    faa: Path
+}
+
+record ThirdPartyInput {
+    meta: Map     // [id, type, source, biome, study_accession, sample_accession]
+    fasta: Path
+}
+
+record ThirdPartySample {
+    meta: Map
+    fna: Path
+    gff: Path
+    faa: Path
+}
+
 workflow METAVIRAVERSE {
 
     take:
-    ch_samplesheet             // channel: samplesheet read in from --input
-    ch_samplesheet_third_party // channel: samplesheet read in from --third_party_input
+    samples: Channel<Sample>                       // samplesheet read in from --input
+    third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input
 
     main:
-
-    ch_multiqc_files = channel.empty()
-    multiqc_report = channel.empty()
 
     //
     // ----------- Preprocess third party data (coming not from MGnify)
     //
-    ch_third_party_data = channel.empty()
+    def third_party: Channel<ThirdPartySample> = channel.empty()
     if (params.third_party_input) {
-        THIRD_PARTY_DATA(
-            ch_samplesheet_third_party
+        third_party = THIRD_PARTY_DATA(
+            third_party_input,
+            params.outdir
         )
-        ch_third_party_data = THIRD_PARTY_DATA.out.third_party_data  // [meta[id, biome, type], fasta, gff, faa]
     }
 
     //
     // Separate viral sequences and plasmids
     //
-    PREPROCESSING (
-       ch_samplesheet,
-       ch_third_party_data
+    preprocessed = PREPROCESSING (
+       samples,
+       third_party,
+       record(
+           start_accession: params.start_accession,
+           end_accession: params.end_accession,
+           viral_sequence_identifier: params.viral_sequence_identifier,
+           prophage_identifier: params.prophage_identifier,
+           plasmid_identifier: params.plasmid_identifier,
+           rename_accession: params.rename_accession
+       )
     )
 
-    // Process viral_sequences and prophages together as "viruses"
-
-    viruses = PREPROCESSING.out.viral_sequences
-        .map{ _meta, fna, gff, faa -> fna }
-        .combine(PREPROCESSING.out.prophages
-        .map{ _meta, fna, gff, faa -> fna })
-        .flatMap { tuple -> tuple }
+    viruses = preprocessed
+        .flatMap { r -> [r.virus_fna, r.prophage_fna] }
         .collectFile(name: "viruses.fasta")
-        .map{ seqs -> [[id: 'viruses'], seqs]}
+        .map { seqs -> record(meta: [id: 'viruses'], fna: seqs) }
 
     //
     // Process viruses
     //
-    PROCESS_VIRAL_SEQUENCES (
+    viral_catalogue = PROCESS_VIRAL_SEQUENCES (
        viruses,
-       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
-       PREPROCESSING.out.combined_faa,   // concatenated FAA built from all inputs
-       PREPROCESSING.out.metadata,
-       PREPROCESSING.out.mapfile.map { _meta, f -> f }
+       preprocessed.map { r -> r.filtered_gff },   // concatenated GFF built from all inputs
+       preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
+       preprocessed.map { r -> r.filtered_metadata },
+       preprocessed.map { r -> r.map_file }
     )
 
     // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
 
-    plasmids = PREPROCESSING.out.plasmids
-       .map{ _meta, fna, gff, faa -> fna }
+    plasmids = preprocessed
+       .flatMap { r -> [r.plasmid_fna] }
        .collectFile(name: "plasmids.fasta")
-       .map{ seqs -> [[id: 'plasmids'], seqs]}
+       .map { seqs -> record(meta: [id: 'plasmids'], fna: seqs) }
 
     //
     // Process plasmids
     //
-    PROCESS_PLASMIDS (
+    plasmid_catalogue = PROCESS_PLASMIDS (
        plasmids,
-       PREPROCESSING.out.combined_faa,
-       PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
-       []
+       preprocessed.map { r -> r.filtered_faa },
+       preprocessed.map { r -> r.filtered_gff }   // concatenated GFF built from all inputs
     )
 
+    // one record with both catalogues and the preprocessing results
+    catalogues = viral_catalogue
+        .combine(plasmid_catalogue)
+        .map { viral, plasmid -> record(viral: viral, plasmid: plasmid) }
+        .combine(preprocessed: preprocessed)
 
     //
     // Collect stats for whole catalogue into JSON
     //
     COLLECT_CATALOGUE_STATS (
-        PREPROCESSING.out.stats_json.map { _meta, f -> f },
-        PREPROCESSING.out.metadata.map { _meta, f -> f },
-        PROCESS_VIRAL_SEQUENCES.out.reps_tsv.map { _meta, f -> f },
-        PROCESS_PLASMIDS.out.reps_tsv.map { _meta, f -> f },
-        PREPROCESSING.out.excluded_qc.map { _meta, f -> f },
-        PREPROCESSING.out.input_metadata.map { _meta, f -> f },
-        PROCESS_VIRAL_SEQUENCES.out.reps_proteins.map { _meta, f -> f },
-        PROCESS_PLASMIDS.out.reps_proteins.map { _meta, f -> f }
+        catalogues.map { r ->
+            record(
+                json: r.preprocessed.stats,
+                metadata: r.preprocessed.filtered_metadata,
+                clusters_viruses: r.viral.reps_list,
+                clusters_plasmids: r.plasmid.reps_list,
+                excluded_metadata: r.preprocessed.excluded_metadata,
+                initial_metadata: r.preprocessed.metadata,
+                clusters_viruses_prot: r.viral.faa_gz,
+                clusters_plasmids_prot: r.plasmid.faa_gz
+            )
+        }
     )
 
     //
     // Collect viral and plasmid metadata
     //
-    COLLECT_METADATA (
-        PREPROCESSING.out.metadata.map { _meta, f -> f },  // combined_filtered.tsv
-        PROCESS_VIRAL_SEQUENCES.out.clustering_tsv.map { meta, _f -> meta },
-        PROCESS_VIRAL_SEQUENCES.out.clustering_tsv.map { _meta, f -> f },
-        PROCESS_PLASMIDS.out.clustering_tsv.map { meta, _f -> meta },
-        PROCESS_PLASMIDS.out.clustering_tsv.map { _meta, f -> f },
-        file(params.catalogues_metadata),
-        PROCESS_VIRAL_SEQUENCES.out.vitap_best.map { _meta, f -> f }.ifEmpty([]),
-        PROCESS_VIRAL_SEQUENCES.out.viphogs_assign.map { _meta, f -> f }.ifEmpty([]),
-        PROCESS_VIRAL_SEQUENCES.out.genomad_assign.map { _meta, f -> f }.ifEmpty([]),
-        PREPROCESSING.out.mapfile.map { _meta, f -> f },
-        // optional host predictions: empty channels when iPHoP / SpacePHARER are skipped,
-        // so fall back to [] (null in the typed input) instead of blocking COLLECT_METADATA
-        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genome.map { _meta, f -> f }.ifEmpty([]),
-        PROCESS_VIRAL_SEQUENCES.out.iphop_host_genus.map { _meta, f -> f }.ifEmpty([]),
-        PROCESS_VIRAL_SEQUENCES.out.spacepharer_host.map { _meta, f -> f }.ifEmpty([])
+    final_metadata = COLLECT_METADATA (
+        catalogues.map { r ->
+            record(
+                combined_meta: r.preprocessed.filtered_metadata,
+                viral_meta: r.viral.meta,
+                viral_clusters: r.viral.clusters_tsv,
+                plasmid_meta: r.plasmid.meta,
+                plasmid_clusters: r.plasmid.clusters_tsv,
+                // optional annotations and host predictions: null when the step was skipped
+                vitap_best: r.viral.vitap_best,
+                viphogs_taxonomy: r.viral.viphogs,
+                genomad: r.viral.genomad,
+                map_file: r.preprocessed.map_file,
+                iphop_genome: r.viral.iphop_genome,
+                iphop_genus: r.viral.iphop_genus,
+                spacepharer: r.viral.spacepharer
+            )
+        },
+        file(params.catalogues_metadata)
     )
 
 
     // Plot Sankey for hosts
     SANKEY_PLASMIDS_HOST (
-        COLLECT_METADATA.out.map { r -> record(meta: r.plasmid_meta, table: r.plasmids_final_metadata) }
+        final_metadata.map { r -> record(meta: r.plasmid_meta, table: r.plasmids_final_metadata) }
     )
 
     // Plot Sankey for hosts
     SANKEY_VIRUSES_HOST (
-        COLLECT_METADATA.out.map { r -> record(meta: r.viral_meta, table: r.viruses_final_metadata) }
+        final_metadata.map { r -> record(meta: r.viral_meta, table: r.viruses_final_metadata) }
     )
 
     //
@@ -146,11 +179,12 @@ workflow METAVIRAVERSE {
     //
     // Processes send (process, tool, version) to the `versions` topic. Rebuild
     // the per-process YAML that versions.yml files used to hold.
-    channel.topic('versions')
+    def versions = channel.topic('versions') as Channel<Tuple<String,String,String>>
+    collated_versions = versions
         .unique()
-        .map { process, tool, version -> [ process.tokenize(':')[-1], "    ${tool}: ${version}" ] }
-        .groupTuple(by: 0)
-        .map { process, tool_versions -> processVersionsFromYAML("\"${process}\":\n" + tool_versions.unique().sort().join('\n')) }
+        .map { process, tool, version -> tuple(process.tokenize(':')[-1], "    ${tool}: ${version}") }
+        .groupBy()
+        .map { process, tool_versions -> processVersionsFromYAML("\"${process}\":\n" + tool_versions.toUnique().toSorted().join('\n')) }
         .unique()
         .mix(channel.of(workflowVersionToYAML()))
         .collectFile(
@@ -158,7 +192,7 @@ workflow METAVIRAVERSE {
             name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
             sort: true,
             newLine: true
-        ).set { ch_collated_versions }
+        )
 
     //
     // MODULE: MultiQC
@@ -174,21 +208,20 @@ workflow METAVIRAVERSE {
 
     summary_params      = paramsSummaryMap(
         workflow, parameters_schema: "nextflow_schema.json")
-    ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
-    ch_multiqc_files = ch_multiqc_files.mix(
-        ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+    ch_workflow_summary = channel.of(paramsSummaryMultiqc(summary_params))
+    ch_multiqc_files = ch_workflow_summary
+        .collectFile(name: 'workflow_summary_mqc.yaml')
+        .mix(collated_versions)
 
-    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
-
-    MULTIQC (
+    multiqc = MULTIQC (
         ch_multiqc_files.collect(),
-        ch_multiqc_config.toList(),
-        ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList(),
+        ch_multiqc_config.collect(),
+        ch_multiqc_custom_config.collect(),
+        ch_multiqc_logo.collect(),
         [],
         []
     )
-    multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
+    multiqc_report = multiqc.report.collect() // channel: /path/to/multiqc_report.html
 
     emit:
     multiqc_report = multiqc_report

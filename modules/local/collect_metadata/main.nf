@@ -11,19 +11,21 @@ process COLLECT_METADATA {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    combined_meta: Path
-    viral_meta: Map
-    viral_clusters: Path
-    plasmid_meta: Map
-    plasmid_clusters: Path
+    record(
+        combined_meta: Path,
+        viral_meta: Map,
+        viral_clusters: Path,
+        plasmid_meta: Map,
+        plasmid_clusters: Path,
+        vitap_best: Path?,
+        viphogs_taxonomy: Path?,
+        genomad: Path?,
+        map_file: Path,
+        iphop_genome: Path?,      // null when iPHoP was skipped
+        iphop_genus: Path?,       // null when iPHoP was skipped
+        spacepharer: Path?        // null when SpacePHARER was not run
+    )
     additional_metadata: Path
-    vitap_best: Path?
-    viphogs_taxonomy: Path?
-    genomad: Path?
-    map_file: Path
-    iphop_genome: Path?      // null when iPHoP was skipped
-    iphop_genus: Path?       // null when iPHoP was skipped
-    spacepharer: Path?       // null when SpacePHARER was not run
 
     output:
     record(
@@ -61,5 +63,12 @@ process COLLECT_METADATA {
        --output_plasmids plasmids-all-metadata.tsv \\
        --output_reps viruses-cluster-stats.tsv \\
        --compress
+    """
+
+    stub:
+    """
+    echo stub > viruses-all-metadata.tsv.gz
+    echo stub > plasmids-all-metadata.tsv.gz
+    echo stub > viruses-cluster-stats.tsv.gz
     """
 }

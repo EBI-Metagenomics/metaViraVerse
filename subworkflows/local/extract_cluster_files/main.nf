@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -16,15 +18,36 @@ include { EXTRACT_REPS_STATS                           } from '../../../modules/
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record ClusterRepsInput {
+    meta: Map
+    clusters_tsv: Path
+}
+
+record SequencesInput {
+    meta: Map
+    fna: Path
+}
+
+record ClusterReps {
+    meta: Map
+    reps_list: Path            // representative ids
+    reps_gff: Path
+    reps_proteins_list: Path
+    fna: Path                  // representative sequences, uncompressed
+    faa: Path                  // representative proteins, uncompressed
+    fna_gz: Path
+    faa_gz: Path
+}
+
 workflow EXTRACT_CLUSTER_FILES {
 
     take:
-    clusters_tsv
-    gff
-    mapfile
-    sequences
-    faa
-    type
+    clusters: Channel<ClusterRepsInput>
+    sequences: Channel<SequencesInput>
+    gff: Value<Path>
+    faa: Value<Path>
+    mapfile: Value<Path>?   // rename map (null for plasmids)
+    type: String
 
     main:
 
@@ -32,44 +55,50 @@ workflow EXTRACT_CLUSTER_FILES {
     // ----------- Statistics and taxonomy from GFF for reps -----------
     //
 
-    EXTRACT_REPS_STATS (
-        clusters_tsv.map { meta, tsv -> record(meta: meta, reps_file: tsv) },
+    reps_stats = EXTRACT_REPS_STATS (
+        clusters.map { r -> record(meta: r.meta, reps_file: r.clusters_tsv) },
         gff,
         mapfile
     )
-    reps_stats = EXTRACT_REPS_STATS.out
 
     //
     // ----------- Extract nucleotide sequences for cluster reps -----------
     //
 
-    GREP_FNA (
-        sequences,
+    grep_fna = GREP_FNA (
+        sequences.map { r -> tuple(r.meta, r.fna) },
         reps_stats.map { r -> r.reps_list }
     )
 
-    UNCOMPRESSED_REPS_FNA(
-        GREP_FNA.out.sequences
+    gunzip_fna = UNCOMPRESSED_REPS_FNA(
+        grep_fna.sequences
     )
 
     //
     // ----------- Extract protein sequences for cluster reps -----------
     //
 
-    GREP_FAA (
-        faa.map{faa_item -> [[id: type], faa_item]},
+    grep_faa = GREP_FAA (
+        faa.map { faa_file -> tuple([id: type], faa_file) },
         reps_stats.map { r -> r.reps_proteins_list }
     )
 
-    UNCOMPRESSED_REPS_FAA(
-        GREP_FAA.out.sequences
+    gunzip_faa = UNCOMPRESSED_REPS_FAA(
+        grep_faa.sequences
     )
 
+    reps = reps_stats
+        .join(grep_fna.sequences.map { meta, f -> record(meta: meta, fna_gz: f) }, by: 'meta')
+        .join(gunzip_fna.gunzip.map { meta, f -> record(meta: meta, fna: f) }, by: 'meta')
+        .join(grep_faa.sequences.map { meta, f -> record(meta: meta, faa_gz: f) }, by: 'meta')
+        .join(gunzip_faa.gunzip.map { meta, f -> record(meta: meta, faa: f) }, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta, reps_list: r.reps_list, reps_gff: r.reps_gff, reps_proteins_list: r.reps_proteins_list,
+                fna: r.fna, faa: r.faa, fna_gz: r.fna_gz, faa_gz: r.faa_gz
+            )
+        }
+
     emit:
-    reps_fna_uncompressed      = UNCOMPRESSED_REPS_FNA.out.gunzip
-    reps_faa_uncompressed      = UNCOMPRESSED_REPS_FAA.out.gunzip
-    reps_fna_compressed        = GREP_FNA.out.sequences
-    reps_faa_compressed        = GREP_FAA.out.sequences
-    reps_gff                   = reps_stats.map { r -> [r.meta, r.reps_gff] }
-    reps_list                  = reps_stats.map { r -> [r.meta, r.reps_list] }
+    reps: Channel<ClusterReps> = reps
 }

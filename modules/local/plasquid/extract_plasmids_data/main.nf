@@ -44,4 +44,14 @@ process EXTRACT_PLASMIDS_DATA {
     # (mobility_stats.json counts protein_report.tsv records: total, and with RIP_domain/MOB_group/Inc_group)
     plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains} ${mob_table}
     """
+
+    stub:
+    """
+    echo stub > plasmids_contigs.fasta
+    echo stub > plasmid_report.tsv
+    echo stub > protein_report.tsv
+    echo stub > rip_seqs.faa
+    echo stub > mobility_classification.tsv
+    echo stub > mobility_stats.json
+    """
 }

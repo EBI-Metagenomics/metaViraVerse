@@ -28,4 +28,9 @@ process BACPHLIP {
         -f \\
         --input_file ${fasta}
     """
+
+    stub:
+    """
+    echo stub > stub.bacphlip
+    """
 }

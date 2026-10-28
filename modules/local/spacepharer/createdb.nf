@@ -33,4 +33,9 @@ process SPACEPHARER_CREATEDB {
       tmpFolder \\
       ${args}
     """
+
+    stub:
+    """
+    echo stub > ${target_db_name}stub
+    """
 }

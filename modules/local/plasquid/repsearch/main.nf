@@ -39,4 +39,10 @@ process REPSEARCH {
     plasquid_dom_arch.R prots_vs_rep.tsv
     plasquid_filter_rip.R single_dom_rip.tsv domain_architecture.RDS ${repfilter_db} ${protein_to_contig}
     """
+
+    stub:
+    """
+    echo stub > prots_vs_rep.tsv
+    echo stub > rep_domains.tsv
+    """
 }

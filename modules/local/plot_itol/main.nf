@@ -41,4 +41,13 @@ process PLOT_ITOL {
         --labels ${prefix}_labels.txt \\
         --counts ${prefix}_counts.txt
     """
+
+    stub:
+    """
+    echo stub > stub_tree.nwk
+    echo stub > stub_labels.txt
+    echo stub > stub_counts.txt
+    echo stub > stub.type.binary.txt
+    echo stub > stub.biomes.binary.txt
+    """
 }

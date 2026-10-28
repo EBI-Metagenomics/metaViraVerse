@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -25,42 +27,59 @@ include { UPDATE_MOBILITY_STATS                                     } from '../.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record PlasmidSequences {
+    meta: Map
+    fna: Path
+}
+
+record MobsuiteReports {
+    meta: Map
+    biomarker_report: Path?   // null when MOB-suite found no biomarkers
+    mob_report: Path?
+}
+
+record PlasmidCatalogue {
+    meta: Map
+    clusters_tsv: Path
+    reps_list: Path
+    fna_gz: Path               // representative sequences, compressed
+    faa_gz: Path               // representative proteins, compressed
+    reps_gff: Path
+    annotated_gff: Path        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
+    mobility_stats: Path       // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
+}
+
 workflow PROCESS_PLASMIDS {
 
     take:
-    sequences
-    combined_faa
-    combined_gff
-    mapfile
+    sequences: Channel<PlasmidSequences>
+    combined_faa: Value<Path>
+    combined_gff: Value<Path>
 
     main:
 
     //
     // --------- Cluster DNA sequences
     //
-    sequences
-        .filter { _meta, seqs ->
-            seqs && seqs.size() > 0
-        }
-        .set { samples_seqs }
+    samples_seqs = sequences.filter { r -> r.fna && r.fna.size() > 0 }
 
-    CLUSTERING(
+    clusters = CLUSTERING(
        samples_seqs,
        'gani',
-       false,
+       0,
        0.35,
-       false
+       0
     )
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
     //
-    EXTRACT_CLUSTER_FILES (
-       CLUSTERING.out.clusters_tsv,
-       combined_gff,
-       mapfile,
+    reps = EXTRACT_CLUSTER_FILES (
+       clusters,
        sequences,
+       combined_gff,
        combined_faa,
+       null,
        'plasmids'
     )
 
@@ -69,20 +88,16 @@ workflow PROCESS_PLASMIDS {
     //
 
     INDEX_RESULTS (
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-        false
+        reps.map { r -> record(meta: r.meta, reps_gff: r.reps_gff, fna: r.fna, faa: r.faa) },
+        channel.empty()
     )
 
     //
     // ----------- plasquid analysis -----------
     //
 
-    PLASQUID_WORKFLOW(
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_gff
+    plasquid = PLASQUID_WORKFLOW(
+        reps.map { r -> record(meta: r.meta, fna: r.fna, faa: r.faa, gff: r.reps_gff) }
     )
 
 
@@ -90,14 +105,15 @@ workflow PROCESS_PLASMIDS {
     // ----------- MOB-suite typer run on chunked fasta
     //
 
-    CHUNK_FNA (
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+    chunks = CHUNK_FNA (
+        reps.map { r -> tuple(r.meta, r.fna) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
         params.nucleotide_fasta_chunksize,   // size: max number of sequences per chunk
     )
-    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+    // a single chunk is emitted as a path, several as a list: transpose handles both
+    def ch_fna_chunks = chunks.chunked_output.transpose()
 
-    MOBSUITE_TYPER(
+    mobsuite = MOBSUITE_TYPER(
         ch_fna_chunks,
         params.mobsuite_db,
         [], [], [], [], [], [], [],
@@ -105,34 +121,38 @@ workflow PROCESS_PLASMIDS {
         true
     )
 
-    CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
-        MOBSUITE_TYPER.out.biomarker_report.groupTuple(),
+    biomarker_report = CONCATENATE_MOBSUITE_BIOMARKER_REPORT (
+        mobsuite.biomarker_report.groupTuple(),
         1
     )
 
     CONCATENATE_MOBSUITE_MGE_REPORT (
-        MOBSUITE_TYPER.out.mge_report.groupTuple(),
+        mobsuite.mge_report.groupTuple(),
         1
     )
 
-    CONCATENATE_MOBSUITE_REPORT (
-        MOBSUITE_TYPER.out.report.groupTuple(),
+    mob_report = CONCATENATE_MOBSUITE_REPORT (
+        mobsuite.report.groupTuple(),
         1
     )
+
+    // MOB-suite reports are `optional: true`: join with remainder so a missing
+    // file doesn't stall the processes below; its field is then null
+    mobsuite_reports = reps
+        .map { r -> record(meta: r.meta) }
+        .join(biomarker_report.file_out.map { meta, f -> record(meta: meta, biomarker_report: f) }, by: 'meta', remainder: true)
+        .join(mob_report.file_out.map { meta, f -> record(meta: meta, mob_report: f) }, by: 'meta', remainder: true)
+        .map { r -> record(meta: r.meta, biomarker_report: r.biomarker_report, mob_report: r.mob_report) }
 
 
     //
     // ----------- Combine plaSquid and MOB-suite mobility counts -----------
     //
     // plaSquid's protein_report record counts + MOB-suite's predicted_mobility counts.
-    // Same `optional: true` remainder-join safety as above.
 
-    UPDATE_MOBILITY_STATS(
-        PLASQUID_WORKFLOW.out.mobility_stats
-            .join(CONCATENATE_MOBSUITE_REPORT.out.file_out, remainder: true)
-            .map { meta, mobility_json, mob_report ->
-                record(meta: meta, mobility_json: mobility_json, mob_report: mob_report)
-            }
+    mobility = UPDATE_MOBILITY_STATS(
+        plasquid.join(mobsuite_reports, by: 'meta')
+            .map { r -> record(meta: r.meta, mobility_json: r.mobility_stats, mob_report: r.mob_report) }
     )
 
 
@@ -141,43 +161,50 @@ workflow PROCESS_PLASMIDS {
     // AMR detection, hmmer annotation - skipped, protein clustering with mmseqs
     //
 
-    PROTEINS_PROCESSING(
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
+    proteins = PROTEINS_PROCESSING(
+       reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
        params.skip_amrfinderplus_for_plasmids,
        params.skip_deeparg_for_plasmids,
        params.skip_rgi_for_plasmids,
        true,
        params.skip_mmseqs,
-       false
+       null
     )
 
 
     //
     // ----------- Add plaSquid RIP/MOB/Inc, MOB-suite biomarker and AMR evidence to the representative GFF -----------
     //
-    // MOBSUITE_TYPER.out.biomarker_report and AMR_ANNOTATION.out.gff (via
-    // AMRINTEGRATOR) are both `optional: true` -- join with remainder so a
-    // missing/never-emitted file doesn't stall the process, falling back to
-    // `[]` (no file), which the script treats as "no evidence supplied" via
-    // its own --biomarker-report/--amr-gff ? ... : "" checks.
+    // Missing evidence (null field) is treated by the script as "no evidence supplied".
 
-    ANNOTATE_PLASMID_GFF(
-        EXTRACT_CLUSTER_FILES.out.reps_gff.map { meta, gff -> record(meta: meta, gff: gff) },
-        PLASQUID_WORKFLOW.out.protein_report.map { _meta, f -> f },
-        CONCATENATE_MOBSUITE_BIOMARKER_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
-        CONCATENATE_MOBSUITE_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
-        PROTEINS_PROCESSING.out.amr_gff.map { _meta, f -> f }.ifEmpty([])
+    annotated_gff = ANNOTATE_PLASMID_GFF(
+        reps.join(plasquid, by: 'meta')
+            .join(mobsuite_reports, by: 'meta')
+            .join(proteins, by: 'meta')
+            .map { r ->
+                record(
+                    meta: r.meta,
+                    gff: r.reps_gff,
+                    protein_report: r.protein_report,
+                    biomarker_report: r.biomarker_report,
+                    mob_report: r.mob_report,
+                    amr_gff: r.amr_gff
+                )
+            }
     )
 
+    catalogue = clusters
+        .join(reps, by: 'meta')
+        .join(annotated_gff.map { r -> record(meta: r.meta, annotated_gff: r.gff) }, by: 'meta')
+        .join(mobility, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta, clusters_tsv: r.clusters_tsv, reps_list: r.reps_list,
+                fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                annotated_gff: r.annotated_gff, mobility_stats: r.mobility_stats
+            )
+        }
 
     emit:
-
-    clustering_tsv        = CLUSTERING.out.clusters_tsv  // [meta, tsv]
-    reps_tsv              = EXTRACT_CLUSTER_FILES.out.reps_list
-    reps_seqs             = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed      // compressed
-    reps_proteins         = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed      // compressed
-    reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
-    reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.map { r -> [r.meta, r.gff] }                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
-    mobility_stats        = UPDATE_MOBILITY_STATS.out.map { r -> [r.meta, r.mobility_stats] }            // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
-
+    catalogue: Channel<PlasmidCatalogue> = catalogue
 }

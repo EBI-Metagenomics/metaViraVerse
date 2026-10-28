@@ -30,4 +30,9 @@ process ANICALC {
        -i ${tsv} \\
        -o ${meta.id}_pairani.tsv
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_pairani.tsv
+    """
 }

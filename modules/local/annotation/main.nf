@@ -28,4 +28,9 @@ process ANNOTATION {
     """
     viral_contigs_annotation.py -o . -t ${tab} -g ${gff}
     """
+
+    stub:
+    """
+    echo stub > stub_annotation.tsv
+    """
 }

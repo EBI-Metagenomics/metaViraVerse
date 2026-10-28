@@ -41,4 +41,11 @@ process INCSEARCH {
     plasquid_inc_classification.R inc_candidates.tsv ${rna_candidates} ${protein_to_contig}
     plasquid_filter_classification.R classification_table.tsv
     """
+
+    stub:
+    """
+    echo stub > inc_candidates.tsv
+    echo stub > classification_table.tsv
+    echo stub > filtered_classif.tsv
+    """
 }

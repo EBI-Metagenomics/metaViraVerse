@@ -35,4 +35,9 @@ process ASSIGN {
        ${factor_file} \
        ${args}
     """
+
+    stub:
+    """
+    echo stub > stub_taxonomy.tsv
+    """
 }

@@ -34,4 +34,9 @@ process ANICLUST {
       --out ${meta.id}_clusters.tsv \\
       ${args}
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_clusters.tsv
+    """
 }

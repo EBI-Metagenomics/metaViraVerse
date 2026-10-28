@@ -37,8 +37,8 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     // WORKFLOW: Run pipeline
     //
     METAVIRAVERSE (
-        samplesheet,
-        samplesheet_third_party
+        samplesheet.map { meta, fna, gff, faa -> record(meta: meta, fna: fna, gff: gff, faa: faa) },
+        samplesheet_third_party.map { meta, fasta -> record(meta: meta, fasta: fasta) }
     )
     emit:
     multiqc_report = METAVIRAVERSE.out.multiqc_report // channel: /path/to/multiqc_report.html

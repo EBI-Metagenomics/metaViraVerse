@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -8,10 +10,16 @@ include { SANKEY_PLOT                      } from '../../../modules/local/sankey
 include { PLOT_ITOL                        } from '../../../modules/local/plot_itol'
 
 
+record TaxonomyTables {
+    meta: Map
+    taxonomy_counts: Path
+    metadata_table: Path
+}
+
 workflow TAXONOMY_VISUALISATION {
 
     take:
-    reps_krona_and_metadata
+    tables: Channel<TaxonomyTables>
 
     main:
 
@@ -19,20 +27,20 @@ workflow TAXONOMY_VISUALISATION {
     // -------- Taxonomy visualisation with krona
     //
     KRONA_KTIMPORTTEXT (
-        reps_krona_and_metadata.map{meta, tsv, _metadata -> [meta, tsv]}
+        tables.map { r -> tuple(r.meta, r.taxonomy_counts) }
     )
 
     //
     // -------- Taxonomy visualisation with sankey
     //
     SANKEY_PLOT (
-        reps_krona_and_metadata.map{meta, tsv, _metadata -> record(meta: meta, table: tsv)}
+        tables.map { r -> record(meta: r.meta, table: r.taxonomy_counts) }
     )
 
     //
     // -------- Taxonomy tree files to upload to iTOL
     //
     PLOT_ITOL (
-        reps_krona_and_metadata.map{meta, tsv, metadata -> record(meta: meta, table: tsv, metadata: metadata)}
+        tables.map { r -> record(meta: r.meta, table: r.taxonomy_counts, metadata: r.metadata_table) }
     )
 }

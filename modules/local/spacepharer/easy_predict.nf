@@ -10,11 +10,11 @@ process SPACEPHARER_EASYPREDICT {
     input:
     record(
         meta: Map,
-        crispr_fasta: Path
+        crispr_fasta: Path,
+        target_db: Set<Path>,
+        target_db_rev: Set<Path>
     )
     target_db_name: String
-    target_db: Set<Path>
-    target_db_rev: Set<Path>
 
     output:
     record(
@@ -33,5 +33,10 @@ process SPACEPHARER_EASYPREDICT {
       ${target_db_name} \\
       ${meta.id}_predictions.tsv \\
       tmp
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_predictions.tsv
     """
 }

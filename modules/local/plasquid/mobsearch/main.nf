@@ -38,4 +38,11 @@ process MOBSEARCH {
     plasquid_filter_mob.R mob_candidates.tsv ${protein_to_contig}
     plasquid_mob_extraction.R ${proteins} mob_table.tsv
     """
+
+    stub:
+    """
+    echo stub > mob_candidates.tsv
+    echo stub > mob_table.tsv
+    echo stub > mob_seqs.faa
+    """
 }

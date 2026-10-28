@@ -33,4 +33,9 @@ process SUMMARISE_ANNOTATIONS {
        --output ${meta.id}_summary.tsv \\
        --compress
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_summary.tsv.gz
+    """
 }

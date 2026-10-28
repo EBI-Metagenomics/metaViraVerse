@@ -36,4 +36,10 @@ process COLLECT_HOST_INFO {
         -o custom_chosen_host.tsv \\
         --rename-map ${mapping_file}
     """
+
+    stub:
+    """
+    echo stub > custom_chosen_host.tsv
+    echo stub > stub.json
+    """
 }

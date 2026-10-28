@@ -87,4 +87,11 @@ process RENAME_CONTIGS {
        ${plasmid_id_arg} \\
        ${args}
     """
+
+    stub:
+    """
+    echo stub > combined.fna
+    echo stub > combined.gff
+    echo stub > combined.tsv
+    """
 }

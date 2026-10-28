@@ -42,4 +42,11 @@ process EXTRACT_REPS_STATS {
        --output-reps-proteins ${meta.id}_reps_proteins.tsv \\
        ${mapfile_arg}
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_reps.tsv
+    echo stub > ${meta.id}_reps.gff
+    echo stub > ${meta.id}_reps_proteins.tsv
+    """
 }

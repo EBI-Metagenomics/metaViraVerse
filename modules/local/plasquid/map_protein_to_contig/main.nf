@@ -40,4 +40,9 @@ process MAP_PROTEIN_TO_CONTIG {
     printf "protein_id\\tcontig\\n" > protein_to_contig.tsv
     awk -F'\\t' '\$3 == "CDS" { match(\$9, /ID=[^;]+/); id = substr(\$9, RSTART + 3, RLENGTH - 3); print id"\\t"\$1 }' ${gff} >> protein_to_contig.tsv
     """
+
+    stub:
+    """
+    echo stub > protein_to_contig.tsv
+    """
 }

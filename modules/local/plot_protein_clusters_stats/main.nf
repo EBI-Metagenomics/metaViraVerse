@@ -21,11 +21,11 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
     input:
     record(
         meta: Map,
-        clusters: Path
+        clusters: Path,
+        fasta: Path?,       // optional: protein FASTA with functions in headers (>proteinID function)
+        reference: Path?    // optional: proteinID<TAB>label TSV to compare clusters against; null to use protein functions
     )
     cluster_format: String  // 'phammseqs' (phamID<TAB>proteinID function) or 'mmseqs' (representative<TAB>member)
-    fasta: Path?            // optional: protein FASTA with functions in headers (>proteinID function); [] to skip
-    reference: Path?        // optional: proteinID<TAB>label TSV to compare clusters against; [] to use protein functions
 
     output:
     record(

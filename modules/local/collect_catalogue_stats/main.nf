@@ -11,14 +11,16 @@ process COLLECT_CATALOGUE_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    json: Path
-    metadata: Path
-    clusters_viruses: Path
-    clusters_plasmids: Path
-    excluded_metadata: Path
-    initial_metadata: Path
-    clusters_viruses_prot: Path
-    clusters_plasmids_prot: Path
+    record(
+        json: Path,
+        metadata: Path,
+        clusters_viruses: Path,
+        clusters_plasmids: Path,
+        excluded_metadata: Path,
+        initial_metadata: Path,
+        clusters_viruses_prot: Path,
+        clusters_plasmids_prot: Path
+    )
 
     output:
     record(
@@ -41,5 +43,10 @@ process COLLECT_CATALOGUE_STATS {
       --viruses-reps-proteins ${clusters_viruses_prot} \\
       --plasmids-reps-proteins ${clusters_plasmids_prot} \\
       -o catalogue.json
+    """
+
+    stub:
+    """
+    echo stub > stub.json
     """
 }

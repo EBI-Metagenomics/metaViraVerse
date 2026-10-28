@@ -26,4 +26,9 @@ process HMM_POSTPROCESSING {
     """
     hmmer_format_table.py -i ${hmmer_tbl} -o ${meta.id}_modified
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_modified.tsv
+    """
 }

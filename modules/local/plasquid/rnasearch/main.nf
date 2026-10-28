@@ -31,4 +31,9 @@ process RNASEARCH {
     """
     cmsearch --cpu ${task.cpus} --tblout rna_candidates.tsv ${rna_inc_db} ${fna}
     """
+
+    stub:
+    """
+    echo stub > rna_candidates.tsv
+    """
 }

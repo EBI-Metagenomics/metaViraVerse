@@ -43,4 +43,10 @@ process PHAMMSEQS {
 
     echo "Done."
     """
+
+    stub:
+    """
+    echo stub > ${meta.id}_phams.tsv
+    echo stub > ${meta.id}_phammseqs.stdout
+    """
 }

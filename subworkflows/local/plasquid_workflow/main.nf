@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -15,12 +17,27 @@ include { EXTRACT_PLASMIDS_DATA                  } from '../../../modules/local/
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+record PlasmidReps {
+    meta: Map
+    fna: Path
+    faa: Path
+    gff: Path   // representative GFF: source of the protein-id -> (renamed) contig-id crosswalk
+}
+
+record PlasquidResult {
+    meta: Map
+    fasta: Path                    // combined plasmid contig sequences
+    report: Path                   // per-contig RIP/MOB/Inc-group report
+    protein_report: Path           // per-protein RIP/MOB/Inc-group report
+    rip_seqs_faa: Path             // RIP protein sequences
+    mobility_classification: Path  // per-contig conjugative/mobilizable/non_mobilizable
+    mobility_stats: Path           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
+}
+
 workflow PLASQUID_WORKFLOW {
 
     take:
-    plasmids_fna
-    plasmids_faa
-    plasmids_gff   // representative GFF: source of the protein-id -> (renamed) contig-id crosswalk
+    plasmids: Channel<PlasmidReps>
 
     main:
 
@@ -30,54 +47,43 @@ workflow PLASQUID_WORKFLOW {
     // since been renamed to a short accession, e.g. "seq15" -- every downstream
     // script needs this crosswalk to resolve a protein hit back to its contig.
     //
-    MAP_PROTEIN_TO_CONTIG(
-        plasmids_gff.map { meta, gff -> record(meta: meta, gff: gff) }
+    protein_to_contig = MAP_PROTEIN_TO_CONTIG(
+        plasmids.map { r -> record(meta: r.meta, gff: r.gff) }
     )
-    protein_to_contig = MAP_PROTEIN_TO_CONTIG.out.map { r -> [r.meta, r.map] }
-
-    REPSEARCH(
-        plasmids_faa
-           .join(protein_to_contig)
-           .map { meta, proteins, map -> record(meta: meta, proteins: proteins, protein_to_contig: map) },
-        params.repsearch_db,
-        params.repfilter_db
+    reps = plasmids.join(
+        protein_to_contig.map { r -> record(meta: r.meta, protein_to_contig: r.map) },
+        by: 'meta'
     )
 
-    RNASEARCH(
-        plasmids_fna.map { meta, fna -> record(meta: meta, fna: fna) },
-        params.rna_inc_db
+    rep = REPSEARCH(
+        reps.map { r -> record(meta: r.meta, proteins: r.faa, protein_to_contig: r.protein_to_contig) },
+        file(params.repsearch_db),
+        file(params.repfilter_db)
     )
 
-    INCSEARCH(
-        plasmids_faa
-           .join(RNASEARCH.out.map { r -> [r.meta, r.rna_candidates] })
-           .join(protein_to_contig)
-           .map { meta, proteins, rna, map -> record(meta: meta, proteins: proteins, rna_candidates: rna, protein_to_contig: map) },
-        params.incsearch_db
+    rna = RNASEARCH(
+        plasmids.map { r -> record(meta: r.meta, fna: r.fna) },
+        file(params.rna_inc_db)
     )
 
-    MOBSEARCH(
-        plasmids_faa
-           .join(protein_to_contig)
-           .map { meta, proteins, map -> record(meta: meta, proteins: proteins, protein_to_contig: map) },
-        params.mobsearch_db
+    inc = INCSEARCH(
+        reps.join(rna, by: 'meta')
+            .map { r -> record(meta: r.meta, proteins: r.faa, rna_candidates: r.rna_candidates, protein_to_contig: r.protein_to_contig) },
+        file(params.incsearch_db)
     )
 
-    EXTRACT_PLASMIDS_DATA(
-        INCSEARCH.out.map { r -> [r.meta, r.filt_classification] }
-           .join(MOBSEARCH.out.map { r -> [r.meta, r.mob_table] })
-           .join(REPSEARCH.out.map { r -> [r.meta, r.rep_domains] })
-           .join(plasmids_fna)
-           .join(plasmids_faa)
-           .map { meta, filt, mob, rep, fna, faa -> record(meta: meta, filt_classification: filt, mob_table: mob, rep_domains: rep, fna: fna, faa: faa) }
+    mob = MOBSEARCH(
+        reps.map { r -> record(meta: r.meta, proteins: r.faa, protein_to_contig: r.protein_to_contig) },
+        file(params.mobsearch_db)
     )
-    plasmids_data = EXTRACT_PLASMIDS_DATA.out
+
+    plasquid = EXTRACT_PLASMIDS_DATA(
+        inc.join(mob, by: 'meta')
+            .join(rep, by: 'meta')
+            .join(plasmids, by: 'meta')
+            .map { r -> record(meta: r.meta, filt_classification: r.filt_classification, mob_table: r.mob_table, rep_domains: r.rep_domains, fna: r.fna, faa: r.faa) }
+    )
 
     emit:
-    fasta                  = plasmids_data.map { r -> [r.meta, r.fasta] }                   // combined plasmid contig sequences
-    report                 = plasmids_data.map { r -> [r.meta, r.report] }                   // per-contig RIP/MOB/Inc-group report
-    protein_report         = plasmids_data.map { r -> [r.meta, r.protein_report] }           // per-protein RIP/MOB/Inc-group report
-    rip_seqs               = plasmids_data.map { r -> [r.meta, r.rip_seqs_faa] }              // RIP protein sequences
-    mobility_classification = plasmids_data.map { r -> [r.meta, r.mobility_classification] } // per-contig conjugative/mobilizable/non_mobilizable
-    mobility_stats         = plasmids_data.map { r -> [r.meta, r.mobility_stats] }           // protein_report record counts (JSON): total, RIP_domain/MOB_group/Inc_group present
+    plasquid: Channel<PlasquidResult> = plasquid
 }
