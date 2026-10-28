@@ -12,17 +12,12 @@ process ANICALC {
 
     output:
     tuple val(meta), path("${meta.id}_pairani.tsv"), emit: calculated_ani_tsv
-    path "versions.yml"                            , emit: versions
+    tuple val("${task.process}"), val('checkv'), eval("checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p'"), emit: versions_checkv, topic: versions
 
     script:
     """
     anicalc.py \\
        -i ${tsv} \\
        -o ${meta.id}_pairani.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        checkv: \$(checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p')
-    END_VERSIONS
     """
 }

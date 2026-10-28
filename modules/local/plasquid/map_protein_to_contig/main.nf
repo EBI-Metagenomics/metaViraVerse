@@ -23,16 +23,11 @@ process MAP_PROTEIN_TO_CONTIG {
 
     output:
     tuple val(meta), path("protein_to_contig.tsv"), emit: map
-    path "versions.yml",                             emit: versions
+    tuple val("${task.process}"), val('protein_to_contig_map'), val('gff-derived (awk)'), emit: versions_protein_to_contig_map, topic: versions
 
     script:
     """
     printf "protein_id\\tcontig\\n" > protein_to_contig.tsv
     awk -F'\\t' '\$3 == "CDS" { match(\$9, /ID=[^;]+/); id = substr(\$9, RSTART + 3, RLENGTH - 3); print id"\\t"\$1 }' ${gff} >> protein_to_contig.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        protein_to_contig_map: "gff-derived (awk)"
-    END_VERSIONS
     """
 }

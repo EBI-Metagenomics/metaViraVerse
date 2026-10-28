@@ -9,7 +9,7 @@ process BACPHLIP {
 
     output:
     tuple val(meta), path("*.bacphlip"),        emit: bacphlip_table
-    path "versions.yml",                        emit: versions
+    tuple val("${task.process}"), val('bacphlip'), val('0.9.3-alpha'), emit: versions_bacphlip, topic: versions
 
     script:
     """
@@ -17,11 +17,5 @@ process BACPHLIP {
         --multi_fasta \\
         -f \\
         --input_file ${fasta}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        bacphlip: 0.9.3-alpha
-
-    END_VERSIONS
     """
 }

@@ -24,7 +24,6 @@ workflow PROTEINS_PROCESSING {
 
     main:
 
-    ch_versions  = channel.empty()
     hmmer_tables = channel.empty()
     amr_gff      = channel.empty()
 
@@ -56,7 +55,6 @@ workflow PROTEINS_PROCESSING {
         PHAMMSEQS(
            ch_proteins
         )
-        ch_versions = ch_versions.mix(PHAMMSEQS.out.versions)
 
         PLOT_PHAMS_STATS (
             PHAMMSEQS.out.phams_tsv,
@@ -64,7 +62,6 @@ workflow PROTEINS_PROCESSING {
             [],   // functions are already in the phams TSV
             []    // no reference labelling: compare phams with protein functions
         )
-        ch_versions = ch_versions.mix(PLOT_PHAMS_STATS.out.versions)
     }
 
     if ( !skip_mmseqs ) {
@@ -82,7 +79,6 @@ workflow PROTEINS_PROCESSING {
             ch_proteins.map { _meta, faa -> faa },
             []
         )
-        ch_versions = ch_versions.mix(PLOT_MMSEQS_STATS.out.versions)
     }
 
     if (hmm_db) {
@@ -96,7 +92,6 @@ workflow PROTEINS_PROCESSING {
             [],                                        // length: (disabled) max number of nucleotides per chunk
             params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
         )
-        ch_versions = ch_versions.mix(SEQKIT_SPLIT2.out.versions)
 
         def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
 
@@ -119,7 +114,6 @@ workflow PROTEINS_PROCESSING {
         HMMER_HMMSEARCH (
             hmmsearch_input
         )
-        ch_versions = ch_versions.mix(HMMER_HMMSEARCH.out.versions)
 
         CONCATENATE_HMMER_TBLOUT (
             HMMER_HMMSEARCH.out.target_summary.groupTuple(),
@@ -141,7 +135,6 @@ workflow PROTEINS_PROCESSING {
         SUMMARISE_ANNOTATIONS(
             CONCATENATE_HMMER_TBLOUT.out.file_out.join(hmm_metadata)
         )
-        ch_versions = ch_versions.mix(SUMMARISE_ANNOTATIONS.out.versions)
 
         hmmer_tables = CONCATENATE_HMMER_TBLOUT.out.file_out
             .map { _meta, table -> table }                                      // Extract just the table files
@@ -155,5 +148,4 @@ workflow PROTEINS_PROCESSING {
     emit:
     hmmer_tables   = hmmer_tables                // channel: [ meta, [ tbl.gz, ... ] ]
     amr_gff        = amr_gff                     // channel: [ meta, gff ]
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
 }

@@ -35,8 +35,6 @@ workflow PROCESS_PLASMIDS {
 
     main:
 
-    ch_versions = channel.empty()
-
     //
     // --------- Cluster DNA sequences
     //
@@ -53,7 +51,6 @@ workflow PROCESS_PLASMIDS {
        0.35,
        false
     )
-    ch_versions = ch_versions.mix(CLUSTERING.out.versions)
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
@@ -66,7 +63,6 @@ workflow PROCESS_PLASMIDS {
        combined_faa,
        'plasmids'
     )
-    ch_versions = ch_versions.mix(EXTRACT_CLUSTER_FILES.out.versions)
 
     //
     // ----------- post-processing (indexing) for website -----------
@@ -88,7 +84,6 @@ workflow PROCESS_PLASMIDS {
         EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
         EXTRACT_CLUSTER_FILES.out.reps_gff
     )
-    ch_versions = ch_versions.mix(PLASQUID_WORKFLOW.out.versions)
 
 
     //
@@ -100,7 +95,6 @@ workflow PROCESS_PLASMIDS {
         [],                                        // length: (disabled) max number of nucleotides per chunk
         params.nucleotide_fasta_chunksize,   // size: max number of sequences per chunk
     )
-    ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
     def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
 
     MOBSUITE_TYPER(
@@ -140,7 +134,6 @@ workflow PROCESS_PLASMIDS {
                 tuple(meta, mobility_json, mob_report ?: [])
             }
     )
-    ch_versions = ch_versions.mix(UPDATE_MOBILITY_STATS.out.versions)
 
 
     //
@@ -157,7 +150,6 @@ workflow PROCESS_PLASMIDS {
        params.skip_mmseqs,
        false
     )
-    ch_versions = ch_versions.mix(PROTEINS_PROCESSING.out.versions)
 
 
     //
@@ -176,7 +168,6 @@ workflow PROCESS_PLASMIDS {
         CONCATENATE_MOBSUITE_REPORT.out.file_out.map { _meta, f -> f }.ifEmpty([]),
         PROTEINS_PROCESSING.out.amr_gff.map { _meta, f -> f }.ifEmpty([])
     )
-    ch_versions = ch_versions.mix(ANNOTATE_PLASMID_GFF.out.versions)
 
 
     emit:
@@ -188,6 +179,5 @@ workflow PROCESS_PLASMIDS {
     reps_gff              = EXTRACT_CLUSTER_FILES.out.reps_gff
     reps_gff_plasquid     = ANNOTATE_PLASMID_GFF.out.gff                        // reps_gff + plaSquid/MOB-suite/AMR evidence attributes
     mobility_stats        = UPDATE_MOBILITY_STATS.out.mobility_stats            // plaSquid record counts + MOB-suite conjugative/mobilizable/non_mobilizable counts
-    versions              = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

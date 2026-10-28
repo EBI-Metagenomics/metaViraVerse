@@ -13,7 +13,9 @@ process PHAMMSEQS {
     output:
     tuple val(meta), path("${meta.id}_phams.tsv"),        emit: phams_tsv
     tuple val(meta), path("${meta.id}_phammseqs.stdout"), emit: phams_stats
-    path "versions.yml",                                  emit: versions
+    tuple val("${task.process}"), val('phammseqs'), val('1.3.0'), emit: versions_phammseqs, topic: versions
+    tuple val("${task.process}"), val('clustalo'), eval("clustalo --help 2>&1 | grep 'Clustal Omega' | grep 'AndreaGiacomo' | sed 's/Clustal Omega - //g' | sed 's/(AndreaGiacomo)//g'"), emit: versions_clustalo, topic: versions
+    tuple val("${task.process}"), val('mmseqs2'), eval("mmseqs -h 2>&1 | grep 'MMseqs2 Version' | sed 's/MMseqs2 Version: //g'"), emit: versions_mmseqs2, topic: versions
 
     script:
     """
@@ -30,12 +32,5 @@ process PHAMMSEQS {
       -o ${meta.id}_phams.tsv
 
     echo "Done."
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        phammseqs: 1.3.0
-        clustalo: \$(clustalo --help 2>&1 | grep 'Clustal Omega' | grep 'AndreaGiacomo' | sed 's/Clustal Omega - //g' | sed 's/(AndreaGiacomo)//g')
-        mmseqs2: \$(mmseqs -h 2>&1 | grep 'MMseqs2 Version' | sed 's/MMseqs2 Version: //g')
-    END_VERSIONS
     """
 }

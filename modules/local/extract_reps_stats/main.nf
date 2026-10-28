@@ -18,7 +18,8 @@ process EXTRACT_REPS_STATS {
     tuple val(meta), path("${meta.id}_reps.tsv"),           emit: reps_list
     tuple val(meta), path("${meta.id}_reps.gff"),           emit: reps_gff
     tuple val(meta), path("${meta.id}_reps_proteins.tsv"),  emit: reps_proteins_list
-    path "versions.yml",                                    emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    tuple val("${task.process}"), val('biopython'), eval("python -c \"import pkg_resources; print(pkg_resources.get_distribution('biopython').version)\""), emit: versions_biopython, topic: versions
 
     script:
     def mapfile_arg = mapfile ? "--mapfile ${mapfile}" : ''
@@ -30,11 +31,5 @@ process EXTRACT_REPS_STATS {
        --output-reps-gff ${meta.id}_reps.gff \\
        --output-reps-proteins ${meta.id}_reps_proteins.tsv \\
        ${mapfile_arg}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
     """
 }

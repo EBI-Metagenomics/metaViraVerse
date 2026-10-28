@@ -12,7 +12,7 @@ process SUMMARISE_ANNOTATIONS {
 
     output:
     tuple val(meta), path("${meta.id}_summary.tsv.gz"), emit: summary_tsv
-    path "versions.yml",                                emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     """
@@ -21,10 +21,5 @@ process SUMMARISE_ANNOTATIONS {
        -m ${metadata} \\
        --output ${meta.id}_summary.tsv \\
        --compress
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

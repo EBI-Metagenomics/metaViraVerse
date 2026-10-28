@@ -17,7 +17,8 @@ process MOBSEARCH {
     tuple val(meta), path("mob_candidates.tsv"), emit: mob_candidates
     tuple val(meta), path("mob_table.tsv"),      emit: mob_table
     tuple val(meta), path("mob_seqs.faa"),       emit: mob_seqs
-    path "versions.yml",                         emit: versions
+    tuple val("${task.process}"), val('hmmer'), eval("hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p'"), emit: versions_hmmer, topic: versions
+    tuple val("${task.process}"), val('r-base'), eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'"), emit: versions_r_base, topic: versions
 
     script:
     """
@@ -25,11 +26,5 @@ process MOBSEARCH {
 
     plasquid_filter_mob.R mob_candidates.tsv ${protein_to_contig}
     plasquid_mob_extraction.R ${proteins} mob_table.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        hmmer: \$(hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p')
-        r-base: \$(R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p')
-    END_VERSIONS
     """
 }

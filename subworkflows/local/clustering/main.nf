@@ -19,20 +19,16 @@ workflow CLUSTERING {
 
     main:
 
-    ch_versions = channel.empty()
-
     if ( params.cluster_vclust ) {
         VCLUST_PREFILTER (
             sequences
         )
-        ch_versions = ch_versions.mix(VCLUST_PREFILTER.out.versions)
 
         VCLUST_ALIGN (
             sequences,
             VCLUST_PREFILTER.out.txt,
             false
         )
-        ch_versions = ch_versions.mix(VCLUST_ALIGN.out.versions)
 
         VCLUST_CLUSTER (
             VCLUST_ALIGN.out.tsv,
@@ -42,7 +38,6 @@ workflow CLUSTERING {
             vclust_gani_threshold,
             vclust_ani_threshold
         )
-        ch_versions = ch_versions.mix(VCLUST_CLUSTER.out.versions)
 
         clusters_tsv = VCLUST_CLUSTER.out.clusters
 
@@ -61,13 +56,11 @@ workflow CLUSTERING {
             '',
             ''
         )
-        ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions)
 
         // Calculate pairwise ANI by combining local alignments between sequence pairs
         ANICALC(
            BLAST_BLASTN.out.txt
         )
-        ch_versions = ch_versions.mix(ANICALC.out.versions)
 
         // UCLUST-like clustering
         // simple greedy, centroid-based clustering
@@ -75,13 +68,11 @@ workflow CLUSTERING {
         ANICLUST(
            ANICALC.out.calculated_ani_tsv.join(sequences)
         )
-        ch_versions = ch_versions.mix(ANICLUST.out.versions)
 
         clusters_tsv = ANICLUST.out.clusters_tsv
     }
 
     emit:
     clusters_tsv   = clusters_tsv
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }

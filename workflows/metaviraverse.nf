@@ -5,7 +5,8 @@
 */
 include { paramsSummaryMap                      } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc                  } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML                } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { processVersionsFromYAML               } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { workflowVersionToYAML                 } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                } from '../subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 
 include { PREPROCESSING                         } from '../subworkflows/local/preprocessing/main'
@@ -33,7 +34,6 @@ workflow METAVIRAVERSE {
 
     main:
 
-    ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
     multiqc_report = channel.empty()
 
@@ -55,7 +55,6 @@ workflow METAVIRAVERSE {
        ch_samplesheet,
        ch_third_party_data
     )
-    ch_versions = ch_versions.mix(PREPROCESSING.out.versions)
 
     // Process viral_sequences and prophages together as "viruses"
 
@@ -77,7 +76,6 @@ workflow METAVIRAVERSE {
        PREPROCESSING.out.metadata,
        PREPROCESSING.out.mapfile.map { _meta, f -> f }
     )
-    ch_versions = ch_versions.mix(PROCESS_VIRAL_SEQUENCES.out.versions)
 
     // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
 
@@ -95,7 +93,6 @@ workflow METAVIRAVERSE {
        PREPROCESSING.out.combined_gff,   // concatenated GFF built from all inputs
        []
     )
-    ch_versions = ch_versions.mix(PROCESS_PLASMIDS.out.versions)
 
 
     //
@@ -111,7 +108,6 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.reps_proteins,
         PROCESS_PLASMIDS.out.reps_proteins
     )
-    ch_versions = ch_versions.mix(COLLECT_CATALOGUE_STATS.out.versions)
 
     //
     // Collect viral and plasmid metadata
@@ -131,7 +127,6 @@ workflow METAVIRAVERSE {
         PROCESS_VIRAL_SEQUENCES.out.iphop_host_genus.map { _meta, f -> f }.ifEmpty([]),
         PROCESS_VIRAL_SEQUENCES.out.spacepharer_host.map { _meta, f -> f }.ifEmpty([])
     )
-    ch_versions = ch_versions.mix(COLLECT_METADATA.out.versions)
 
 
     // Plot Sankey for hosts
@@ -147,7 +142,15 @@ workflow METAVIRAVERSE {
     //
     // Collate and save software versions
     //
-    softwareVersionsToYAML(ch_versions)
+    // Processes send (process, tool, version) to the `versions` topic. Rebuild
+    // the per-process YAML that versions.yml files used to hold.
+    channel.topic('versions')
+        .unique()
+        .map { process, tool, version -> [ process.tokenize(':')[-1], "    ${tool}: ${version}" ] }
+        .groupTuple(by: 0)
+        .map { process, tool_versions -> processVersionsFromYAML("\"${process}\":\n" + tool_versions.unique().sort().join('\n')) }
+        .unique()
+        .mix(channel.of(workflowVersionToYAML()))
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
             name:  'metaviraverse_software_'  + 'mqc_'  + 'versions.yml',
@@ -187,7 +190,6 @@ workflow METAVIRAVERSE {
 
     emit:
     multiqc_report = multiqc_report
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
 
 }
 

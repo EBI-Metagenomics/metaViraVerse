@@ -17,7 +17,7 @@ process UPDATE_MOBILITY_STATS {
 
     output:
     tuple val(meta), path("mobility_stats_final.json"), emit: mobility_stats
-    path "versions.yml",                                emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     def mob_report_arg = mob_report ? "--mob-report ${mob_report}" : ""
@@ -26,10 +26,5 @@ process UPDATE_MOBILITY_STATS {
         --mobility-json ${mobility_json} \\
         ${mob_report_arg} \\
         --output mobility_stats_final.json
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

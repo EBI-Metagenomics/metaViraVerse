@@ -20,7 +20,8 @@ process COLLECT_CATALOGUE_STATS {
 
     output:
     path("*.json"),                      emit: catalogue_json
-    path "versions.yml",                 emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    tuple val("${task.process}"), val('biopython'), eval("python -c \"import pkg_resources; print(pkg_resources.get_distribution('biopython').version)\""), emit: versions_biopython, topic: versions
 
     script:
     """
@@ -34,11 +35,5 @@ process COLLECT_CATALOGUE_STATS {
       --viruses-reps-proteins ${clusters_viruses_prot} \\
       --plasmids-reps-proteins ${clusters_plasmids_prot} \\
       -o catalogue.json
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
     """
 }

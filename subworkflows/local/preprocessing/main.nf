@@ -20,7 +20,6 @@ workflow PREPROCESSING {
     ch_third_party_data  // [meta[id, biome, type, source], fasta, gff, faa]
 
     main:
-    ch_versions = channel.empty()
 
     // ----------- Assign unique identifiers to all coming sequences by each record in samplesheet
     // We will combine all sequences together and keep track of names, biomes and types in map file
@@ -114,7 +113,6 @@ workflow PREPROCESSING {
             [],                                        // length: (disabled) max number of nucleotides per chunk
             params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
         )
-        ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
         def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
 
         CHECKV_ENDTOEND (
@@ -207,5 +205,4 @@ workflow PREPROCESSING {
 
     stats_json          = CHOOSE_SEQUENCES.out.stats
 
-    versions            = ch_versions                        // channel: [ path(versions.yml) ]
 }

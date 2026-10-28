@@ -19,7 +19,8 @@ process INCSEARCH {
     tuple val(meta), path("inc_candidates.tsv"),       emit: inc_candidates
     tuple val(meta), path("classification_table.tsv"), emit: inc_classification
     tuple val(meta), path("filtered_classif.tsv"),     emit: filt_classification
-    path "versions.yml",                               emit: versions
+    tuple val("${task.process}"), val('hmmer'), eval("hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p'"), emit: versions_hmmer, topic: versions
+    tuple val("${task.process}"), val('r-base'), eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'"), emit: versions_r_base, topic: versions
 
     script:
     """
@@ -27,11 +28,5 @@ process INCSEARCH {
 
     plasquid_inc_classification.R inc_candidates.tsv ${rna_candidates} ${protein_to_contig}
     plasquid_filter_classification.R classification_table.tsv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        hmmer: \$(hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p')
-        r-base: \$(R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p')
-    END_VERSIONS
     """
 }

@@ -15,7 +15,7 @@ process IPHOP_PREDICT {
     tuple val(meta), path("Host_prediction_to_genus*.csv")    , emit: iphop_genus
     tuple val(meta), path("Host_prediction_to_genome*.csv")   , emit: iphop_genome
     tuple val(meta), path("Detailed_output_by_tool.csv")        , emit: iphop_detailed_output
-    path "versions.yml"                                         , emit: versions
+    tuple val("${task.process}"), val('iphop'), eval("echo \$(iphop --version 2>&1) | head -n 1 | sed 's/^.*iPHoP v//; s/: integrating.*\$//'"), emit: versions_iphop, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -36,11 +36,6 @@ process IPHOP_PREDICT {
     mv iphop_results/Host_prediction_to_genus_m*.csv Host_prediction_to_genus_${chunk_id}.csv
     mv iphop_results/Host_prediction_to_genome_m*.csv Host_prediction_to_genome_${chunk_id}.csv
     mv iphop_results/Detailed_output_by_tool.csv .
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        iphop: \$(echo \$(iphop --version 2>&1) | head -n 1 | sed 's/^.*iPHoP v//; s/: integrating.*\$//' )
-    END_VERSIONS
     """
 
     stub:
@@ -51,10 +46,5 @@ process IPHOP_PREDICT {
     touch Host_prediction_to_genus_m${min_score}.csv
     touch Host_prediction_to_genome_m${min_score}.csv
     touch Detailed_output_by_tool.csv
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        iphop: \$(echo \$(iphop --version 2>&1) | head -n 1 | sed 's/^.*iPHoP v//; s/: integrating.*\$//' )
-    END_VERSIONS
     """
 }

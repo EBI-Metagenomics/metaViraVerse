@@ -25,7 +25,7 @@ process COLLECT_METADATA {
     tuple val(meta_viral), path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
     tuple val(meta_plasmid), path("plasmids-all-metadata.tsv.gz"),    emit: plasmids_final_metadata
     tuple val(meta_plasmid), path("viruses-cluster-stats.tsv.gz"),    emit: viruses_reps_stats
-    path "versions.yml",                       emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     def iphop_genome_arg = iphop_genome ? "--host-iphop-genome ${iphop_genome}" : ""
@@ -51,10 +51,5 @@ process COLLECT_METADATA {
        --output_plasmids plasmids-all-metadata.tsv \\
        --output_reps viruses-cluster-stats.tsv \\
        --compress
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

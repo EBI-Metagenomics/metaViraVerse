@@ -25,7 +25,7 @@ process ANNOTATE_PLASMID_GFF {
 
     output:
     tuple val(meta), path("${meta.id}_annotated.gff.gz"), emit: gff
-    path "versions.yml",                                        emit: versions
+    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
 
     script:
     def protein_report_arg   = protein_report   ? "--table ${protein_report}"              : ""
@@ -40,10 +40,5 @@ process ANNOTATE_PLASMID_GFF {
         ${amr_gff_arg} \\
         ${mob_report_arg} \\
         --output ${meta.id}_annotated.gff.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
     """
 }

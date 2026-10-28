@@ -12,7 +12,7 @@ process KRONA_KTIMPORTTEXT {
 
     output:
     tuple val(meta), path ('*.html'), emit: html
-    path "versions.yml"             , emit: versions
+    tuple val("${task.process}"), val('krona'), eval("echo \$(ktImportText 2>&1) | sed 's/^.*KronaTools //g; s/- ktImportText.*\$//g'"), emit: versions_krona, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -25,21 +25,11 @@ process KRONA_KTIMPORTTEXT {
         $args \\
         -o ${prefix}.html \\
         $report
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        krona: \$( echo \$(ktImportText 2>&1) | sed 's/^.*KronaTools //g; s/- ktImportText.*\$//g')
-    END_VERSIONS
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.html
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        krona: \$( echo \$(ktImportText 2>&1) | sed 's/^.*KronaTools //g; s/- ktImportText.*\$//g')
-    END_VERSIONS
     """
 }

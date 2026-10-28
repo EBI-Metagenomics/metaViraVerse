@@ -11,7 +11,7 @@ process VITAP {
 
     output:
     tuple val(meta), path("*_vitap_best.tsv"), emit: best_lineages
-    path "versions.yml",                       emit: versions
+    tuple val("${task.process}"), val('VITAP'), val('1.7'), emit: versions_vitap, topic: versions
 
     script:
     def fasta_file = fasta.name.endsWith('.gz') ? fasta.baseName : fasta.name
@@ -40,10 +40,5 @@ process VITAP {
     # Attention:
     # version is hardcoded because Docker container has version 1.7 installed
     # but tool itself still prints version 1.3 (which is a bug in tool)
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        VITAP: 1.7
-    END_VERSIONS
     """
 }

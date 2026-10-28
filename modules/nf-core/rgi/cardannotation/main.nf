@@ -13,7 +13,8 @@ process RGI_CARDANNOTATION {
     path ("card_database_processed"), emit: db
     env 'RGI_VERSION', emit: tool_version
     env 'DB_VERSION', emit: db_version
-    path "versions.yml", emit: versions
+    tuple val("${task.process}"), val('rgi'), env('RGI_VERSION'), emit: versions_rgi, topic: versions
+    tuple val("${task.process}"), val('rgi-database'), env('DB_VERSION'), emit: versions_rgi_database, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -33,12 +34,6 @@ process RGI_CARDANNOTATION {
     cp ${card}/* card_database_processed
 
     RGI_VERSION=\$(rgi main --version)
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
-    END_VERSIONS
     """
 
     stub:
@@ -51,11 +46,5 @@ process RGI_CARDANNOTATION {
 
     RGI_VERSION=\$(rgi main --version)
     DB_VERSION=stub_version
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
-    END_VERSIONS
     """
 }

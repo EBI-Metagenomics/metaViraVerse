@@ -19,7 +19,7 @@ process EXTRACT_PLASMIDS_DATA {
     tuple val(meta), path("rip_seqs.faa"),                  emit: rip_seqs_faa
     tuple val(meta), path("mobility_classification.tsv"),   emit: mobility_classification
     tuple val(meta), path("mobility_stats.json"),           emit: mobility_stats
-    path "versions.yml",                                    emit: versions
+    tuple val("${task.process}"), val('r-base'), eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'"), emit: versions_r_base, topic: versions
 
     script:
     """
@@ -29,10 +29,5 @@ process EXTRACT_PLASMIDS_DATA {
     # Output: rip_seqs.faa, protein_report.tsv, mobility_classification.tsv, mobility_stats.json
     # (mobility_stats.json counts protein_report.tsv records: total, and with RIP_domain/MOB_group/Inc_group)
     plasquid_rip_extraction.R ${faa} ${filt_classification} ${rep_domains} ${mob_table}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        r-base: \$(R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p')
-    END_VERSIONS
     """
 }
