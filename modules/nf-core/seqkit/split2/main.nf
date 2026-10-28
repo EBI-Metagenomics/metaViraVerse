@@ -14,7 +14,7 @@ process SEQKIT_SPLIT2 {
 
     output:
     tuple val(meta), path("**/*"), emit: chunked_output
-    tuple val("${task.process}"), val('seqkit'), eval("echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//'"), emit: versions_seqkit, topic: versions
+    tuple val("${task.process}"), val('seqkit'), eval("seqkit version 2>&1 | sed -n 's/^seqkit v//p' | head -n 1"), emit: versions_seqkit, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
