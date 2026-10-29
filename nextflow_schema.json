@@ -224,6 +224,13 @@
                     "description": "Use vclust for sequence clustering (instead of the BLASTN + anicalc/aniclust fallback).",
                     "help_text": "Use vclust as clustering tool",
                     "default": true
+                },
+                "viral_clustering": {
+                    "type": "string",
+                    "description": "Clustering of viruses and prophages: 'default' (vclust, or BLASTN + anicalc/aniclust with --cluster_vclust false) or 'vjdb' (vjdb-clustering: hash deduplication, MMseqs2 linclust and vclust Leiden).",
+                    "enum": ["default", "vjdb"],
+                    "default": "default",
+                    "fa_icon": "fas fa-project-diagram"
                 }
             }
         },

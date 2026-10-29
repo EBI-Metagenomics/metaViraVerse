@@ -1,0 +1,109 @@
+// Source of the ViralParams record: every tool enabled, every database pointing at the
+// placeholder directory `db` (stub runs do not read the databases)
+class ViralParamsSource {
+    static String of(String viralClustering) {
+        return """record(
+            viral_clustering: '${viralClustering}',
+            cluster_vclust: true,
+            nucleotide_fasta_chunksize: 1000,
+            skip_phammseqs: false,
+            skip_amrfinderplus_for_viruses: false,
+            skip_deeparg_for_viruses: false,
+            skip_rgi_for_viruses: false,
+            annotation_db: db,
+            skip_vitap: false,
+            skip_genomad: false,
+            skip_viphogs: false,
+            vitap_db: db,
+            genomad_db: db,
+            viphog_db: db,
+            additional_viphog_model_data: db,
+            ncbi_db: db,
+            viphogs_factor_file: db,
+            viphogs_evalue: 0.01,
+            skip_iphop: false,
+            iphop_db: db,
+            nucleotide_fasta_chunksize_iphop: 1000,
+            predict_host_from_custom_spacers: true,
+            custom_spacers_fasta: db,
+            custom_spacers_metadata: db,
+            custom_genomes_metadata: db,
+            amrfinderplus_db: db.toString(),
+            deeparg_db: db.toString(),
+            deeparg_db_version: '2',
+            deeparg_model: null,
+            deeparg_tool_version: '1.0.4',
+            rgi_db: db.toString(),
+            mmseqs_id_threshold: 0.9,
+            mmseqs_cov_threshold: 0.8,
+            protein_annotation_fasta_chunksize: 1000
+        )"""
+    }
+}
+
+nextflow_workflow {
+
+    name "Test Subworkflow PROCESS_VIRAL_SEQUENCES"
+    script "../main.nf"
+    workflow "PROCESS_VIRAL_SEQUENCES"
+    config "./nextflow.config"
+
+    tag "subworkflows"
+    tag "process_viral_sequences"
+
+    test("stub - vclust clustering, all annotations") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def data = "${projectDir}/subworkflows/local/process_viral_sequences/tests/data"
+                def db = file("\${data}/db", checkIfExists: true)   // stub runs do not read the databases
+
+                input[0] = channel.of(record(meta: [id: 'viruses'], fna: file("\${data}/viruses.fna", checkIfExists: true)))
+                input[1] = channel.value(file("\${data}/viruses.gff", checkIfExists: true))
+                input[2] = channel.value(file("\${data}/viruses.faa", checkIfExists: true))
+                input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
+                input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
+                input[5] = ${ViralParamsSource.of('default')}
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(workflow.trace.tasks()*.name.collect { n -> n.replaceAll(/ \(.*\)$/, '') }.unique().sort()).match() }
+            )
+        }
+    }
+
+    test("stub - vjdb clustering, all annotations") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def data = "${projectDir}/subworkflows/local/process_viral_sequences/tests/data"
+                def db = file("\${data}/db", checkIfExists: true)   // stub runs do not read the databases
+
+                input[0] = channel.of(record(meta: [id: 'viruses'], fna: file("\${data}/viruses.fna", checkIfExists: true)))
+                input[1] = channel.value(file("\${data}/viruses.gff", checkIfExists: true))
+                input[2] = channel.value(file("\${data}/viruses.faa", checkIfExists: true))
+                input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
+                input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
+                input[5] = ${ViralParamsSource.of('vjdb')}
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(workflow.trace.tasks()*.name.collect { n -> n.replaceAll(/ \(.*\)$/, '') }.unique().sort()).match() }
+            )
+        }
+    }
+}
