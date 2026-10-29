@@ -36,35 +36,35 @@ Missing values are written as `missing` by the metadata step, or as `NA` / `not-
 <details markdown="1">
 <summary>Columns of <code>viruses-all-metadata.tsv.gz</code></summary>
 
-| Column | Can be missing | Description |
-| --- | --- | --- |
-| `ID` | No | Catalogue identifier assigned by the pipeline (e.g. `MGYV0000000001`). |
-| `Original_ID` | No | Original sequence name from the input, e.g. `MGYG000519004_12\|viral_sequence-1:32972` (source genome, contig, sequence type and coordinates). |
-| `Source_of_prediction` | Yes (`NA`) | Tool that predicted the sequence, taken from the source column of its GFF record (e.g. `geNomad`); `third_party` for sequences from `--third_party_input`. |
-| `rRNA` | Yes (`not-provided`) | `Yes` if barrnap found an rRNA gene on the sequence, otherwise `No`; `not-provided` when rRNA detection was skipped (`--skip_rrna_detection`). |
-| `Cluster_rep` | Yes (`missing`) | `ID` of the representative of the cluster this sequence belongs to; equal to `ID` for representatives. |
-| `vitap_lineage` | Yes (`missing`) | Taxonomy assigned by VITAP. Only cluster representatives are classified, so other members are `missing`; also `missing` when VITAP gave no assignment or was skipped. |
-| `viphogs_lineage` | Yes (`missing`) | Taxonomy assigned from ViPhOG HMM hits, semicolon-separated from superkingdom to genus. Same rules as `vitap_lineage`. |
-| `genomad_lineage` | Yes (`missing`) | Taxonomy assigned by geNomad. Same rules as `vitap_lineage`. |
-| `Host_iphop_genome_lineage` | Yes (`missing`) | Host lineage (GTDB, down to species) of the highest-confidence iPHoP genome-level prediction. `missing` when iPHoP found no host or was skipped (`--skip_iphop`). |
-| `Host_iphop_genus_lineage` | Yes (`missing`) | Host lineage (GTDB, down to genus) of the highest-confidence iPHoP genus-level prediction. Same rules as `Host_iphop_genome_lineage`. |
-| `Host_spacepharer_lineage` | Yes (`missing`) | Host lineage from the best (lowest e-value) SpacePHARER CRISPR spacer match. Only filled when `--predict_host_from_custom_spacers` is used. |
-| `Source` | Yes (`NA`) | Type of the source the sequence came from: `genome` (isolate genome) or `metagenome` (MAG). |
-| `Biome` | Yes (`NA`) | Biome(s) of the input catalogue(s) the sequence was found in, comma-separated when an identical sequence came from several. |
-| `Source_accession` | Yes (`missing`) | Accession of the source genome (e.g. `GCA_001650725`). `missing` for third-party sequences or genomes absent from the catalogue metadata. |
-| `Source_lineage` | Yes (`missing`) | GTDB lineage of the source genome (the MAG the sequence was found in). Same rules as `Source_accession`. |
-| `Source_sample` | Yes (`missing`) | ENA/BioSample accession of the sample the source genome came from. Same rules as `Source_accession`. |
-| `Source_project` | Yes (`missing`) | ENA study/project accession of the source genome. Same rules as `Source_accession`. |
-| `Sequence_length` | No | Sequence length in bp. |
-| `Sequence_sha256` | No | SHA-256 checksum of the (upper-case) nucleotide sequence, used to detect duplicates. |
-| `checkv_quality` | Yes (`NA`) | CheckV quality tier (`Complete`, `High-quality`, `Medium-quality`, `Low-quality`, `Not-determined`). All CheckV columns are `NA` when CheckV was skipped (`--skip_checkv`). |
-| `miuvig_quality` | Yes (`NA`) | Quality tier following the MIUViG standard (`High-quality`, `Genome-fragment`, ...). |
-| `completeness` | Yes (`NA`) | Estimated completeness (%); `NA` when CheckV could not estimate it. |
-| `completeness_method` | Yes (`NA`) | Method CheckV used to estimate completeness (e.g. AAI-based, HMM-based). |
-| `contamination` | Yes (`NA`) | Estimated contamination (%): the share of the sequence identified as host-derived. |
-| `provirus` | Yes (`NA`) | `Yes` if CheckV identified the sequence as a provirus (with flanking host regions), otherwise `No`. |
-| `proviral_length` | Yes (`NA`) | Length (bp) of the viral region when `provirus` is `Yes`. |
-| `kmer_freq` | Yes (`NA`) | Average k-mer frequency; values well above 1 indicate a sequence with repeated regions (possible assembly artefact). |
+| Column                      | Can be missing       | Description                                                                                                                                                                 |
+| --------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ID`                        | No                   | Catalogue identifier assigned by the pipeline (e.g. `MGYV0000000001`).                                                                                                      |
+| `Original_ID`               | No                   | Original sequence name from the input, e.g. `MGYG000519004_12\|viral_sequence-1:32972` (source genome, contig, sequence type and coordinates).                              |
+| `Source_of_prediction`      | Yes (`NA`)           | Tool that predicted the sequence, taken from the source column of its GFF record (e.g. `geNomad`); `third_party` for sequences from `--third_party_input`.                  |
+| `rRNA`                      | Yes (`not-provided`) | `Yes` if barrnap found an rRNA gene on the sequence, otherwise `No`; `not-provided` when rRNA detection was skipped (`--skip_rrna_detection`).                              |
+| `Cluster_rep`               | Yes (`missing`)      | `ID` of the representative of the cluster this sequence belongs to; equal to `ID` for representatives.                                                                      |
+| `vitap_lineage`             | Yes (`missing`)      | Taxonomy assigned by VITAP. Only cluster representatives are classified, so other members are `missing`; also `missing` when VITAP gave no assignment or was skipped.       |
+| `viphogs_lineage`           | Yes (`missing`)      | Taxonomy assigned from ViPhOG HMM hits, semicolon-separated from superkingdom to genus. Same rules as `vitap_lineage`.                                                      |
+| `genomad_lineage`           | Yes (`missing`)      | Taxonomy assigned by geNomad. Same rules as `vitap_lineage`.                                                                                                                |
+| `Host_iphop_genome_lineage` | Yes (`missing`)      | Host lineage (GTDB, down to species) of the highest-confidence iPHoP genome-level prediction. `missing` when iPHoP found no host or was skipped (`--skip_iphop`).           |
+| `Host_iphop_genus_lineage`  | Yes (`missing`)      | Host lineage (GTDB, down to genus) of the highest-confidence iPHoP genus-level prediction. Same rules as `Host_iphop_genome_lineage`.                                       |
+| `Host_spacepharer_lineage`  | Yes (`missing`)      | Host lineage from the best (lowest e-value) SpacePHARER CRISPR spacer match. Only filled when `--predict_host_from_custom_spacers` is used.                                 |
+| `Source`                    | Yes (`NA`)           | Type of the source the sequence came from: `genome` (isolate genome) or `metagenome` (MAG).                                                                                 |
+| `Biome`                     | Yes (`NA`)           | Biome(s) of the input catalogue(s) the sequence was found in, comma-separated when an identical sequence came from several.                                                 |
+| `Source_accession`          | Yes (`missing`)      | Accession of the source genome (e.g. `GCA_001650725`). `missing` for third-party sequences or genomes absent from the catalogue metadata.                                   |
+| `Source_lineage`            | Yes (`missing`)      | GTDB lineage of the source genome (the MAG the sequence was found in). Same rules as `Source_accession`.                                                                    |
+| `Source_sample`             | Yes (`missing`)      | ENA/BioSample accession of the sample the source genome came from. Same rules as `Source_accession`.                                                                        |
+| `Source_project`            | Yes (`missing`)      | ENA study/project accession of the source genome. Same rules as `Source_accession`.                                                                                         |
+| `Sequence_length`           | No                   | Sequence length in bp.                                                                                                                                                      |
+| `Sequence_sha256`           | No                   | SHA-256 checksum of the (upper-case) nucleotide sequence, used to detect duplicates.                                                                                        |
+| `checkv_quality`            | Yes (`NA`)           | CheckV quality tier (`Complete`, `High-quality`, `Medium-quality`, `Low-quality`, `Not-determined`). All CheckV columns are `NA` when CheckV was skipped (`--skip_checkv`). |
+| `miuvig_quality`            | Yes (`NA`)           | Quality tier following the MIUViG standard (`High-quality`, `Genome-fragment`, ...).                                                                                        |
+| `completeness`              | Yes (`NA`)           | Estimated completeness (%); `NA` when CheckV could not estimate it.                                                                                                         |
+| `completeness_method`       | Yes (`NA`)           | Method CheckV used to estimate completeness (e.g. AAI-based, HMM-based).                                                                                                    |
+| `contamination`             | Yes (`NA`)           | Estimated contamination (%): the share of the sequence identified as host-derived.                                                                                          |
+| `provirus`                  | Yes (`NA`)           | `Yes` if CheckV identified the sequence as a provirus (with flanking host regions), otherwise `No`.                                                                         |
+| `proviral_length`           | Yes (`NA`)           | Length (bp) of the viral region when `provirus` is `Yes`.                                                                                                                   |
+| `kmer_freq`                 | Yes (`NA`)           | Average k-mer frequency; values well above 1 indicate a sequence with repeated regions (possible assembly artefact).                                                        |
 
 </details>
 
@@ -73,21 +73,21 @@ Missing values are written as `missing` by the metadata step, or as `NA` / `not-
 
 One row per viral cluster, described by its representative and by aggregates over all cluster members.
 
-| Column | Can be missing | Description |
-| --- | --- | --- |
-| `Rep_ID` | No | `ID` of the cluster representative. |
-| `Rep_vitap_lineage` | Yes (`missing`) | VITAP taxonomy of the representative; `missing` when there was no assignment or VITAP was skipped. |
-| `Rep_viphogs_lineage` | Yes (`missing`) | ViPhOGs taxonomy of the representative. Same rules as `Rep_vitap_lineage`. |
-| `Rep_genomad_lineage` | Yes (`missing`) | geNomad taxonomy of the representative. Same rules as `Rep_vitap_lineage`. |
-| `Rep_source` | Yes (`missing`) | Source type of the representative: `genome` or `metagenome`. |
-| `Rep_biome` | Yes (`missing`) | Biome(s) of the representative, comma-separated. |
-| `cluster_size` | No | Number of sequences in the cluster, including the representative. |
-| `cluster_mean_viral_genes` | Yes (`missing`) | Mean number of viral genes (from CheckV) across cluster members; `missing` when no member has CheckV data. |
-| `cluster_mean_gene_count` | Yes (`missing`) | Mean number of genes (from CheckV) across cluster members. Same rules as `cluster_mean_viral_genes`. |
-| `cluster_biomes` | Yes (`missing`) | All biomes found across cluster members, semicolon-separated. |
-| `cluster_types` | Yes (`missing`) | All source types found across cluster members (`genome`, `metagenome`), semicolon-separated. |
-| `cluster_completeness_range` | Yes (`missing`) | Range of CheckV completeness across members (`min-max`, or a single value when only one member has an estimate). |
-| `cluster_contamination_range` | Yes (`missing`) | Range of CheckV contamination across members, in the same format as `cluster_completeness_range`. |
+| Column                        | Can be missing  | Description                                                                                                      |
+| ----------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Rep_ID`                      | No              | `ID` of the cluster representative.                                                                              |
+| `Rep_vitap_lineage`           | Yes (`missing`) | VITAP taxonomy of the representative; `missing` when there was no assignment or VITAP was skipped.               |
+| `Rep_viphogs_lineage`         | Yes (`missing`) | ViPhOGs taxonomy of the representative. Same rules as `Rep_vitap_lineage`.                                       |
+| `Rep_genomad_lineage`         | Yes (`missing`) | geNomad taxonomy of the representative. Same rules as `Rep_vitap_lineage`.                                       |
+| `Rep_source`                  | Yes (`missing`) | Source type of the representative: `genome` or `metagenome`.                                                     |
+| `Rep_biome`                   | Yes (`missing`) | Biome(s) of the representative, comma-separated.                                                                 |
+| `cluster_size`                | No              | Number of sequences in the cluster, including the representative.                                                |
+| `cluster_mean_viral_genes`    | Yes (`missing`) | Mean number of viral genes (from CheckV) across cluster members; `missing` when no member has CheckV data.       |
+| `cluster_mean_gene_count`     | Yes (`missing`) | Mean number of genes (from CheckV) across cluster members. Same rules as `cluster_mean_viral_genes`.             |
+| `cluster_biomes`              | Yes (`missing`) | All biomes found across cluster members, semicolon-separated.                                                    |
+| `cluster_types`               | Yes (`missing`) | All source types found across cluster members (`genome`, `metagenome`), semicolon-separated.                     |
+| `cluster_completeness_range`  | Yes (`missing`) | Range of CheckV completeness across members (`min-max`, or a single value when only one member has an estimate). |
+| `cluster_contamination_range` | Yes (`missing`) | Range of CheckV contamination across members, in the same format as `cluster_completeness_range`.                |
 
 </details>
 
@@ -96,19 +96,19 @@ One row per viral cluster, described by its representative and by aggregates ove
 
 Plasmids are not assessed with CheckV and are not assigned viral taxonomy or hosts, so this table has a subset of the virus columns.
 
-| Column | Can be missing | Description |
-| --- | --- | --- |
-| `ID` | No | Catalogue identifier assigned by the pipeline. |
-| `Original_ID` | No | Original sequence name from the input (source genome, contig, sequence type and coordinates). |
-| `Cluster_rep` | Yes (`missing`) | `ID` of the representative of the cluster this plasmid belongs to; equal to `ID` for representatives. |
-| `Source` | Yes (`NA`) | Type of the source the plasmid came from: `genome` or `metagenome`. |
-| `Biome` | Yes (`NA`) | Biome(s) of the input catalogue(s) the plasmid was found in, comma-separated. |
+| Column             | Can be missing  | Description                                                                                                        |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ID`               | No              | Catalogue identifier assigned by the pipeline.                                                                     |
+| `Original_ID`      | No              | Original sequence name from the input (source genome, contig, sequence type and coordinates).                      |
+| `Cluster_rep`      | Yes (`missing`) | `ID` of the representative of the cluster this plasmid belongs to; equal to `ID` for representatives.              |
+| `Source`           | Yes (`NA`)      | Type of the source the plasmid came from: `genome` or `metagenome`.                                                |
+| `Biome`            | Yes (`NA`)      | Biome(s) of the input catalogue(s) the plasmid was found in, comma-separated.                                      |
 | `Source_accession` | Yes (`missing`) | Accession of the source genome. `missing` for third-party sequences or genomes absent from the catalogue metadata. |
-| `Source_lineage` | Yes (`missing`) | GTDB lineage of the source genome, which is also treated as the plasmid host. Same rules as `Source_accession`. |
-| `Source_sample` | Yes (`missing`) | ENA/BioSample accession of the sample the source genome came from. Same rules as `Source_accession`. |
-| `Source_project` | Yes (`missing`) | ENA study/project accession of the source genome. Same rules as `Source_accession`. |
-| `Sequence_length` | No | Sequence length in bp. |
-| `Sequence_sha256` | No | SHA-256 checksum of the (upper-case) nucleotide sequence. |
+| `Source_lineage`   | Yes (`missing`) | GTDB lineage of the source genome, which is also treated as the plasmid host. Same rules as `Source_accession`.    |
+| `Source_sample`    | Yes (`missing`) | ENA/BioSample accession of the sample the source genome came from. Same rules as `Source_accession`.               |
+| `Source_project`   | Yes (`missing`) | ENA study/project accession of the source genome. Same rules as `Source_accession`.                                |
+| `Sequence_length`  | No              | Sequence length in bp.                                                                                             |
+| `Sequence_sha256`  | No              | SHA-256 checksum of the (upper-case) nucleotide sequence.                                                          |
 
 </details>
 
@@ -125,12 +125,13 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
   - `viruses_source_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in.
   - `viruses-all-metadata.tsv.gz`: one row per **input** viral sequence or prophage (before clustering), combining source, quality and taxonomy information.
   - `viruses-cluster-stats.tsv.gz`: one row per viral **cluster representative**, with per-cluster statistics (cluster size, mean gene and viral-gene counts, biomes and source types in the cluster, completeness and contamination ranges).
-  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage.
+  - `clustering/`: only produced by the alternative clustering methods: the CheckV pairwise ANI and ANI clusters tables (`--cluster_vclust false`), or the [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) membership table `vjdb1_merged_reps.csv` (`--viral_clustering vjdb`; one row per sequence with its cluster representative in `cluster_rep`).
+  - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage (or with vjdb-clustering, see `--viral_clustering`).
     - `viruses_reps.fasta.gz`, `viruses_reps.faa.gz`: nucleotide and protein sequences of one representative per viral cluster.
     - `viruses_reps_annotated.gff.gz`: GFF of the representatives, enriched with lifestyle (BACPHLIP), HMMER (e.g. PVOG, TIGRFAM) and AMR annotations.
     - `functional_annotation/`
       - `amr/`
-        - `viruses.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi).
+        - `viruses_amrfinderplus.tsv`, `viruses_deeparg.tsv`, `viruses_rgi.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi) (DeepARG and RGI in [hAMRonization](https://github.com/pha4ge/hAMRonization) format), one file per tool that was run.
         - `integrated_viruses.gff`: GFF with the AMR annotations merged in.
       - `hmmer/`: [HMMER](http://hmmer.org/) hits against HMM profile databases (`*.tbl.gz`), with a per-accession function summary (`*_summary.tsv.gz`).
       - `lifestyle/`: virulent/temperate lifestyle prediction from [BACPHLIP](https://github.com/adamhockenberry/bacphlip) (`viruses.bacphlip.gz`).
@@ -171,7 +172,7 @@ Viral sequences and prophages are pooled and clustered, and one representative p
     - `functional_annotation/`
       - `mobility_stats_final.json`: summary counts combining plaSquid evidence (proteins with RIP, MOB and Inc hits) and MOB-suite predicted mobility (conjugative, mobilizable, non-mobilizable).
       - `amr/`: not produced when all `--skip_<tool>_for_plasmids` flags are set.
-        - `plasmids.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi).
+        - `plasmids_amrfinderplus.tsv`, `plasmids_deeparg.tsv`, `plasmids_rgi.tsv`: antimicrobial resistance calls from [AMRFinderPlus](https://github.com/ncbi/amr), [DeepARG](https://github.com/gaarangoa/deeparg) and [RGI](https://github.com/arpcard/rgi) (DeepARG and RGI in [hAMRonization](https://github.com/pha4ge/hAMRonization) format), one file per tool that was run.
         - `integrated_plasmids.gff`: GFF with the AMR annotations merged in.
       - `mobsuite-typer/`: results of [MOB-suite `mob_typer`](https://github.com/phac-nml/mob-suite#mob-typer).
         - `plasmids_report.txt`: per-plasmid typing report, including predicted mobility.

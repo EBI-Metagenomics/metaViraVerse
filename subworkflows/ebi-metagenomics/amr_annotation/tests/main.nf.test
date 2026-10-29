@@ -198,8 +198,7 @@ nextflow_workflow {
             assertAll(
                 { assert workflow.success},
                { assert snapshot(
-                    workflow.out,
-                    workflow.out.versions.collect{ path(it).yaml }.unique()
+                    workflow.out
                 ).match() }
             )
         }

@@ -16,7 +16,7 @@ process AMRINTEGRATOR {
 
     output:
     tuple val(meta), path("*.gff"), optional: true, emit: gff
-    path "versions.yml",                            emit: versions
+    tuple val("${task.process}"), val('mgnify-pipelines-toolkit'), eval('get_mpt_version'), emit: versions_mgnify_pipelines_toolkit, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -35,11 +35,6 @@ process AMRINTEGRATOR {
         --cds_gff ${gff} \\
         --output integrated_${prefix}.gff \\
         $args
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        mgnify-pipelines-toolkit: \$(get_mpt_version)
-    END_VERSIONS
     """
 
     stub:
@@ -49,10 +44,5 @@ process AMRINTEGRATOR {
     echo $args
 
     touch ${prefix}.gff
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        mgnify-pipelines-toolkit: \$(get_mpt_version)
-    END_VERSIONS
     """
 }

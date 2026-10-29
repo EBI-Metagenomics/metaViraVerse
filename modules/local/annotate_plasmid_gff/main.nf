@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process ANNOTATE_PLASMID_GFF {
     /*
      * Add plasmid-evidence attributes to a representative GFF:
@@ -17,15 +19,23 @@ process ANNOTATE_PLASMID_GFF {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(gff)
-    path(protein_report)
-    path(biomarker_report)
-    path(mob_report)
-    path(amr_gff)
+    record(
+        meta: Map,
+        gff: Path,
+        protein_report: Path?,
+        biomarker_report: Path?,
+        mob_report: Path?,
+        amr_gff: Path?
+    )
 
     output:
-    tuple val(meta), path("${meta.id}_annotated.gff.gz"), emit: gff
-    path "versions.yml",                                        emit: versions
+    record(
+        meta: meta,
+        gff: file("${meta.id}_annotated.gff.gz")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     def protein_report_arg   = protein_report   ? "--table ${protein_report}"              : ""
@@ -40,10 +50,10 @@ process ANNOTATE_PLASMID_GFF {
         ${amr_gff_arg} \\
         ${mob_report_arg} \\
         --output ${meta.id}_annotated.gff.gz
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
+    stub:
+    """
+    echo stub > ${meta.id}_annotated.gff.gz
     """
 }

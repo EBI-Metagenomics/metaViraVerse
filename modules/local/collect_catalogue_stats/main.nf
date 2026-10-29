@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
  * module to generate JSON for main website page
 */
@@ -9,18 +11,25 @@ process COLLECT_CATALOGUE_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta1), path(json)
-    tuple val(meta4), path(metadata)
-    tuple val(meta5), path(clusters_viruses)
-    tuple val(meta6), path(clusters_plasmids)
-    tuple val(meta9), path(excluded_metadata)
-    tuple val(meta10), path(initial_metadata)
-    tuple val(meta_prot_viral), path(clusters_viruses_prot)
-    tuple val(meta_prot_plasmid), path(clusters_plasmids_prot)
+    record(
+        json: Path,
+        metadata: Path,
+        clusters_viruses: Path,
+        clusters_plasmids: Path,
+        excluded_metadata: Path,
+        initial_metadata: Path,
+        clusters_viruses_prot: Path,
+        clusters_plasmids_prot: Path
+    )
 
     output:
-    path("*.json"),                      emit: catalogue_json
-    path "versions.yml",                 emit: versions
+    record(
+        catalogue_json: file("*.json")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
+    tuple(task.process, 'biopython', eval("python -c \"import pkg_resources; print(pkg_resources.get_distribution('biopython').version)\"")) >> 'versions'
 
     script:
     """
@@ -34,11 +43,10 @@ process COLLECT_CATALOGUE_STATS {
       --viruses-reps-proteins ${clusters_viruses_prot} \\
       --plasmids-reps-proteins ${clusters_plasmids_prot} \\
       -o catalogue.json
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-        biopython: \$(python -c "import pkg_resources; print(pkg_resources.get_distribution('biopython').version)")
-    END_VERSIONS
+    stub:
+    """
+    echo stub > stub.json
     """
 }
