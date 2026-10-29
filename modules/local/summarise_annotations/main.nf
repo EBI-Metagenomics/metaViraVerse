@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process SUMMARISE_ANNOTATIONS {
 
     label 'process_low'
@@ -8,11 +10,20 @@ process SUMMARISE_ANNOTATIONS {
 
 
     input:
-    tuple val(meta), path(tbl), path(metadata)
+    record(
+        meta: Map,
+        tbl: Path,
+        metadata: Path
+    )
 
     output:
-    tuple val(meta), path("${meta.id}_summary.tsv.gz"), emit: summary_tsv
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        meta: meta,
+        summary_tsv: file("${meta.id}_summary.tsv.gz")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     """
@@ -21,5 +32,10 @@ process SUMMARISE_ANNOTATIONS {
        -m ${metadata} \\
        --output ${meta.id}_summary.tsv \\
        --compress
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_summary.tsv.gz
     """
 }

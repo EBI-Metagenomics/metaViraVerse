@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process GENERATE_TAXONOMY_TABLE {
 
     label 'process_low'
@@ -7,12 +9,21 @@ process GENERATE_TAXONOMY_TABLE {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-      tuple val(meta), path(table)
-      tuple val(meta2), path(metadata_file)
+    record(
+        meta: Map,
+        table: Path
+    )
+    metadata_file: Path
 
     output:
-      tuple val(meta), path("*_taxonomy_counts.tsv"), path("*_metadata_table.tsv"), emit: taxonomy_and_metadata
-      tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        meta: meta,
+        taxonomy_counts: file("*_taxonomy_counts.tsv"),
+        metadata_table: file("*_metadata_table.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     def args = task.ext.args ?: ''
@@ -25,5 +36,11 @@ process GENERATE_TAXONOMY_TABLE {
         --output ${prefix}_taxonomy_counts.tsv \\
         --meta ${metadata_file} \\
         --meta-output ${prefix}_metadata_table.tsv
+    """
+
+    stub:
+    """
+    echo stub > stub_taxonomy_counts.tsv
+    echo stub > stub_metadata_table.tsv
     """
 }

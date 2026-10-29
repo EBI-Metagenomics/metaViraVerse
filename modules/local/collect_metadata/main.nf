@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
  * module to generate viruses-all-metadata.tsv and plasmids-all-metadata.tsv
 */
@@ -9,23 +11,33 @@ process COLLECT_METADATA {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta_combined), path(combined_meta)
-    tuple val(meta_viral), path(viral_clusters)
-    tuple val(meta_plasmid), path(plasmid_clusters)
-    path(additional_metadata)
-    path(vitap_best)
-    path(viphogs_taxonomy)
-    path(genomad)
-    path(map_file)
-    path(iphop_genome)      // optional: [] when iPHoP was skipped
-    path(iphop_genus)       // optional: [] when iPHoP was skipped
-    path(spacepharer)       // optional: [] when SpacePHARER was not run
+    record(
+        combined_meta: Path,
+        viral_meta: Map,
+        viral_clusters: Path,
+        plasmid_meta: Map,
+        plasmid_clusters: Path,
+        vitap_best: Path?,
+        viphogs_taxonomy: Path?,
+        genomad: Path?,
+        map_file: Path,
+        iphop_genome: Path?,      // null when iPHoP was skipped
+        iphop_genus: Path?,       // null when iPHoP was skipped
+        spacepharer: Path?        // null when SpacePHARER was not run
+    )
+    additional_metadata: Path
 
     output:
-    tuple val(meta_viral), path("viruses-all-metadata.tsv.gz"),       emit: viruses_final_metadata
-    tuple val(meta_plasmid), path("plasmids-all-metadata.tsv.gz"),    emit: plasmids_final_metadata
-    tuple val(meta_plasmid), path("viruses-cluster-stats.tsv.gz"),    emit: viruses_reps_stats
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
+    record(
+        viral_meta: viral_meta,
+        plasmid_meta: plasmid_meta,
+        viruses_final_metadata: file("viruses-all-metadata.tsv.gz"),
+        plasmids_final_metadata: file("plasmids-all-metadata.tsv.gz"),
+        viruses_reps_stats: file("viruses-cluster-stats.tsv.gz")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     def iphop_genome_arg = iphop_genome ? "--host-iphop-genome ${iphop_genome}" : ""
@@ -51,5 +63,12 @@ process COLLECT_METADATA {
        --output_plasmids plasmids-all-metadata.tsv \\
        --output_reps viruses-cluster-stats.tsv \\
        --compress
+    """
+
+    stub:
+    """
+    echo stub > viruses-all-metadata.tsv.gz
+    echo stub > plasmids-all-metadata.tsv.gz
+    echo stub > viruses-cluster-stats.tsv.gz
     """
 }

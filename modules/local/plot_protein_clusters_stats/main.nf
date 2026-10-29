@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process PLOT_PROTEIN_CLUSTERS_STATS {
     /*
      * Plots and statistics for protein clustering from PhaMMseqs or MMseqs2
@@ -17,29 +19,35 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
         'community.wave.seqera.io/library/matplotlib_numpy_pandas_python_scikit-learn:50a467f1b0184adf' }"
 
     input:
-    tuple val(meta), path(clusters)
-    val(cluster_format) // 'phammseqs' (phamID<TAB>proteinID function) or 'mmseqs' (representative<TAB>member)
-    path(fasta)         // optional: protein FASTA with functions in headers (>proteinID function); [] to skip
-    path(reference)     // optional: proteinID<TAB>label TSV to compare clusters against; [] to use protein functions
+    record(
+        meta: Map,
+        clusters: Path,
+        fasta: Path?,       // optional: protein FASTA with functions in headers (>proteinID function)
+        reference: Path?    // optional: proteinID<TAB>label TSV to compare clusters against; null to use protein functions
+    )
+    cluster_format: String  // 'phammseqs' (phamID<TAB>proteinID function) or 'mmseqs' (representative<TAB>member)
 
     output:
-    tuple val(meta), path("${prefix}_cluster_size_distribution.tsv"), path("${prefix}_cluster_size_distribution.png"), emit: size_distribution
-    tuple val(meta), path("${prefix}_cluster_rank_abundance.png"),                                                     emit: rank_abundance
-    tuple val(meta), path("${prefix}_top_functions.tsv"),                                                              emit: top_functions_tsv
-    tuple val(meta), path("${prefix}_top_functions.png"), optional: true,                                              emit: top_functions_png
-    tuple val(meta), path("${prefix}_cluster_function_purity.tsv"),                                                    emit: purity_tsv
-    tuple val(meta), path("${prefix}_cluster_function_purity.png"), optional: true,                                    emit: purity_png
-    tuple val(meta), path("${prefix}_clustering_stats.tsv"),                                                       emit: stats
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
-    tuple val("${task.process}"), val('matplotlib'), eval('python -c "import matplotlib; print(matplotlib.__version__)"'), emit: versions_matplotlib, topic: versions
-    tuple val("${task.process}"), val('scikit-learn'), eval('python -c "import sklearn; print(sklearn.__version__)"'), emit: versions_scikit_learn, topic: versions
+    record(
+        meta: meta,
+        size_distribution_tsv: file("*_cluster_size_distribution.tsv"),
+        size_distribution_png: file("*_cluster_size_distribution.png"),
+        rank_abundance: file("*_cluster_rank_abundance.png"),
+        top_functions_tsv: file("*_top_functions.tsv"),
+        top_functions_png: file("*_top_functions.png", optional: true),
+        purity_tsv: file("*_cluster_function_purity.tsv"),
+        purity_png: file("*_cluster_function_purity.png", optional: true),
+        stats: file("*_clustering_stats.tsv")
+    )
 
-    when:
-    task.ext.when == null || task.ext.when
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
+    tuple(task.process, 'matplotlib', eval('python -c "import matplotlib; print(matplotlib.__version__)"')) >> 'versions'
+    tuple(task.process, 'scikit-learn', eval('python -c "import sklearn; print(sklearn.__version__)"')) >> 'versions'
 
     script:
     def args = task.ext.args ?: ''
-    prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     def reference_arg = reference ? "--reference ${reference}" : ""
     def fasta_arg     = fasta     ? "--fasta ${fasta}"         : ""
     if (!(cluster_format in ['phammseqs', 'mmseqs'])) {
@@ -56,7 +64,7 @@ process PLOT_PROTEIN_CLUSTERS_STATS {
     """
 
     stub:
-    prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}_cluster_size_distribution.tsv ${prefix}_cluster_size_distribution.png
     touch ${prefix}_cluster_rank_abundance.png

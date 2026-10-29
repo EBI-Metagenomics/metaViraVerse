@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
  * module to extruct information about cluster reps from initial GFF
 */
@@ -10,16 +12,24 @@ process EXTRACT_REPS_STATS {
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta), path(reps_file)
-    path(full_gff)
-    path(mapfile)
+    record(
+        meta: Map,
+        reps_file: Path
+    )
+    full_gff: Path
+    mapfile: Path?
 
     output:
-    tuple val(meta), path("${meta.id}_reps.tsv"),           emit: reps_list
-    tuple val(meta), path("${meta.id}_reps.gff"),           emit: reps_gff
-    tuple val(meta), path("${meta.id}_reps_proteins.tsv"),  emit: reps_proteins_list
-    tuple val("${task.process}"), val('python'), eval("python --version 2>&1 | sed 's/Python //g'"), emit: versions_python, topic: versions
-    tuple val("${task.process}"), val('biopython'), eval("python -c \"import pkg_resources; print(pkg_resources.get_distribution('biopython').version)\""), emit: versions_biopython, topic: versions
+    record(
+        meta: meta,
+        reps_list: file("${meta.id}_reps.tsv"),
+        reps_gff: file("${meta.id}_reps.gff"),
+        reps_proteins_list: file("${meta.id}_reps_proteins.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
+    tuple(task.process, 'biopython', eval("python -c \"import pkg_resources; print(pkg_resources.get_distribution('biopython').version)\"")) >> 'versions'
 
     script:
     def mapfile_arg = mapfile ? "--mapfile ${mapfile}" : ''
@@ -31,5 +41,12 @@ process EXTRACT_REPS_STATS {
        --output-reps-gff ${meta.id}_reps.gff \\
        --output-reps-proteins ${meta.id}_reps_proteins.tsv \\
        ${mapfile_arg}
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_reps.tsv
+    echo stub > ${meta.id}_reps.gff
+    echo stub > ${meta.id}_reps_proteins.tsv
     """
 }

@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process RNASEARCH {
     /*
      * Search plasmid contigs for Inc-associated RNA (Col/Rep) elements with Infernal
@@ -10,15 +12,28 @@ process RNASEARCH {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(fna)
-    path(rna_inc_db)
+    record(
+        meta: Map,
+        fna: Path
+    )
+    rna_inc_db: Path
 
     output:
-    tuple val(meta), path("rna_candidates.tsv"), emit: rna_candidates
-    tuple val("${task.process}"), val('infernal'), eval("cmsearch -h | sed -n 's/^# INFERNAL \\([0-9.]*\\).*/\\1/p'"), emit: versions_infernal, topic: versions
+    record(
+        meta: meta,
+        rna_candidates: file("rna_candidates.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'infernal', eval("cmsearch -h | sed -n 's/^# INFERNAL \\([0-9.]*\\).*/\\1/p'")) >> 'versions'
 
     script:
     """
     cmsearch --cpu ${task.cpus} --tblout rna_candidates.tsv ${rna_inc_db} ${fna}
+    """
+
+    stub:
+    """
+    echo stub > rna_candidates.tsv
     """
 }

@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 include { HMMER_HMMSEARCH as HMMER_VIPHOGS   } from '../../../modules/nf-core/hmmer/hmmsearch'
 include { FIND_CONCATENATE                   } from '../../../modules/nf-core/find/concatenate'
 include { SEQKIT_SPLIT2                      } from '../../../modules/nf-core/seqkit/split2/main'
@@ -7,57 +9,92 @@ include { ASSIGN                             } from '../../../modules/local/assi
 include { HMM_POSTPROCESSING                 } from '../../../modules/local/hmm_postprocessing'
 include { RATIO_EVALUE                       } from '../../../modules/local/ratio_evalue'
 
+record ViphogsParams {
+    viphog_db: Path
+    additional_viphog_model_data: Path
+    ncbi_db: Path
+    viphogs_factor_file: Path?
+    viphogs_evalue: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
+record ViphogsInput {
+    meta: Map
+    faa: Path   // representative proteins, uncompressed
+    gff: Path   // representative GFF
+}
+
+record ViphogsAssignment {
+    meta: Map
+    taxonomy_tsv: Path
+    modified_tsv: Path           // HMMER hits, post-processed
+    informative_tsv: Path        // hits with informative e-value ratio
+    annotation_tsv: Path         // per-contig ViPhOG annotation
+}
+
 workflow VIPHOGS_ANNOTATION {
 
     take:
-    proteins_faa
-    proteins_gff
-    viphog_db
-    additional_viphog_model_data
-    ncbi_db
-    viphogs_factor_file
+    proteins: Channel<ViphogsInput>
+    opts: ViphogsParams
 
     main:
     // chunk big fasta file
-    SEQKIT_SPLIT2(
-        proteins_faa,
+    chunks = SEQKIT_SPLIT2(
+        proteins.map { r -> tuple(r.meta, r.faa) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.protein_annotation_fasta_chunksize, // size: max number of sequences per chunk
+        opts.protein_annotation_fasta_chunksize,   // size: max number of sequences per chunk
     )
-    def ch_protein_chunks = SEQKIT_SPLIT2.out.chunked_output.transpose()
+    // a single chunk is emitted as a path, several as a list: transpose handles both
+    def ch_protein_chunks = chunks.chunked_output.transpose()
 
-    hmmer_input = ch_protein_chunks.map{ meta, proteins -> tuple(meta, viphog_db, proteins, false, false, true) }
-    HMMER_VIPHOGS(
-        hmmer_input
+    hmmer = HMMER_VIPHOGS(
+        ch_protein_chunks.map { meta, faa -> tuple(meta, opts.viphog_db, faa, false, false, true) }
     )
 
-    FIND_CONCATENATE(
-        HMMER_VIPHOGS.out.domain_summary.groupTuple(),
+    hmmer_domtbl = FIND_CONCATENATE(
+        hmmer.domain_summary.groupTuple(),
         3
     )
 
-    HMM_POSTPROCESSING(
-       FIND_CONCATENATE.out.file_out
+    postprocessed = HMM_POSTPROCESSING(
+       hmmer_domtbl.file_out.map { meta, tbl -> record(meta: meta, hmmer_tbl: tbl) }
     )
 
     // calculate hit qual per protein
-    RATIO_EVALUE(
-       HMM_POSTPROCESSING.out,
-       additional_viphog_model_data
+    ratio = RATIO_EVALUE(
+       postprocessed.map { r -> record(meta: r.meta, modified_table: r.modified_tsv) },
+       opts.additional_viphog_model_data,
+       opts.viphogs_evalue
     )
 
     // annotate contigs based on ViPhOGs
-    ANNOTATION(
-       RATIO_EVALUE.out.informative_hits_tsv.join(proteins_gff)
+    annotation = ANNOTATION(
+       ratio.join(proteins, by: 'meta')
+           .map { r -> record(meta: r.meta, tab: r.informative_hits_tsv, gff: r.gff) }
     )
 
     // assign lineages
-    ASSIGN(
-       ANNOTATION.out.annotations,
-       ncbi_db,
-       viphogs_factor_file
+    assignment = ASSIGN(
+       annotation.map { r -> record(meta: r.meta, tab: r.annotations) },
+       opts.ncbi_db,
+       opts.viphogs_factor_file
     )
 
+    result = assignment
+        .join(annotation, by: 'meta')
+        .join(ratio, by: 'meta')
+        .join(postprocessed, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta,
+                taxonomy_tsv: r.taxonomy_tsv,
+                modified_tsv: r.modified_tsv,
+                informative_tsv: r.informative_hits_tsv,
+                annotation_tsv: r.annotations
+            )
+        }
+
     emit:
-    assignment     = ASSIGN.out.taxonomy_tsv
+    assignment: Channel<ViphogsAssignment> = result
 }

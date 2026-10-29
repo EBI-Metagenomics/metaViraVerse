@@ -33,10 +33,11 @@ input:
         indexing it (plasmids have no lifestyle prediction)
         Structure: [ val(meta), path(tsv) ]
 output:
-  # This subworkflow has no `emit:` block -- it only publishes files (sorted/compressed/
-  # indexed GFF, bgzipped+faidx-indexed FNA/FAA, and optionally a bgzipped+indexed
-  # BACPHLIP table) via each module's own publishDir; nothing is passed on to the caller.
-  []
+  - indexed:
+      description: |
+        Record channel (IndexedReps) with the sorted/compressed/indexed GFF, the
+        bgzipped+faidx-indexed FNA/FAA and, for viruses, the bgzipped+indexed BACPHLIP
+        table; published by the pipeline's `output` block.
 authors:
   - "@KateSakharova"
 maintainers:

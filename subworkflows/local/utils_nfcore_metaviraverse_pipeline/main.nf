@@ -10,7 +10,6 @@
 
 include { UTILS_NFSCHEMA_PLUGIN     } from '../../nf-core/utils_nfschema_plugin'
 include { paramsSummaryMap          } from 'plugin/nf-schema'
-include { samplesheetToList         } from 'plugin/nf-schema'
 include { completionSummary         } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE   } from '../../nf-core/utils_nextflow_pipeline'
@@ -25,12 +24,10 @@ workflow PIPELINE_INITIALISATION {
 
     take:
     version           // boolean: Display version and exit
-    validate_params   // boolean: Boolean whether to validate parameters against the schema at runtime
+    validate_params   // boolean: Unused (see UTILS_NFSCHEMA_PLUGIN below)
     monochrome_logs   // boolean: Do not use coloured log outputs
     nextflow_cli_args //   array: List of positional nextflow CLI args
     outdir            //  string: The output directory where the results will be saved
-    input             //  string: Path to input samplesheet
-    third_party_input //  string: Path to input third party samplehseet
 
     main:
 
@@ -45,11 +42,14 @@ workflow PIPELINE_INITIALISATION {
     )
 
     //
-    // Validate parameters and generate parameter summary to stdout
+    // Generate parameter summary to stdout. nf-schema parameter validation is not run:
+    // it serialises every param to JSON and blocks forever on the samplesheet params,
+    // which are channels. Nextflow checks the types of the typed params and of each
+    // samplesheet row instead (the rest of the row checks are in main.nf).
     //
     UTILS_NFSCHEMA_PLUGIN (
         workflow,
-        validate_params,
+        false,
         null,
         false,
         false,
@@ -66,26 +66,11 @@ workflow PIPELINE_INITIALISATION {
         nextflow_cli_args
     )
 
-    //
-    // Create channel from input file provided through params.input
-    //
-    ch_samplesheet = Channel.empty()
-    if (input) {
-        ch_samplesheet = Channel
-            .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
-    }
-    //
-    // Create channel from third party input file provided through params.input
-    //
-    ch_samplesheet_third_party = Channel.empty()
-    if (third_party_input) {
-        ch_samplesheet_third_party = Channel
-            .fromList(samplesheetToList(third_party_input, "${projectDir}/assets/schema_third_party_input.json"))
-    }
+    // Samplesheets are typed params of the pipeline (`--input`, `--third_party_input`),
+    // loaded by Nextflow as channels of records
 
     emit:
-    samplesheet             = ch_samplesheet
-    samplesheet_third_party = ch_samplesheet_third_party
+    dummy_emit = true
 }
 
 /*

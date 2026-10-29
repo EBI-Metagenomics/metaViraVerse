@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process REPSEARCH {
     /*
      * Identify plasmid replication initiator proteins (RIPs): hmmsearch predicted
@@ -11,15 +13,24 @@ process REPSEARCH {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(proteins), path(protein_to_contig)
-    path(repsearch_db)
-    path(repfilter_db)
+    record(
+        meta: Map,
+        proteins: Path,
+        protein_to_contig: Path
+    )
+    repsearch_db: Path
+    repfilter_db: Path
 
     output:
-    tuple val(meta), path("prots_vs_rep.tsv"), emit: prots_vs_rep
-    tuple val(meta), path("rep_domains.tsv"),  emit: rep_domains
-    tuple val("${task.process}"), val('hmmer'), eval("hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p'"), emit: versions_hmmer, topic: versions
-    tuple val("${task.process}"), val('r-base'), eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'"), emit: versions_r_base, topic: versions
+    record(
+        meta: meta,
+        prots_vs_rep: file("prots_vs_rep.tsv"),
+        rep_domains: file("rep_domains.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'hmmer', eval("hmmsearch -h | sed -n 's/^# HMMER \\([0-9.]*\\).*/\\1/p'")) >> 'versions'
+    tuple(task.process, 'r-base', eval("R --version | sed -n '1s/^R version \\([0-9.]*\\).*/\\1/p'")) >> 'versions'
 
     script:
     """
@@ -27,5 +38,11 @@ process REPSEARCH {
 
     plasquid_dom_arch.R prots_vs_rep.tsv
     plasquid_filter_rip.R single_dom_rip.tsv domain_architecture.RDS ${repfilter_db} ${protein_to_contig}
+    """
+
+    stub:
+    """
+    echo stub > prots_vs_rep.tsv
+    echo stub > rep_domains.tsv
     """
 }

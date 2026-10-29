@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process ANICLUST {
 
     label 'process_low'
@@ -8,11 +10,20 @@ process ANICLUST {
         'biocontainers/checkv:1.0.3--pyhdfd78af_0' }"
 
     input:
-    tuple val(meta), path(ani_tsv), path(sequences)
+    record(
+        meta: Map,
+        ani_tsv: Path,
+        sequences: Path
+    )
 
     output:
-    tuple val(meta), path("${meta.id}_clusters.tsv"), emit: clusters_tsv
-    tuple val("${task.process}"), val('checkv'), eval("checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p'"), emit: versions_checkv, topic: versions
+    record(
+        meta: meta,
+        clusters_tsv: file("${meta.id}_clusters.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'checkv', eval("checkv -h 2>&1  | sed -n 's/^.*CheckV v//; s/: assessing.*//; 1p'")) >> 'versions'
 
     script:
     def args = task.ext.args ?: ''
@@ -22,5 +33,10 @@ process ANICLUST {
       --ani ${ani_tsv} \\
       --out ${meta.id}_clusters.tsv \\
       ${args}
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_clusters.tsv
     """
 }

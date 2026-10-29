@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -11,10 +13,10 @@ include { BUILD_FINAL_GFF                              } from '../../../modules/
 
 include { EXTRACT_CLUSTER_FILES                        } from '../extract_cluster_files/main'
 include { CLUSTERING                                   } from '../clustering/main'
-include { HOST_DETECTION                               } from '../host_detection_subwf/main'
-include { INDEX_RESULTS                                } from '../index_results/main'
-include { PROTEINS_PROCESSING                          } from '../proteins_subwf/main'
-include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf/main'
+include { HOST_DETECTION ; HostResult                  } from '../host_detection_subwf/main'
+include { INDEX_RESULTS ; IndexedReps                  } from '../index_results/main'
+include { PROTEINS_PROCESSING ; ProteinsResult         } from '../proteins_subwf/main'
+include { TAXONOMY_ASSIGNMENT ; TaxonomyResult         } from '../taxonomy_subwf/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -22,14 +24,81 @@ include { TAXONOMY_ASSIGNMENT                          } from '../taxonomy_subwf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+// params of this workflow and of the subworkflows it calls
+record ViralParams {
+    cluster_vclust: Boolean
+    nucleotide_fasta_chunksize: Integer
+    skip_phammseqs: Boolean
+    skip_amrfinderplus_for_viruses: Boolean
+    skip_deeparg_for_viruses: Boolean
+    skip_rgi_for_viruses: Boolean
+    annotation_db: Path?
+    // taxonomy (see TaxonomyParams)
+    skip_vitap: Boolean
+    skip_genomad: Boolean
+    skip_viphogs: Boolean
+    vitap_db: Path?
+    genomad_db: Path?
+    viphog_db: Path?
+    additional_viphog_model_data: Path?
+    ncbi_db: Path?
+    viphogs_factor_file: Path?
+    viphogs_evalue: Float
+    // host detection (see HostParams)
+    skip_iphop: Boolean
+    iphop_db: Path?
+    nucleotide_fasta_chunksize_iphop: Integer
+    predict_host_from_custom_spacers: Boolean
+    custom_spacers_fasta: Path?
+    custom_spacers_metadata: Path?
+    custom_genomes_metadata: Path?
+    // proteins (see ProteinsParams)
+    amrfinderplus_db: String?
+    deeparg_db: String?
+    deeparg_db_version: String?
+    deeparg_model: String?
+    deeparg_tool_version: String?
+    rgi_db: String?
+    mmseqs_id_threshold: Float
+    mmseqs_cov_threshold: Float
+    protein_annotation_fasta_chunksize: Integer
+}
+
+record ViralSequences {
+    meta: Map
+    fna: Path
+}
+
+record LifestyleTable {
+    meta: Map
+    bacphlip: Path
+}
+
+record ViralCatalogue {
+    meta: Map
+    clusters_tsv: Path
+    ani_tsv: Path?             // CheckV ANI clustering only
+    ani_clusters_tsv: Path?
+    reps_list: Path
+    fna_gz: Path               // representative sequences, compressed
+    faa_gz: Path               // representative proteins, compressed
+    reps_gff: Path
+    final_gff: Path            // reps GFF with lifestyle, HMMER and AMR annotations
+    index: IndexedReps         // bgzipped and indexed reps FNA/FAA/GFF and lifestyle table
+    taxonomy: TaxonomyResult
+    hosts: HostResult
+    proteins: ProteinsResult
+}
+
 workflow PROCESS_VIRAL_SEQUENCES {
 
     take:
-    sequences
-    gff
-    faa
-    combined_metadata
-    mapfile
+    sequences: Channel<ViralSequences>
+    gff: Value<Path>
+    faa: Value<Path>
+    combined_metadata: Value<Path>
+    mapfile: Value<Path>
+    opts: ViralParams
 
     main:
 
@@ -37,29 +106,26 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- Cluster sequences -----------
     //
 
-    sequences
-        .filter { meta, seqs ->
-            seqs && seqs.size() > 0
-        }
-        .set { samples_seqs }
+    samples_seqs = sequences.filter { r -> r.fna && r.fna.size() > 0 }
 
-    CLUSTERING(
+    clusters = CLUSTERING(
        samples_seqs,
        'ani',
-       false,
-       false,
-       0.95
+       0,
+       0,
+       0.95,
+       opts.cluster_vclust
     )
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
     //
-    EXTRACT_CLUSTER_FILES (
-       CLUSTERING.out.clusters_tsv,
-       gff,
-       mapfile,
+    reps = EXTRACT_CLUSTER_FILES (
+       clusters,
        sequences,
+       gff,
        faa,
+       mapfile,
        'viruses'
     )
 
@@ -67,22 +133,25 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // ----------- Chunk nucleotide sequences for cluster reps -----------
     //
 
-    CHUNK_FNA (
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
+    chunks = CHUNK_FNA (
+        reps.map { r -> tuple(r.meta, r.fna) },
         [],                                        // length: (disabled) max number of nucleotides per chunk
-        params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+        opts.nucleotide_fasta_chunksize,           // size: max number of sequences per chunk
     )
-    def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+    // a single chunk is emitted as a path, several as a list: transpose handles both
+    def fna_chunks = chunks.chunked_output
+        .transpose()
+        .map { meta, fasta -> record(meta: meta, fasta: fasta) }
 
     //
     // ----------- Host assignment -----------
     // IPHOP process has chunking with another fasta size
     //
 
-    HOST_DETECTION (
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        params.custom_genomes_metadata,
-        mapfile
+    hosts = HOST_DETECTION (
+        reps.map { r -> record(meta: r.meta, fna: r.fna) },
+        mapfile,
+        opts
     )
 
     //
@@ -91,31 +160,25 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // running on chunked FNA file
     //
 
-    BACPHLIP(
-        ch_fna_chunks
+    bacphlip = BACPHLIP(
+        fna_chunks
     )
 
-    CONCATENATE_BACPHLIP (
-        BACPHLIP.out.bacphlip_table.groupTuple(),
+    bacphlip_concat = CONCATENATE_BACPHLIP (
+        bacphlip.map { r -> tuple(r.meta, r.bacphlip_table) }.groupTuple(),
         1
     )
+    def bacphlip_table: Channel<LifestyleTable> = bacphlip_concat.file_out.map { meta, table -> record(meta: meta, bacphlip: table) }
 
     //
     // ----------- Taxonomy ViPhOGs and VITAP -----------
     //
 
-    TAXONOMY_ASSIGNMENT (
+    taxonomy = TAXONOMY_ASSIGNMENT (
+       reps,
+       fna_chunks,
        combined_metadata,
-       ch_fna_chunks,
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-       EXTRACT_CLUSTER_FILES.out.reps_gff,
-       params.skip_vitap,
-       params.skip_genomad,
-       params.skip_viphogs,
-       params.viphog_db,
-       params.additional_viphog_model_data,
-       params.ncbi_db,
-       params.viphogs_factor_file ? params.viphogs_factor_file: []
+       opts
     )
 
     //
@@ -123,50 +186,60 @@ workflow PROCESS_VIRAL_SEQUENCES {
     // AMR detection, hmmer annotation, protein clustering with phammseqs
     //
 
-    PROTEINS_PROCESSING(
-       EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed.join(EXTRACT_CLUSTER_FILES.out.reps_gff),
-       params.skip_amrfinderplus_for_viruses,
-       params.skip_deeparg_for_viruses,
-       params.skip_rgi_for_viruses,
-       params.skip_phammseqs,
+    proteins = PROTEINS_PROCESSING(
+       reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
+       opts.skip_amrfinderplus_for_viruses,
+       opts.skip_deeparg_for_viruses,
+       opts.skip_rgi_for_viruses,
+       opts.skip_phammseqs,
        true,
-       params.annotation_db
+       opts.annotation_db,
+       opts
     )
 
     //
     // ----------- Build final aggregated GFF -----------
     //
 
-    BUILD_FINAL_GFF (
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
-        CONCATENATE_BACPHLIP.out.file_out,
-        // optional: empty when --annotation_db is not set / all AMR tools are skipped
-        PROTEINS_PROCESSING.out.hmmer_tables.ifEmpty([[:], []]),
-        PROTEINS_PROCESSING.out.amr_gff.ifEmpty([[:], []])
+    final_gff = BUILD_FINAL_GFF (
+        reps.join(bacphlip_table, by: 'meta')
+            .join(proteins, by: 'meta')
+            .map { r ->
+                record(
+                    meta: r.meta,
+                    input_gff: r.reps_gff,
+                    bacphlip: r.bacphlip,
+                    hmmfiles: r.hmmer_tables ?: [],   // null when --annotation_db is not set
+                    additional_gff: r.amr_gff         // null when all AMR tools are skipped
+                )
+            }
     )
 
     //
     // ----------- post-processing (indexing) for website -----------
     //
 
-    INDEX_RESULTS (
-        EXTRACT_CLUSTER_FILES.out.reps_gff,
-        EXTRACT_CLUSTER_FILES.out.reps_fna_uncompressed,
-        EXTRACT_CLUSTER_FILES.out.reps_faa_uncompressed,
-        CONCATENATE_BACPHLIP.out.file_out
+    indexed = INDEX_RESULTS (
+        reps.map { r -> record(meta: r.meta, reps_gff: r.reps_gff, fna: r.fna, faa: r.faa) },
+        bacphlip_table
     )
 
+    catalogue = clusters
+        .join(reps, by: 'meta')
+        .join(final_gff, by: 'meta')
+        .join(indexed.map { r -> record(meta: r.meta, index: r) }, by: 'meta')
+        .join(taxonomy.map { r -> record(meta: r.meta, taxonomy: r) }, by: 'meta')
+        .join(hosts.map { r -> record(meta: r.meta, hosts: r) }, by: 'meta')
+        .join(proteins.map { r -> record(meta: r.meta, proteins: r) }, by: 'meta')
+        .map { r ->
+            record(
+                meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                final_gff: r.final_gff, index: r.index,
+                taxonomy: r.taxonomy, hosts: r.hosts, proteins: r.proteins
+            )
+        }
+
     emit:
-
-    clustering_tsv      = CLUSTERING.out.clusters_tsv  // [meta, tsv]
-    reps_tsv            = EXTRACT_CLUSTER_FILES.out.reps_list
-    reps_seqs           = EXTRACT_CLUSTER_FILES.out.reps_fna_compressed  // compressed
-    reps_proteins       = EXTRACT_CLUSTER_FILES.out.reps_faa_compressed  // compressed
-    vitap_best          = TAXONOMY_ASSIGNMENT.out.vitap_best
-    viphogs_assign      = TAXONOMY_ASSIGNMENT.out.viphogs_taxonomy
-    genomad_assign      = TAXONOMY_ASSIGNMENT.out.genomad_taxonomy
-    iphop_host_genome   = HOST_DETECTION.out.iphop_host_genome
-    iphop_host_genus    = HOST_DETECTION.out.iphop_host_genus
-    spacepharer_host    = HOST_DETECTION.out.spacepharer_host
-
+    catalogue: Channel<ViralCatalogue> = catalogue
 }

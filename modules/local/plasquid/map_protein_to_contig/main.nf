@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process MAP_PROTEIN_TO_CONTIG {
     /*
      * Every plasquid script needs to resolve a protein/RNA hit back to its parent
@@ -19,15 +21,28 @@ process MAP_PROTEIN_TO_CONTIG {
     container "docker://mgimenez720/plasquid:latest"
 
     input:
-    tuple val(meta), path(gff)
+    record(
+        meta: Map,
+        gff: Path
+    )
 
     output:
-    tuple val(meta), path("protein_to_contig.tsv"), emit: map
-    tuple val("${task.process}"), val('protein_to_contig_map'), val('gff-derived (awk)'), emit: versions_protein_to_contig_map, topic: versions
+    record(
+        meta: meta,
+        map: file("protein_to_contig.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'protein_to_contig_map', 'gff-derived (awk)') >> 'versions'
 
     script:
     """
     printf "protein_id\\tcontig\\n" > protein_to_contig.tsv
     awk -F'\\t' '\$3 == "CDS" { match(\$9, /ID=[^;]+/); id = substr(\$9, RSTART + 3, RLENGTH - 3); print id"\\t"\$1 }' ${gff} >> protein_to_contig.tsv
+    """
+
+    stub:
+    """
+    echo stub > protein_to_contig.tsv
     """
 }
