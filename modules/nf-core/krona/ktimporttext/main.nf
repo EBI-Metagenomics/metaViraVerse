@@ -12,7 +12,7 @@ process KRONA_KTIMPORTTEXT {
 
     output:
     tuple val(meta), path ('*.html'), emit: html
-    tuple val("${task.process}"), val('krona'), eval("echo \$(ktImportText 2>&1) | sed 's/^.*KronaTools //g; s/- ktImportText.*\$//g'"), emit: versions_krona, topic: versions
+    tuple val("${task.process}"), val('krona'), eval("ktImportText | grep -Po '(?<=KronaTools )[0-9.]+'"), topic: versions, emit: versions_krona
 
     when:
     task.ext.when == null || task.ext.when
