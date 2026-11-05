@@ -46,6 +46,14 @@
 >
 > _J Mol Biol._ 1990;215(3):403-410. doi: [10.1016/S0022-2836(05)80360-2](<https://doi.org/10.1016/S0022-2836(05)80360-2>).
 
+### VirJenDB clustering (vjdb-clustering, `--viral_clustering vjdb`)
+
+> **VirJenDB: a FAIR (meta)data and bioinformatics platform for all viruses.**
+>
+> Saghaei S, Siemers M, Ossetek KL, Richter S, Edwards RA, Roux S, Zielezinski A, Dutilh BE, Marz M, Cassman NA.
+>
+> _Nucleic Acids Res._ 2026;54(D1):D912-D924. doi: [10.1093/nar/gkaf1224](https://doi.org/10.1093/nar/gkaf1224).
+
 ## Viruses and prophages
 
 ### CheckV
