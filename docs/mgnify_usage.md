@@ -11,19 +11,20 @@ Viruses and plasmids for the viral catalogue are detected using [emg-viral-pipel
 
 VIRify+MAP use pre-defined names for viruses (**viral_sequence**), prophages (**prophage**) and plasmids (**plasmid**). Those names are used in 2 places:
 
-- Fetch [script](../scripts/collect_data_from_catalogues.py) to grep sequences of interest from MAG's GFF file.
+- Fetch scripts to grep sequences of interest from GFF files: [catalogues](../scripts/collect_data_from_catalogues.py) (MAG GFF) and [assembly analyses](../scripts/collect_data_from_analyses.py) (MAP GFF).
 - pipeline [separate_sequences](../bin/separate_sequences.py) step to split sequences into groups.
 
 Make sure those names haven't changed (check MAP). Pipeline execution can regulate those names via `--viral_sequence_identifier`, `--prophage_identifier` and `--plasmid_identifier`.
 
 > [!NOTE]
-> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far.
+> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far. Input from assembly analyses (see [Collect data from assembly analyses](#collect-data-from-assembly-analyses)) is new.
 
 ### Fetch data from MGnify genomes
 
-**Mandatory step:**
+**Mandatory step (one or both):**
 
 - Collect data from existing catalogues (this also fetches each catalogue's metadata and generates the pipeline input samplesheet)
+- Collect data from assembly analyses (this also generates the pipeline input samplesheet)
 
 **Optional step:**
 
@@ -125,6 +126,105 @@ python3 collect_data_from_catalogues.py \
 - `genomes-all_metadata.tsv` — all per-catalogue metadata files concatenated, keeping a single header row. This is the file to pass to `--catalogues_metadata` when running the pipeline.
 
 - `samplesheet.csv` — pipeline input samplesheet with one row per catalogue, following [`assets/schema_input.json`](../assets/schema_input.json). See [Input samplesheet](#input-samplesheet) below.
+
+</details>
+
+#### Collect data from assembly analyses
+
+Assembly analyses are run with the [assembly analysis pipeline](https://github.com/EBI-Metagenomics/assembly-analysis-pipeline) (ASA). Its MAP results contain `mobilome-annotation/gff/<ERZ>_user_mobilome_full.gff.gz`, where viruses, prophages and plasmids are recorded. Data are collected in 2 steps, both on a node with access to the results directories.
+
+**1. Choose analyses with MAP results**
+
+Export the analyses you want to use (for example, all analyses of a biome) from the MGnify database as a CSV. The script needs 2 of its columns:
+
+- `results_dir` — the analysis results directory (`.../<ERZ>/V6/assembly`);
+- `downloads` — JSON list of the analysis files, with paths relative to `results_dir`.
+
+Then run [`collect_mobilome_from_analyses.py`](../scripts/collect_mobilome_from_analyses.py):
+
+```commandline
+usage: collect_mobilome_from_analyses.py [-h] -i INPUT -o OUTPUT [--check-exists]
+
+Builds a TSV (id, map_gff, cds_faa, contigs_fasta) from an analyses CSV export, for the analyses
+whose downloads list a mobilome_full.gff.gz
+
+options:
+  -h, --help           show this help message and exit
+  -i, --input INPUT    Analyses CSV (with a results_dir column)
+  -o, --output OUTPUT  Output TSV
+  --check-exists       Skip analyses whose mobilome GFF is not on disk and warn about missing
+                       CDS/contigs files
+```
+
+Example:
+
+```bash
+python3 collect_mobilome_from_analyses.py \
+  -i marine_analyses.csv \
+  -o marine_mobilome.tsv \
+  --check-exists
+```
+
+An analysis is kept when its `downloads` list a `mobilome_full.gff.gz`. Analyses without `results_dir` are skipped, as paths can't be built without it, and an ERZ accession that appears more than once is written once. The output TSV has one row per analysis:
+
+| Column          | Description                                                             |
+| --------------- | ----------------------------------------------------------------------- |
+| `id`            | ERZ accession (from `results_dir`)                                      |
+| `map_gff`       | `<results_dir>/mobilome-annotation/gff/<ERZ>_user_mobilome_full.gff.gz` |
+| `cds_faa`       | `<results_dir>/cds/<ERZ>_predicted_cds.faa.gz`                          |
+| `contigs_fasta` | `<results_dir>/qc/<ERZ>_filtered_contigs.fasta.gz`                      |
+
+**2. Collect sequences**
+
+Run [`collect_data_from_analyses.py`](../scripts/collect_data_from_analyses.py) on the TSV from step 1:
+
+```commandline
+usage: collect_data_from_analyses.py [-h] -i INPUT -o OUTPUT_PATH [--biome BIOME]
+                                     [--source {genome,metagenome}]
+
+Script searches for viral records in analyses mobilome GFFs and greps corresponding nucleotide and protein sequences.
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input INPUT     TSV with columns id, map_gff, cds_faa, contigs_fasta
+  -o, --output-path OUTPUT_PATH
+                        Path to save results (filtered gff, fna, faa, samplesheet, report)
+  --biome BIOME         Biome written to the samplesheet for every analysis
+  --source {genome,metagenome}
+                        Source written to the samplesheet for every analysis
+```
+
+Example:
+
+```bash
+python3 collect_data_from_analyses.py \
+  -i marine_mobilome.tsv \
+  -o results_analyses \
+  --biome marine
+```
+
+For each analysis the script:
+
+1. Takes every `viral_sequence`, `prophage` and `plasmid` record from the MAP GFF, and the CDS records on the same contig that lie within the record's coordinates. A prophage therefore gets only its own proteins, not every protein of the contig.
+2. Cuts the record's region out of its contig in `contigs_fasta`. Contigs are matched by the first word of the FASTA header.
+3. Takes the proteins of those CDS from `cds_faa`, matched by the first word of the FASTA header (the CDS `ID=` in the GFF).
+
+<details>
+<summary>Outputs description</summary>
+
+- `<ERZ>_viral.fna` — region of each record. The header is the record's GFF ID, which the pipeline uses to match the FASTA to the GFF and to tell viruses, prophages and plasmids apart:
+
+  ```
+  >ERZ12300306_1|viral_sequence-1:26299
+  ```
+
+- `<ERZ>_viral.faa` — proteins of the selected CDS, with only the protein ID in the header (`>ERZ12300306_1_9`).
+
+- `<ERZ>_viral.gff` — each record followed by its CDS records.
+
+- `samplesheet.csv` — pipeline input samplesheet with one row per analysis, `source` `metagenome` and the `--biome` value for every row. Analyses without any record are left out. Biomes of different analyses can be edited in the file before running the pipeline.
+
+- `report.tsv` — counts per analysis: `viral_sequence`, `plasmid`, `prophage` (records in the GFF), `gff_cds` (CDS records), `fna_sequences` and `faa_proteins` (sequences written). A warning is printed when a sequence or protein in the GFF is not found in the FASTA.
 
 </details>
 
@@ -242,11 +342,12 @@ Notes:
 
 ## Input samplesheet
 
-The "Collect data from existing catalogues" step generates `samplesheet.csv` in the output directory automatically — no manual step needed. It contains one row per catalogue, following [`assets/schema_input.json`](../assets/schema_input.json):
+The "Collect data from existing catalogues" and "Collect data from assembly analyses" steps generate `samplesheet.csv` in their output directories automatically — no manual step needed. They contain one row per catalogue or analysis, following [`assets/schema_input.json`](../assets/schema_input.json). To use both, concatenate them, keeping a single header:
 
 ```csv
-id,gff,fna,faa,source,biome
-human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
+id,fna,gff,faa,source,biome
+human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
+ERZ12300306,/path/to/results_analyses/ERZ12300306_viral.fna,/path/to/results_analyses/ERZ12300306_viral.gff,/path/to/results_analyses/ERZ12300306_viral.faa,metagenome,marine
 ```
 
 | Column   | Required | Description                                                                                                  |

@@ -29,6 +29,8 @@ Third party input format:
 | `study_accession`  | No       | INSDC study accession (primary or secondary) associated with the data, kept as metadata.                                                                                                                                                                   |
 | `sample_accession` | No       | INSDC sample accession associated with the data, kept as metadata.                                                                                                                                                                                         |
 
+MGnify input is prepared with the helper scripts in `scripts/`, which take the viral, prophage and plasmid records (and their CDS) from the VIRify/MAP GFFs of MAG catalogues or of assembly analyses, together with the corresponding region of each contig and the proteins; see [MGnify docs](mgnify_usage.md#fetch-data-from-mgnify-genomes).
+
 Third-party records go through their own preparation subworkflow (annotation, gene calling where needed) before being merged with the MGnify samplesheet, so that from the pre-processing stage onward both sources are treated uniformly. A run may supply only MGnify input, only third-party input, or both together.
 
 ## Pre-processing
