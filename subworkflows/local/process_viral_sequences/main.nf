@@ -79,6 +79,7 @@ record ViralClusters {
     ani_tsv: Path?             // CheckV ANI clustering only
     ani_clusters_tsv: Path?
     vjdb_clusters_csv: Path?   // vjdb-clustering only
+    vjdb_reps_fna: Path?       // vjdb-clustering only: representatives as vjdb wrote them (input of an update)
 }
 
 record LifestyleTable {
@@ -92,6 +93,7 @@ record ViralCatalogue {
     ani_tsv: Path?             // CheckV ANI clustering only
     ani_clusters_tsv: Path?
     vjdb_clusters_csv: Path?   // vjdb-clustering only
+    vjdb_reps_fna: Path?       // vjdb-clustering only
     reps_list: Path
     fna_gz: Path               // representative sequences, compressed
     faa_gz: Path               // representative proteins, compressed
@@ -131,8 +133,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
         def viruses = samples_seqs.reduce { a, _b -> a }
         def vjdb = VJDB_CLUSTERING(record(mode: 'initial', input: viruses.map { r -> r.fna }))
 
-        clusters = VJDB_CLUSTERS_TSV(samples_seqs.map { r -> r.meta }, vjdb.clusters_csv)
-            .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: null, ani_clusters_tsv: null, vjdb_clusters_csv: r.clusters_csv) }
+        clusters = VJDB_CLUSTERS_TSV(samples_seqs.map { r -> r.meta }, vjdb.clusters_csv, vjdb.reps_fasta)
+            .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: null, ani_clusters_tsv: null, vjdb_clusters_csv: r.clusters_csv, vjdb_reps_fna: r.reps_fasta) }
     } else {
         clusters = CLUSTERING(
            samples_seqs,
@@ -141,7 +143,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
            0,
            0.95,
            opts.cluster_vclust
-        ).map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv, vjdb_clusters_csv: null) }
+        ).map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv, vjdb_clusters_csv: null, vjdb_reps_fna: null) }
     }
 
     //
@@ -261,7 +263,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
         .map { r ->
             record(
                 meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
-                vjdb_clusters_csv: r.vjdb_clusters_csv, reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                vjdb_clusters_csv: r.vjdb_clusters_csv, vjdb_reps_fna: r.vjdb_reps_fna, reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
                 final_gff: r.final_gff, index: r.index,
                 taxonomy: r.taxonomy, hosts: r.hosts, proteins: r.proteins
             )

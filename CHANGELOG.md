@@ -9,6 +9,9 @@ Initial release of EBI-Metagenomics/metaviraverse, created with the [nf-core](ht
 
 ### `Added`
 
+- `catalogue_manifest.json`: accession range, deduplication and clustering settings, software versions and the checksummed list of files that a catalogue update reads (first step towards `--mode update`).
+- With `--viral_clustering vjdb`, the vjdb representative sequences are published (`viruses/clustering/viruses_vjdb_reps.fna.gz`), the membership table is renamed to `viruses/clustering/viruses_vjdb_clusters.csv`, and the run stops if vjdb-clustering finds identical sequences that `CHOOSE_SEQUENCES` kept.
+
 ### `Fixed`
 
 ### `Dependencies`

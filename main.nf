@@ -295,6 +295,8 @@ def checkThirdPartyRow(s: ThirdPartyRow) {
     Published into `outputDir` (--outdir); see docs/output.md for the layout.
     `*_intermediates` outputs are published only with --save_intermediates.
     Null fields (skipped steps, missing optional files) are not published.
+    catalogue_manifest.json lists the publish paths of the files a later --mode update
+    reads (manifestInput() in workflows/metaviraverse.nf): keep the two in sync.
 */
 
 output {
@@ -345,8 +347,10 @@ output {
             // CheckV ANI clustering (--cluster_vclust false)
             r.ani_tsv >> "${r.meta.id}/clustering/"
             r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
-            // vjdb-clustering membership table (--viral_clustering vjdb)
-            r.vjdb_clusters_csv >> "${r.meta.id}/clustering/"
+            // vjdb-clustering membership table and representatives (--viral_clustering vjdb);
+            // the input of a later --mode update, listed in catalogue_manifest.json
+            r.vjdb_clusters_csv >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_clusters.csv"
+            r.vjdb_reps_fna >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_reps.fna.gz"
 
             r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
             r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"
@@ -486,6 +490,7 @@ output {
     summary: Channel<CatalogueSummary> {
         path { r ->
             r.catalogue_json >> "./"
+            r.catalogue_manifest >> "./"
             r.viruses_metadata >> "viruses/"
             r.viruses_cluster_stats >> "viruses/"
             r.plasmids_metadata >> "plasmids/"

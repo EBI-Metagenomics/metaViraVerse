@@ -4,6 +4,7 @@ Unit tests for choose_sequences.py
 """
 
 import csv
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -530,6 +531,59 @@ class TestMainIntegration(unittest.TestCase):
         # barley2 loses its dedup to barley17 (same sequence, higher priority) so it
         # never appears as its own row -- barley6 is a genuine, non-duplicated record
         self.assertEqual(by_id["barley6"], "No")
+
+
+class TestNoDuplicatesLeftForVjdb(unittest.TestCase):
+    """The chosen viruses and prophages go to vjdb-clustering, which hashes each
+    sequence as written (md5, case-sensitive) and reports copies (copy_of !=
+    vjdb_id; in update mode the statuses new_copy / existing_copy). The
+    sha256(upper().strip()) dedup here is coarser, so vjdb must find no copies.
+    """
+
+    SEQS = {
+        "virus": [("v1", "ACGTACGTAA"), ("v2", "acgtacgtaa"), ("v3", "GGGCCCAAAT")],
+        "prophage": [("p1", "AcGtAcGtAa"), ("p2", "TTTTGGGGCC")],
+        "plasmid": [("q1", "ACGTACGTAA"), ("q2", "gggcccaaat")],
+    }
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        category_fastas = []
+        for category, records in self.SEQS.items():
+            path = Path(self._tmp.name) / f"{category}.fasta"
+            path.write_text("".join(f">{sid}\n{seq}\n" for sid, seq in records))
+            category_fastas.append((category, str(path)))
+        self.seen, self.duplicates = cs.choose_seqs(category_fastas, {}, rna_sequences=set(), quality_data={})
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    @staticmethod
+    def vjdb_hash(seq):
+        # pipelines/vjdb-clustering: 1_prepare_clustering.py and 5_prepare_update.py
+        return hashlib.md5(seq.encode()).hexdigest()
+
+    def test_case_variants_are_one_sequence(self):
+        self.assertEqual(len(self.seen), 3)
+        self.assertEqual(len(self.duplicates), 4)
+
+    def test_vjdb_finds_no_copies(self):
+        hashes = [self.vjdb_hash(str(e["record"].seq)) for e in self.seen.values()]
+        self.assertEqual(len(hashes), len(set(hashes)))
+
+    def test_vjdb_finds_no_copies_among_viruses_and_prophages(self):
+        viral = [e for e in self.seen.values() if e["category"] in ("virus", "prophage")]
+        hashes = [self.vjdb_hash(str(e["record"].seq)) for e in viral]
+        self.assertEqual(len(hashes), len(set(hashes)))
+
+    def test_every_raw_copy_is_also_a_sha256_copy(self):
+        # md5(raw) equal => sha256(upper) equal, so no pair can pass here and fail in vjdb
+        for records in self.SEQS.values():
+            for _a, seq_a in records:
+                for other in self.SEQS.values():
+                    for _b, seq_b in other:
+                        if self.vjdb_hash(seq_a) == self.vjdb_hash(seq_b):
+                            self.assertEqual(cs.seq_hash(seq_a), cs.seq_hash(seq_b))
 
 
 if __name__ == "__main__":
