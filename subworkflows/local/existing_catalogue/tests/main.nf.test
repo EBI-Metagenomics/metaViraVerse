@@ -1,0 +1,105 @@
+// tests/data/catalogue: a two-virus catalogue (the sequences of process_viral_sequences/tests/data)
+// with its catalogue_manifest.json written by bin/write_catalogue_manifest.py.
+// tests/data/catalogue_tampered: the same, with viruses_vjdb_clusters.csv changed after the manifest was written.
+nextflow_workflow {
+
+    name "Test Subworkflow LOAD_EXISTING_CATALOGUE"
+    script "../main.nf"
+    workflow "LOAD_EXISTING_CATALOGUE"
+
+    tag "subworkflows"
+    tag "existing_catalogue"
+
+    test("catalogue matches its manifest") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
+                input[1] = 'MGYV'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks()*.name == ['LOAD_EXISTING_CATALOGUE:CHECK_EXISTING_CATALOGUE'] },
+                // the ExistingCatalogue record
+                { assert workflow.out[0][0].accession_prefix == 'MGYV' },
+                { assert workflow.out[0][0].last_accession == 2 },
+                { assert workflow.out[0][0].zero_padded_digits == 10 },
+                { assert workflow.out[0][0].manifest_files.size() == 9 },
+                { assert file(workflow.out[0][0].vjdb_clusters_csv).name == 'viruses_vjdb_clusters.csv' },
+                { assert file(workflow.out[0][0].vjdb_reps_fna).name == 'viruses_vjdb_reps.fna.gz' },
+                { assert workflow.out[0][0].genomad == null },          // skipped steps are not in the manifest
+                { assert workflow.out[0][0].hmmer_tables == [] },
+                { assert path(workflow.out[0][0].check_report).json.status == 'ok' },
+                { assert path(workflow.out[0][0].check_report).json.accessions.last == 2 }
+            )
+        }
+    }
+
+    test("stub - catalogue matches its manifest") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
+                input[1] = 'MGYV'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks()*.name == ['LOAD_EXISTING_CATALOGUE:CHECK_EXISTING_CATALOGUE'] }
+            )
+        }
+    }
+
+    test("file changed after the manifest was written - fails") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue_tampered", checkIfExists: true)
+                input[1] = 'MGYV'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.failed },
+                // errorStrategy 'terminate' (conf/modules.config): no retries
+                { assert workflow.trace.failed().size() == 1 },
+                { assert workflow.stdout.any { line -> line.contains('does not match its manifest') } },
+                { assert workflow.stdout.any { line -> line.contains('viruses.vjdb_clusters_csv') } }
+            )
+        }
+    }
+
+    test("other accession prefix - fails before any task") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
+                input[1] = 'seq'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.trace.tasks().size() == 0 },
+                { assert workflow.stdout.any { line -> line.contains("uses the accession prefix 'MGYV'") } }
+            )
+        }
+    }
+}
