@@ -37,9 +37,14 @@ def main() -> None:
     args = parse_arguments()
     csv.field_size_limit(sys.maxsize)  # the downloads/metadata JSON columns are large
 
-    kept = no_mobilome = no_results_dir = missing_file = 0
+    kept = no_mobilome = no_results_dir = missing_file = ext_res_dir_exists = 0
     seen = set()
-    with open(args.input, newline="") as fin, open(args.output, "w", newline="") as fout:
+    with open(args.input, newline="") as fin, \
+            open(args.output, "w", newline="") as fout, \
+            open('no_mobilome.tsv', 'w', newline="") as fmob, \
+            open('analyses_metadata.tsv', 'w', newline="") as fmetadata:
+        fmob.write('id\tresults_dir\texternal_results_dir\n')
+        fmetadata.write('\t'.join(['accession','study_id', 'sample_id', 'biome_id']) + '\n')
         writer = csv.writer(fout, delimiter="\t", lineterminator="\n")
         writer.writerow(["id", "map_gff", "cds_faa", "contigs_fasta"])
         for row in csv.DictReader(fin):
@@ -47,10 +52,14 @@ def main() -> None:
             files = [find_download(paths, suffix) for suffix in (MOBILOME_GFF, CDS_FAA, CONTIGS_FASTA)]
             if files[0] is None:
                 no_mobilome += 1
+                fmob.write(row["id"] + '\t' + row["results_dir"] + '\t' + row["external_results_dir"] + '\n')
                 continue
             results_dir = row["results_dir"].strip().rstrip("/")
+            ext_results_dir = row["external_results_dir"].strip().rstrip("/")
             if not results_dir:
                 no_results_dir += 1
+                if ext_results_dir:
+                    ext_res_dir_exists += 1
                 continue
             # results_dir ends with .../<ERZ accession>/V6/assembly
             acc = results_dir.split("/")[-3]
@@ -70,12 +79,15 @@ def main() -> None:
                     if not os.path.isfile(path):
                         print(f"WARNING: {acc}: {path} does not exist", file=sys.stderr)
             writer.writerow([acc, map_gff.replace('full', 'clean'), cds_faa, contigs_fasta])
+            study_accessions = row.get('ena_accessions', 'NA').replace('}', '').replace('{', '').split(',')
+            primary_study = next((x for x in study_accessions if x.startswith("PRJ")), study_accessions[0])
+            fmetadata.write('\t'.join([acc, primary_study, row.get('sample_id', 'NA'), row.get('biome_id', 'NA')]) + '\n')
             seen.add(acc)
             kept += 1
 
     print(
         f"{kept} assemblies written; skipped {no_mobilome} rows without a mobilome GFF in downloads, "
-        f"{no_results_dir} without results_dir and {missing_file} with missing files",
+        f"{no_results_dir} without results_dir (external_result_dir exists for {ext_res_dir_exists}) and {missing_file} with missing files",
         file=sys.stderr,
     )
 
