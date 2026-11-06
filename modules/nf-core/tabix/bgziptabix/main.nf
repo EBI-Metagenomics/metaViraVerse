@@ -12,7 +12,7 @@ process TABIX_BGZIPTABIX {
 
     output:
     tuple val(meta), path("*.gz"), path("*.{tbi,csi}"), emit: gz_index
-    tuple val("${task.process}"), val('tabix'), eval("tabix -h 2>&1 | grep -oP 'Version:\\s*\\K[^\\s]+'")   , topic: versions   , emit: versions_tabix
+    tuple val("${task.process}"), val('tabix'), eval("tabix -h 2>&1 | sed -n 's/^Version:[[:space:]]*\\([^[:space:]]*\\).*/\\1/p'")   , topic: versions   , emit: versions_tabix
     tuple val("${task.process}"), val('bgzip'), eval("bgzip --version | sed '1!d;s/.* //'"), topic: versions, emit: versions_bgzip
 
     when:
