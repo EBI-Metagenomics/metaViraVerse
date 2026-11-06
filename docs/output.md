@@ -252,6 +252,12 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 
 - `update/` (`--mode update` only)
   - `existing_catalogue_check.json`: result of checking the existing catalogue (`--existing_catalogue`) against its `catalogue_manifest.json`: status, SHA-256 of the manifest, the existing catalogue's `catalogue` and `accessions` fields, and the number of files checked.
+- `viruses/clustering/` (`--mode update`): `viruses_vjdb_clusters.csv` and `viruses_vjdb_reps.fna.gz` cover the whole updated catalogue (existing and new sequences).
+- `viruses/clustering/update/` (`--mode update` only)
+  - `viruses_new_sequences_clusters.csv`: every new viral sequence with its vjdb status (`new_unique` for every sequence, since identical sequences were removed before) and the cluster it joined (`cluster_rep`).
+  - `viruses_cluster_events.tsv`: one row per cluster the update changed: `cluster_rep`, `event` (`new`: only new sequences; `grown`: an existing cluster with new members; `merged`: existing clusters joined, `cluster_rep` is the representative kept), `old_cluster_reps` (`;`-separated existing representatives in the cluster), `n_existing` and `n_new` (members).
+
+With `--mode update`, `viruses/cluster_representatives/` and the viral annotations cover only the representatives of the new clusters, and the plasmid outputs only the new plasmids; merging them with the existing catalogue's annotations is not implemented yet, so `catalogue_manifest.json` of an updated catalogue has `update_ready: false`. In `viruses-cluster-stats.tsv.gz`, clusters with an existing representative have `missing` for its per-representative fields.
 
 </details>
 

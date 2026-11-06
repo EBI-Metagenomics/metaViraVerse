@@ -208,6 +208,9 @@ class TestMain(InTempDir):
         self.assertEqual(manifest["catalogue"]["mode"], "update")
         self.assertEqual(manifest["catalogue"]["parent"]["manifest_sha256"], "abc")
         self.assertEqual(manifest["catalogue"]["parent"]["pipeline_version"], "1.0.0")
+        # annotations are not merged yet: an updated catalogue cannot be updated again
+        self.assertFalse(manifest["viral_clustering"]["update_ready"])
+        self.assertIn("not merged", manifest["viral_clustering"]["not_update_ready_reason"])
 
     def test_update_without_parent_fails(self):
         self.extra = ["--mode", "update"]

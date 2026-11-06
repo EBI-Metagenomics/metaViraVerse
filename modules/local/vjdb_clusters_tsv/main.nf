@@ -2,13 +2,13 @@ nextflow.enable.types = true
 
 /*
  * Convert the vjdb-clustering membership CSV (vjdb_id, copy_of, ..., cluster_rep) to the
- * vclust cluster TSV (object, cluster) that the downstream steps read.
+ * vclust cluster TSV (object, cluster) that the downstream steps read (bin/vjdb_clusters_tsv.py).
  *
- * CHOOSE_SEQUENCES has already removed identical sequences (sha256 of the upper-cased
- * sequence), which is stricter than the case-sensitive md5 vjdb-clustering uses. So vjdb
- * must find no copies: every row has copy_of == vjdb_id. A copy here means the two hashes
- * disagree, and a later update (which reads seq_hash from this CSV) would see it too, so
- * the step fails instead of passing it on.
+ * With the cluster events of a vjdb update, also lists the clusters to annotate (only the
+ * new clusters: grown and merged clusters keep an old, already annotated representative)
+ * and the old representatives dropped by merges. Without events every cluster is annotated.
+ *
+ * Fails when vjdb found identical sequences: CHOOSE_SEQUENCES must have removed them.
 */
 process VJDB_CLUSTERS_TSV {
 
@@ -23,43 +23,31 @@ process VJDB_CLUSTERS_TSV {
     meta: Map
     clusters_csv: Path
     reps_fasta: Path
+    events: Path?          // cluster_events.tsv of a vjdb update; null for the initial clustering
 
     output:
     record(
         meta: meta,
         clusters_tsv: file("${meta.id}_clusters.tsv"),
+        annotate_tsv: file("${meta.id}_clusters_to_annotate.tsv"),
+        dropped_reps: file("${meta.id}_dropped_reps.txt"),
         clusters_csv: clusters_csv,
         reps_fasta: reps_fasta
     )
 
     script:
+    def events_arg = events ? "--events ${events}" : ''
     """
-    awk -F',' -v OFS='\\t' '
-        NR == 1 {
-            for (i = 1; i <= NF; i++) col[\$i] = i
-            if (!("vjdb_id" in col) || !("copy_of" in col) || !("cluster_rep" in col)) {
-                print "ERROR: ${clusters_csv} needs the columns vjdb_id, copy_of and cluster_rep" > "/dev/stderr"
-                exit 1
-            }
-            print "object", "cluster"
-            next
-        }
-        \$col["copy_of"] != \$col["vjdb_id"] {
-            copies++
-            if (copies <= 10) examples = examples " " \$col["vjdb_id"] "=" \$col["copy_of"]
-        }
-        { print \$col["vjdb_id"], \$col["cluster_rep"] }
-        END {
-            if (copies > 0) {
-                print "ERROR: vjdb-clustering found " copies " identical sequence(s) that CHOOSE_SEQUENCES kept, e.g." examples > "/dev/stderr"
-                exit 1
-            }
-        }
-    ' ${clusters_csv} > ${meta.id}_clusters.tsv
+    vjdb_clusters_tsv.py \\
+        --clusters-csv ${clusters_csv} \\
+        --prefix ${meta.id} \\
+        ${events_arg}
     """
 
     stub:
     """
     printf "object\\tcluster\\n" > ${meta.id}_clusters.tsv
+    printf "object\\tcluster\\n" > ${meta.id}_clusters_to_annotate.tsv
+    touch ${meta.id}_dropped_reps.txt
     """
 }

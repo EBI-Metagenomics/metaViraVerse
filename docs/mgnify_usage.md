@@ -304,7 +304,9 @@ nextflow run main.nf \
 - Sequences the existing catalogue already has (same upper-cased sequence, under any name) keep their existing ID and record; they are listed in `catalogue_excluded_records_metadata.tsv` with reason `in_existing_catalogue`, and their biomes are added to the existing record.
 - `rename_mapfile.tsv`, `catalogue_filtered_metadata.tsv` and `catalogue_excluded_records_metadata.tsv` cover the whole catalogue (existing rows, then new ones), so the result can be updated again.
 
-Not implemented yet: the new sequences are not clustered with the existing catalogue, so viruses, plasmids and their annotations in the output cover only the new sequences. `catalogue_manifest.json` records the existing catalogue as its parent.
+- New viruses are clustered with the representatives of the existing catalogue (vjdb-clustering update). Existing cluster IDs stay stable; `viruses/clustering/update/viruses_cluster_events.tsv` lists the clusters that are new, grew or were merged. Only the representatives of new clusters are annotated.
+
+Not implemented yet: the annotations of the new clusters are not merged with those of the existing catalogue, and plasmids are not clustered with the existing plasmids, so annotation outputs and plasmids cover only this run's new sequences. An updated catalogue therefore cannot be updated again (`update_ready: false` in its `catalogue_manifest.json`, which records the existing catalogue as its parent).
 
 ## Outputs
 

@@ -118,6 +118,7 @@ workflow METAVIRAVERSE {
        preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
        preprocessed.map { r -> r.filtered_metadata },
        preprocessed.map { r -> r.map_file },
+       existing,
        viral_opts
     )
 
@@ -177,7 +178,8 @@ workflow METAVIRAVERSE {
                 vitap_best: r.viral.taxonomy.vitap_best,
                 viphogs_taxonomy: r.viral.taxonomy.viphogs,
                 genomad: r.viral.taxonomy.genomad,
-                map_file: r.preprocessed.map_file,
+                // whole catalogue: with --mode update the viral cluster representatives can be old sequences
+                map_file: r.preprocessed.catalogue_map,
                 iphop_genome: r.viral.hosts.iphop_genome,
                 iphop_genus: r.viral.hosts.iphop_genus,
                 spacepharer: r.viral.hosts.spacepharer

@@ -307,10 +307,11 @@ def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String,
     if( start_accession != 1 || end_accession != 1 )
         log.warn("--mode update: --start_accession and --end_accession are ignored; new accessions continue after the last one of the existing catalogue")
     log.warn(
-        "--mode update is in development: new sequences are numbered after the existing catalogue and " +
-        "sequences it already has are left out, but they are not yet clustered with it. Viruses, plasmids " +
-        "and their annotations in the output cover only the new sequences; the rename map and the catalogue " +
-        "metadata tables in additional_data/ cover the whole catalogue."
+        "--mode update is in development: new sequences are numbered after the existing catalogue, sequences " +
+        "it already has are left out, and new viruses are clustered with its representatives, but only the " +
+        "new viral clusters are annotated and the annotations are not yet merged with the existing ones. " +
+        "Plasmids cover only the new sequences. The rename map, the catalogue metadata tables in " +
+        "additional_data/ and the viral clusters cover the whole catalogue. The result cannot be updated again."
     )
 }
 
@@ -400,6 +401,9 @@ output {
             // the input of a later --mode update, listed in catalogue_manifest.json
             r.vjdb_clusters_csv >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_clusters.csv"
             r.vjdb_reps_fna >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_reps.fna.gz"
+            // --mode update: what the update did to the clusters
+            r.vjdb_new_clusters >> "${r.meta.id}/clustering/update/${r.meta.id}_new_sequences_clusters.csv"
+            r.vjdb_cluster_events >> "${r.meta.id}/clustering/update/${r.meta.id}_cluster_events.tsv"
 
             r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
             r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"
