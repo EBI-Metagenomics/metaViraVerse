@@ -100,6 +100,7 @@ workflow METAVIRAVERSE {
     preprocessed = PREPROCESSING (
        samples,
        third_party,
+       existing,
        preprocessing_opts
     )
 
@@ -333,9 +334,9 @@ def manifestInput(v: ViralCatalogue, p: Preprocessed, viruses_metadata: Path, vi
     def reps = "${vdir}/cluster_representatives"
     def entries = [
         // whole catalogue
-        manifestFile('rename_map', 'additional_data/rename_mapfile.tsv', p.map_file),
-        manifestFile('catalogue_metadata', 'additional_data/catalogue_filtered_metadata.tsv', p.metadata),
-        manifestFile('excluded_metadata', 'additional_data/catalogue_excluded_records_metadata.tsv', p.excluded_metadata),
+        manifestFile('rename_map', 'additional_data/rename_mapfile.tsv', p.catalogue_map),
+        manifestFile('catalogue_metadata', 'additional_data/catalogue_filtered_metadata.tsv', p.catalogue_metadata),
+        manifestFile('excluded_metadata', 'additional_data/catalogue_excluded_records_metadata.tsv', p.catalogue_excluded),
         manifestFile('software_versions', 'pipeline_info/', versions),
         // viruses
         manifestFile('viruses.metadata', 'viruses/', viruses_metadata),

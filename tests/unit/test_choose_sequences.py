@@ -5,6 +5,7 @@ Unit tests for choose_sequences.py
 
 import csv
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -531,6 +532,151 @@ class TestMainIntegration(unittest.TestCase):
         # barley2 loses its dedup to barley17 (same sequence, higher priority) so it
         # never appears as its own row -- barley6 is a genuine, non-duplicated record
         self.assertEqual(by_id["barley6"], "No")
+
+
+class TestMainUpdate(unittest.TestCase):
+    """--existing-metadata/--existing-excluded/--existing-map (--mode update).
+
+    The existing catalogue holds one sequence, OLD5, whose sequence is barley5's
+    in lower case (barley12 is a third-party copy of barley5). Both new records
+    must be excluded as 'in_existing_catalogue', and OLD5 must keep its ID and
+    gain their biomes.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.prefix = str(self.dir / "test")
+        barley5 = next(r for r in cs.SeqIO.parse(str(FIXTURES / "viruses.fasta"), "fasta") if r.id == "barley5")
+        self.barley5_seq = str(barley5.seq)
+        header = cs.metadata_header()
+        n_quality = len(cs.QUALITY_COLUMNS)
+        old_row = ["OLD5", "x", "x", "genome", "NA", "ocean", str(len(self.barley5_seq)), "No",
+                   cs.seq_hash(self.barley5_seq.lower())] + ["NA"] * n_quality + ["virus"]
+        self.existing_metadata = self.dir / "existing_metadata.tsv"
+        self.existing_metadata.write_text(header + "\t".join(old_row) + "\n")
+        self.existing_excluded = self.dir / "existing_excluded.tsv"
+        self.existing_excluded.write_text(f"filter_reason\t{header}" + "\t".join(["rrna"] + ["OLD9"] + old_row[1:]) + "\n")
+        self.existing_map = self.dir / "existing_map.tsv"
+        self.existing_map.write_text("original\ttemporary\tshort\tbiome\ttype\tdefinition\n"
+                                     "x\tOLD5\tx\tocean\tgenome\tvirus\nz\tOLD9\tz\tocean\tgenome\tvirus\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, existing=True, extra=None):
+        argv = [
+            "choose_sequences.py",
+            "--viruses",       str(FIXTURES / "viruses.fasta"),
+            "--viruses-gff",   str(FIXTURES / "viruses.gff"),
+            "--viruses-faa",   str(FIXTURES / "viruses.faa"),
+            "--prophages",     str(FIXTURES / "prophages.fasta"),
+            "--prophages-gff", str(FIXTURES / "prophages.gff"),
+            "--prophages-faa", str(FIXTURES / "prophages.faa"),
+            "--plasmids",      str(FIXTURES / "plasmids.fasta"),
+            "--plasmids-gff",  str(FIXTURES / "plasmids.gff"),
+            "--plasmids-faa",  str(FIXTURES / "plasmids.faa"),
+            "--map",           str(FIXTURES / "barley10.map.tsv"),
+            "--output-prefix", self.prefix,
+        ]
+        if existing:
+            argv += [
+                "--existing-metadata", str(self.existing_metadata),
+                "--existing-excluded", str(self.existing_excluded),
+                "--existing-map", str(self.existing_map),
+            ]
+        sys.argv = argv + (extra or [])
+        cs.main()
+
+    def _rows(self, suffix):
+        with open(self.prefix + suffix) as f:
+            return list(csv.reader(f, delimiter="\t"))
+
+    def _fasta_ids(self, suffix):
+        with open(self.prefix + suffix) as f:
+            return {l.strip().lstrip(">").split("|")[0] for l in f if l.startswith(">")}
+
+    def test_new_catalogue_tables_equal_run_tables(self):
+        self._run(existing=False)
+        self.assertEqual(self._rows("_catalogue_metadata.tsv"), self._rows("_metadata.tsv"))
+        self.assertEqual(self._rows("_catalogue_excluded.tsv"), self._rows("_excluded.tsv"))
+        with open(FIXTURES / "barley10.map.tsv") as f:
+            self.assertEqual(self._rows("_catalogue_map.tsv"), list(csv.reader(f, delimiter="\t")))
+
+    def test_sequence_in_existing_catalogue_is_not_new(self):
+        self._run()
+        ids = self._fasta_ids("_filtered.fna")
+        self.assertNotIn("barley5", ids)
+        self.assertNotIn("barley12", ids)
+
+    def test_in_existing_catalogue_reason(self):
+        self._run()
+        reasons = {r[1]: r[0] for r in self._rows("_excluded.tsv")[1:]}
+        self.assertEqual(reasons["barley5"], cs.IN_EXISTING_CATALOGUE)
+        self.assertEqual(reasons["barley12"], cs.IN_EXISTING_CATALOGUE)
+        self.assertEqual(reasons["barley2"], "duplicate")   # duplicates among new records stay 'duplicate'
+
+    def test_existing_record_keeps_id_and_gains_biomes(self):
+        self._run()
+        rows = self._rows("_catalogue_metadata.tsv")
+        header = rows[0]
+        self.assertEqual(rows[1][0], "OLD5")
+        self.assertEqual(rows[1][header.index("biomes")], "desert,ocean,rhizosphere")
+
+    def test_catalogue_metadata_is_existing_then_new(self):
+        self._run()
+        new_ids = [r[0] for r in self._rows("_metadata.tsv")[1:]]
+        self.assertEqual([r[0] for r in self._rows("_catalogue_metadata.tsv")[1:]], ["OLD5"] + new_ids)
+        self.assertNotIn("barley5", new_ids)
+
+    def test_catalogue_excluded_and_map_are_existing_then_new(self):
+        self._run()
+        excluded = self._rows("_catalogue_excluded.tsv")
+        self.assertEqual(excluded[1][1], "OLD9")
+        self.assertEqual(len(excluded), 1 + 1 + len(self._rows("_excluded.tsv")[1:]))
+        mapping = [r[1] for r in self._rows("_catalogue_map.tsv")[1:]]
+        self.assertEqual(mapping[:2], ["OLD5", "OLD9"])
+        self.assertIn("barley5", mapping)   # its number is used, the record is excluded
+
+    def test_stats_count_existing_records(self):
+        self._run()
+        with open(self.prefix + "_stats.json") as f:
+            self.assertEqual(json.load(f)["number_of_records_in_existing_catalogue"], 2)
+
+    def test_reused_accession_fails(self):
+        self.existing_map.write_text("original\ttemporary\tshort\tbiome\ttype\tdefinition\n"
+                                     "x\tbarley3\tx\tocean\tgenome\tvirus\n")
+        with self.assertRaises(SystemExit):
+            self._run()
+
+    def test_other_metadata_columns_fail(self):
+        self.existing_metadata.write_text("sequence_id\tsequence_sha256\nOLD5\tabc\n")
+        with self.assertRaises(SystemExit):
+            self._run()
+
+    def test_repeated_hash_in_existing_metadata_fails(self):
+        text = self.existing_metadata.read_text()
+        self.existing_metadata.write_text(text + text.splitlines(keepends=True)[1])
+        with self.assertRaises(SystemExit):
+            self._run()
+
+    def test_gzipped_existing_tables(self):
+        import gzip
+        gz = self.dir / "existing_metadata.tsv.gz"
+        with gzip.open(gz, "wt") as f:
+            f.write(self.existing_metadata.read_text())
+        self.existing_metadata = gz
+        self._run()
+        self.assertEqual(self._rows("_catalogue_metadata.tsv")[1][0], "OLD5")
+
+    def test_vjdb_finds_no_copy_of_existing_sequence(self):
+        # what goes to vjdb (viruses + prophages) has no md5 copy of the existing sequence,
+        # in any letter case
+        self._run()
+        existing_md5 = {hashlib.md5(v.encode()).hexdigest() for v in (self.barley5_seq, self.barley5_seq.lower())}
+        for suffix in ("_virus_filtered.fna", "_prophage_filtered.fna"):
+            for record in cs.SeqIO.parse(self.prefix + suffix, "fasta"):
+                self.assertNotIn(hashlib.md5(str(record.seq).encode()).hexdigest(), existing_md5)
 
 
 class TestNoDuplicatesLeftForVjdb(unittest.TestCase):

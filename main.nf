@@ -240,7 +240,7 @@ workflow {
     //
     // --mode update: read and check the existing catalogue
     //
-    checkMode(params.mode, params.existing_catalogue, params.viral_clustering, params.outdir)
+    checkMode(params.mode, params.existing_catalogue, params.viral_clustering, params.outdir, params.start_accession, params.end_accession)
     def existing: Value<ExistingCatalogue?> = channel.value(null)
     if( params.mode == 'update' ) {
         existing = LOAD_EXISTING_CATALOGUE(params.existing_catalogue, params.rename_accession)
@@ -287,7 +287,7 @@ workflow {
 */
 
 // --mode and the params it needs
-def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String, outdir: String) {
+def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String, outdir: String, start_accession: Integer, end_accession: Integer) {
     if( !(mode in ['generate', 'update']) )
         error("--mode must be 'generate' or 'update', got '${mode}'")
     if( mode == 'generate' ) {
@@ -304,10 +304,13 @@ def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String,
     // file() gives an absolute, normalised path
     if( ("${file(outdir)}" as String) == ("${file("${existing_catalogue}")}" as String) )
         error("--outdir must differ from --existing_catalogue: an update writes a new catalogue and leaves the existing one as it is")
+    if( start_accession != 1 || end_accession != 1 )
+        log.warn("--mode update: --start_accession and --end_accession are ignored; new accessions continue after the last one of the existing catalogue")
     log.warn(
-        "--mode update is in development: the existing catalogue is read and checked, but new sequences " +
-        "are not yet deduplicated against it, numbered after it or clustered with it. The output is a new, " +
-        "separate catalogue of the input sequences."
+        "--mode update is in development: new sequences are numbered after the existing catalogue and " +
+        "sequences it already has are left out, but they are not yet clustered with it. Viruses, plasmids " +
+        "and their annotations in the output cover only the new sequences; the rename map and the catalogue " +
+        "metadata tables in additional_data/ cover the whole catalogue."
     )
 }
 
@@ -348,9 +351,10 @@ output {
     // rename map, catalogue metadata tables and the chosen sequences (before clustering)
     preprocessed: Preprocessed {
         path { r ->
-            r.map_file >> "additional_data/rename_mapfile.tsv"
-            r.excluded_metadata >> "additional_data/catalogue_excluded_records_metadata.tsv"
-            r.metadata >> "additional_data/catalogue_filtered_metadata.tsv"
+            // whole catalogue: with --mode update the existing catalogue's rows, then this run's
+            r.catalogue_map >> "additional_data/rename_mapfile.tsv"
+            r.catalogue_excluded >> "additional_data/catalogue_excluded_records_metadata.tsv"
+            r.catalogue_metadata >> "additional_data/catalogue_filtered_metadata.tsv"
             r.virus_gz.fna >> "viruses/viral_sequences.fna.gz"
             r.virus_gz.gff >> "viruses/viral_sequences.gff.gz"
             r.virus_gz.faa >> "viruses/viral_sequences.faa.gz"

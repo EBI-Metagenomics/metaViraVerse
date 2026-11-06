@@ -264,8 +264,10 @@ Intermediate files produced while the inputs (from the samplesheet and, optional
 
 - `additional_data/`
   - `rename_mapfile.tsv`: mapping between the original sequence names and the identifiers assigned by the pipeline.
-  - `catalogue_filtered_metadata.tsv`: metadata for all sequences that passed QC filtering.
-  - `catalogue_excluded_records_metadata.tsv`: records excluded for low quality, with the reason for exclusion.
+  - `catalogue_filtered_metadata.tsv`: metadata for every unique sequence (including those excluded by the quality filter, without duplicates).
+  - `catalogue_excluded_records_metadata.tsv`: excluded records with the reason (`filter_reason`): the quality filters, `duplicate` (another copy was kept) or, with `--mode update`, `in_existing_catalogue` (the existing catalogue already has the sequence, which keeps its ID).
+
+  With `--mode update` these three tables cover the whole catalogue: the existing catalogue's rows (with biomes of new copies added), then this run's rows.
   - `rename_contigs/`: input FASTA and GFF files combined across all samples, with unique catalogue-wide identifiers (`combined.fna`, `combined.gff`), and the mapping back to the original sequence names, biomes and types (`combined.tsv`).
   - `rename/` [`--save_intermediates`]: renamed `*.fna`, `*.faa` and `*.gff` files.
   - `viruses_checkv_report.tsv` [`--save_intermediates`]: [CheckV](https://bitbucket.org/berkeleylab/checkv) quality assessment for each sequence: completeness, contamination, provirus status and quality tier.

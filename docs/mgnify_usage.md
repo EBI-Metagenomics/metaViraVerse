@@ -300,7 +300,11 @@ nextflow run main.nf \
 - `--outdir` must be a new directory: the existing catalogue is only read, never changed.
 - Before anything else uses it, every file the manifest lists is checked for its size and SHA-256 (`update/existing_catalogue_check.json`); a missing or changed file stops the run.
 
-So far only reading and checking the existing catalogue is implemented. New sequences are not yet deduplicated against it, numbered after it or clustered with it, so the output is still a separate catalogue of the input sequences; its `catalogue_manifest.json` records the existing catalogue as its parent.
+- New accessions continue after the last one of the existing catalogue; `--start_accession` and `--end_accession` are ignored.
+- Sequences the existing catalogue already has (same upper-cased sequence, under any name) keep their existing ID and record; they are listed in `catalogue_excluded_records_metadata.tsv` with reason `in_existing_catalogue`, and their biomes are added to the existing record.
+- `rename_mapfile.tsv`, `catalogue_filtered_metadata.tsv` and `catalogue_excluded_records_metadata.tsv` cover the whole catalogue (existing rows, then new ones), so the result can be updated again.
+
+Not implemented yet: the new sequences are not clustered with the existing catalogue, so viruses, plasmids and their annotations in the output cover only the new sequences. `catalogue_manifest.json` records the existing catalogue as its parent.
 
 ## Outputs
 

@@ -25,6 +25,10 @@ process CHOOSE_SEQUENCES {
     plasmid: Sequences
     quality: Path?   // CheckV quality summary, null when --skip_checkv
     rna_gff: Path?   // barrnap GFF, null when --skip_rrna_detection
+    // --mode update: tables of the existing catalogue (null for a new catalogue)
+    existing_metadata: Path?   // every sequence of the existing catalogue, with sequence_sha256
+    existing_excluded: Path?
+    existing_map: Path?
 
     // the rename map and the concatenated CheckV table are both named combined.tsv
     stage:
@@ -48,7 +52,11 @@ process CHOOSE_SEQUENCES {
         plasmid_fna: file("${meta.id}_plasmid_filtered.fna"),
         plasmid_gff: file("${meta.id}_plasmid_filtered.gff"),
         plasmid_faa: file("${meta.id}_plasmid_filtered.faa"),
-        stats: file("${meta.id}_stats.json")
+        stats: file("${meta.id}_stats.json"),
+        // whole catalogue: the existing catalogue's rows, then this run's (this run's only for a new catalogue)
+        catalogue_metadata: file("${meta.id}_catalogue_metadata.tsv"),
+        catalogue_excluded: file("${meta.id}_catalogue_excluded.tsv"),
+        catalogue_map: file("${meta.id}_catalogue_map.tsv")
     )
 
     topic:
@@ -64,6 +72,9 @@ process CHOOSE_SEQUENCES {
     def rrna_arg    = rna_gff ? "--rrna ${rna_gff}"       : ""
     def quality_arg = quality ? "--quality ${quality}"    : ""
     def mapping_arg = "--map mapping.tsv"
+    def existing_metadata_arg = existing_metadata ? "--existing-metadata ${existing_metadata}" : ""
+    def existing_excluded_arg = existing_excluded ? "--existing-excluded ${existing_excluded}" : ""
+    def existing_map_arg      = existing_map      ? "--existing-map ${existing_map}"           : ""
 
     """
     choose_sequences.py \\
@@ -79,6 +90,9 @@ process CHOOSE_SEQUENCES {
         ${rrna_arg} \\
         ${quality_arg} \\
         ${mapping_arg} \\
+        ${existing_metadata_arg} \\
+        ${existing_excluded_arg} \\
+        ${existing_map_arg} \\
         --output-prefix ${meta.id}
     """
 
@@ -100,5 +114,8 @@ process CHOOSE_SEQUENCES {
     echo stub > ${meta.id}_plasmid_filtered.gff
     echo stub > ${meta.id}_plasmid_filtered.faa
     echo stub > ${meta.id}_stats.json
+    echo stub > ${meta.id}_catalogue_metadata.tsv
+    echo stub > ${meta.id}_catalogue_excluded.tsv
+    echo stub > ${meta.id}_catalogue_map.tsv
     """
 }

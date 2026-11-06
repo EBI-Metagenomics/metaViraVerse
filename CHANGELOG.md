@@ -10,7 +10,7 @@ Initial release of EBI-Metagenomics/metaviraverse, created with the [nf-core](ht
 ### `Added`
 
 - `catalogue_manifest.json`: accession range, deduplication and clustering settings, software versions and the checksummed list of files that a catalogue update reads (first step towards `--mode update`).
-- `--mode generate|update` and `--existing_catalogue` (in development): in update mode the existing catalogue is read through its manifest and every listed file is checked (size and SHA-256) before the run continues; the report is published as `update/existing_catalogue_check.json`. New sequences are not yet merged into the existing catalogue.
+- `--mode generate|update` and `--existing_catalogue` (in development): in update mode the existing catalogue is read through its manifest and every listed file is checked (size and SHA-256) before the run continues; the report is published as `update/existing_catalogue_check.json`. In update mode new accessions continue after the existing catalogue, sequences the existing catalogue already has keep their ID (excluded as `in_existing_catalogue`, biomes added to the existing record), and the rename map and catalogue metadata tables cover the whole catalogue. New sequences are not yet clustered with the existing catalogue.
 - With `--viral_clustering vjdb`, the vjdb representative sequences are published (`viruses/clustering/viruses_vjdb_reps.fna.gz`), the membership table is renamed to `viruses/clustering/viruses_vjdb_clusters.csv`, and the run stops if vjdb-clustering finds identical sequences that `CHOOSE_SEQUENCES` kept.
 
 ### `Fixed`
