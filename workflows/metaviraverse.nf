@@ -16,6 +16,7 @@ include { PROCESS_VIRAL_SEQUENCES ; ViralParams ; ViralCatalogue } from '../subw
 include { PROCESS_PLASMIDS ; PlasmidParams ; PlasmidCatalogue } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 include { ExistingCatalogue                     } from '../subworkflows/local/existing_catalogue/main'
+include { PREPARE_RGI_DB                        } from '../subworkflows/local/prepare_rgi_db/main'
 
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
@@ -104,6 +105,14 @@ workflow METAVIRAVERSE {
        preprocessing_opts
     )
 
+    //
+    // RGI/CARD database: downloaded and/or processed once, for viruses and plasmids
+    //
+    rgi_db = PREPARE_RGI_DB(
+        viral_opts.rgi_db,
+        viral_opts.skip_rgi_for_viruses && plasmid_opts.skip_rgi_for_plasmids
+    )
+
     viruses = preprocessed
         .flatMap { r -> [r.virus_fna, r.prophage_fna] }
         .collectFile(name: "viruses.fasta")
@@ -119,6 +128,7 @@ workflow METAVIRAVERSE {
        preprocessed.map { r -> r.filtered_metadata },
        preprocessed.map { r -> r.map_file },
        existing,
+       rgi_db,
        viral_opts
     )
 
@@ -136,6 +146,7 @@ workflow METAVIRAVERSE {
        plasmids,
        preprocessed.map { r -> r.filtered_faa },
        preprocessed.map { r -> r.filtered_gff },  // concatenated GFF built from all inputs
+       rgi_db,
        plasmid_opts
     )
 

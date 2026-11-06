@@ -15,6 +15,9 @@ Initial release of EBI-Metagenomics/metaviraverse, created with the [nf-core](ht
 
 ### `Fixed`
 
+- The RGI database is prepared once per run (`PREPARE_RGI_DB`) and shared by the viral and the plasmid AMR annotation; before, CARD was downloaded and processed separately for viruses and for plasmids. `--rgi_db` may now also be an unprocessed directory with `card.json`, which is processed once.
+- The RGI module stubs no longer call `rgi`, so stub runs work without the RGI container.
+
 ### `Dependencies`
 
 ### `Deprecated`

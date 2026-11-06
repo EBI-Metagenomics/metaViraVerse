@@ -125,6 +125,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
     combined_metadata: Value<Path>
     mapfile: Value<Path>
     existing: Value<ExistingCatalogue?>   // --mode update: the existing catalogue; null in generate mode
+    rgi_db: Value<Path?>                  // processed RGI/CARD database (PREPARE_RGI_DB)
     opts: ViralParams
 
     main:
@@ -271,6 +272,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
        opts.skip_phammseqs,
        true,
        opts.annotation_db,
+       rgi_db,
        opts
     )
 

@@ -441,8 +441,8 @@
                 },
                 "rgi_db": {
                     "type": "string",
-                    "description": "Path to the RGI/CARD database, already processed for RGI (card_database_processed).",
-                    "help_text": "Path of RGI db",
+                    "description": "Path to the RGI/CARD database: processed for RGI (a path containing card_database_processed) or a directory with card.json. Without it the latest CARD is downloaded.",
+                    "help_text": "The database is prepared once per run (downloaded and/or processed with `rgi card_annotation` when needed) and shared by the viral and the plasmid AMR annotation. Pass the processed card_database_processed directory to skip the processing.",
                     "fa_icon": "fas fa-users-cog"
                 },
                 "skip_amrfinderplus_for_viruses": {

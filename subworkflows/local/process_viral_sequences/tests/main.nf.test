@@ -68,7 +68,8 @@ nextflow_workflow {
                 input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
                 input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
                 input[5] = channel.value(null)   // no existing catalogue (generate mode)
-                input[6] = ${ViralParamsSource.of('default')}
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('default')}
                 """
             }
         }
@@ -97,7 +98,8 @@ nextflow_workflow {
                 input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
                 input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
                 input[5] = channel.value(null)   // no existing catalogue (generate mode)
-                input[6] = ${ViralParamsSource.of('vjdb')}
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('vjdb')}
                 """
             }
         }
@@ -134,7 +136,8 @@ nextflow_workflow {
                     vjdb_clusters_csv: file("\${existing}/viruses_vjdb_clusters.csv", checkIfExists: true),
                     vjdb_reps_fna: file("\${existing}/viruses_vjdb_reps.fna.gz", checkIfExists: true)
                 ))
-                input[6] = ${ViralParamsSource.of('vjdb', 'update')}
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('vjdb', 'update')}
                 """
             }
         }
