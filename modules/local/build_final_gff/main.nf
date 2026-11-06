@@ -20,7 +20,7 @@ process BUILD_FINAL_GFF {
     output:
     record(
         meta: meta,
-        final_gff: file("*final.gff*")
+        final_gff: file("*final.gff.gz")
     )
 
     topic:
