@@ -1,0 +1,3 @@
+id,fasta,type,biome,source
+test_virus,https://raw.githubusercontent.com/EBI-Metagenomics/metaViraVerse/refs/heads/dev/assets/test_data/third_party/viruses.fasta.gz,virus,human_gut,metagenome
+test_plasmid,https://raw.githubusercontent.com/EBI-Metagenomics/metaViraVerse/refs/heads/dev/assets/test_data/third_party/plasmids.fasta.gz,plasmid,marine_sediment,genome

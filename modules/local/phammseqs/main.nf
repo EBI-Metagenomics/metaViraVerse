@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 // https://github.com/chg60/phammseqs
 process PHAMMSEQS {
 
@@ -8,12 +10,22 @@ process PHAMMSEQS {
         'community.wave.seqera.io/library/clustalo_mmseqs2_pip_phammseqs:147b2c0ddccc9182' }"
 
     input:
-    tuple val(meta), path(faa)
+    record(
+        meta: Map,
+        faa: Path
+    )
 
     output:
-    tuple val(meta), path("${meta.id}_phams.tsv"),        emit: phams_tsv
-    tuple val(meta), path("${meta.id}_phammseqs.stdout"), emit: phams_stats
-    path "versions.yml",                                  emit: versions
+    record(
+        meta: meta,
+        phams_tsv: file("${meta.id}_phams.tsv"),
+        phams_stats: file("${meta.id}_phammseqs.stdout")
+    )
+
+    topic:
+    tuple(task.process, 'phammseqs', '1.3.0') >> 'versions'
+    tuple(task.process, 'clustalo', eval("clustalo --help 2>&1 | grep 'Clustal Omega' | grep 'AndreaGiacomo' | sed 's/Clustal Omega - //g' | sed 's/(AndreaGiacomo)//g'")) >> 'versions'
+    tuple(task.process, 'mmseqs2', eval("mmseqs -h 2>&1 | grep 'MMseqs2 Version' | sed 's/MMseqs2 Version: //g'")) >> 'versions'
 
     script:
     """
@@ -30,12 +42,11 @@ process PHAMMSEQS {
       -o ${meta.id}_phams.tsv
 
     echo "Done."
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        phammseqs: 1.3.0
-        clustalo: \$(clustalo --help 2>&1 | grep 'Clustal Omega' | grep 'AndreaGiacomo' | sed 's/Clustal Omega - //g' | sed 's/(AndreaGiacomo)//g')
-        mmseqs2: \$(mmseqs -h 2>&1 | grep 'MMseqs2 Version' | sed 's/MMseqs2 Version: //g')
-    END_VERSIONS
+    stub:
+    """
+    echo stub > ${meta.id}_phams.tsv
+    echo stub > ${meta.id}_phammseqs.stdout
     """
 }

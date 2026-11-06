@@ -1,21 +1,31 @@
+nextflow.enable.types = true
+
 process COLLECT_HOST_INFO {
 
     label 'process_low'
-    tag "${meta_predictions.id}"
+    tag "${meta.id}"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/biopython:1.75':
         'quay.io/biocontainers/biopython:1.75' }"
 
     input:
-    tuple val(meta_predictions), path(predictions)
-    tuple val(meta_spacers), path(spacers_metadata)
-    path(mapping_file)
-    path(metadata)
+    record(
+        meta: Map,
+        predictions: Path
+    )
+    spacers_metadata: Path
+    mapping_file: Path
+    metadata: Path
 
     output:
-    tuple val(meta_predictions), path("custom_chosen_host.tsv"),    emit: tsv
-    tuple val(meta_predictions), path("*.json"),                    emit: lineage_comparison_json
-    path "versions.yml",                                            emit: versions
+    record(
+        meta: meta,
+        tsv: file("custom_chosen_host.tsv"),
+        lineage_comparison_json: file("*.json")
+    )
+
+    topic:
+    tuple(task.process, 'python', eval("python --version 2>&1 | sed 's/Python //g'")) >> 'versions'
 
     script:
     """
@@ -25,10 +35,11 @@ process COLLECT_HOST_INFO {
         -m ${metadata} \\
         -o custom_chosen_host.tsv \\
         --rename-map ${mapping_file}
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
+    stub:
+    """
+    echo stub > custom_chosen_host.tsv
+    echo stub > stub.json
     """
 }

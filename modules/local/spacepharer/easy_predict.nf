@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process SPACEPHARER_EASYPREDICT {
 
     label 'process_medium'
@@ -6,14 +8,22 @@ process SPACEPHARER_EASYPREDICT {
     container "quay.io/biocontainers/spacepharer:5.c2e680a--hd6d6fdc_7"
 
     input:
-    tuple val(meta), path(crispr_fasta)
-    val(target_db_name)
-    path(target_db)
-    path(target_db_rev)
+    record(
+        meta: Map,
+        crispr_fasta: Path,
+        target_db: Set<Path>,
+        target_db_rev: Set<Path>
+    )
+    target_db_name: String
 
     output:
-    tuple val(meta), path("${meta.id}_predictions.tsv"), emit: predictions
-    path "versions.yml",                                 emit: versions
+    record(
+        meta: meta,
+        predictions: file("${meta.id}_predictions.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'spacepharer', eval("spacepharer | grep Version | sed 's/SpacePHARER Version: //g'")) >> 'versions'
 
     script:
     """
@@ -23,10 +33,10 @@ process SPACEPHARER_EASYPREDICT {
       ${target_db_name} \\
       ${meta.id}_predictions.tsv \\
       tmp
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        spacepharer: \$(spacepharer | grep Version | sed 's/SpacePHARER Version: //g')
-    END_VERSIONS
+    stub:
+    """
+    echo stub > ${meta.id}_predictions.tsv
     """
 }

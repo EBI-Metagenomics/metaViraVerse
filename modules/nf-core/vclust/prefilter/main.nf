@@ -12,7 +12,7 @@ process VCLUST_PREFILTER {
 
     output:
     tuple val(meta), path("*.txt"), emit: txt
-    path "versions.yml"           , emit: versions
+    tuple val("${task.process}"), val('vclust'), eval('vclust --version'), emit: versions_vclust, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -27,11 +27,6 @@ process VCLUST_PREFILTER {
         -t $task.cpus \\
         -i ${fasta} \\
         -o ${prefix}.txt
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        vclust: \$(vclust --version)
-    END_VERSIONS
     """
 
     stub:
@@ -39,10 +34,5 @@ process VCLUST_PREFILTER {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.txt
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        vclust: \$(vclust --version)
-    END_VERSIONS
     """
 }
