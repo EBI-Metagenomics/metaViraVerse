@@ -49,6 +49,11 @@ def parse_args(argv=None):
     )
     parser.add_argument("--rename-accession", required=True, help="Accession prefix of the catalogue, e.g. MGYV")
     parser.add_argument("--viral-clustering", required=True, help="--viral_clustering of the run")
+    parser.add_argument("--mode", default="generate", choices=["generate", "update"], help="--mode of the run")
+    parser.add_argument(
+        "--parent-check", default=None,
+        help="--mode update: existing_catalogue_check.json of the catalogue this run updates",
+    )
     parser.add_argument("--pipeline-version", default=None)
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--commit", default=None)
@@ -178,12 +183,20 @@ def build_manifest(args, files):
     else:
         reason = None
 
+    parent = None
+    if args.parent_check:
+        with open(args.parent_check) as fh:
+            check = json.load(fh)
+        parent = {"manifest_sha256": check["manifest_sha256"], **check.get("catalogue", {})}
+    elif args.mode == "update":
+        sys.exit("Error: --mode update needs --parent-check")
+
     return {
         "manifest_version": MANIFEST_VERSION,
         "catalogue": {
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "mode": "generate",
-            "parent_manifest_sha256": None,
+            "mode": args.mode,
+            "parent": parent,
             "pipeline_version": args.pipeline_version or None,
             "run_name": args.run_name or None,
             "commit": args.commit or None,

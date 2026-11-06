@@ -47,6 +47,21 @@
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "mode": {
+                    "type": "string",
+                    "description": "'generate' a new catalogue, or 'update' the catalogue given with --existing_catalogue (in development).",
+                    "help_text": "In update mode the existing catalogue is read through its catalogue_manifest.json and every file it lists is checked (size and SHA-256) before the run continues. Needs --viral_clustering vjdb, the same --rename_accession as the existing catalogue, and an --outdir different from --existing_catalogue.",
+                    "enum": ["generate", "update"],
+                    "default": "generate",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "existing_catalogue": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "--mode update: the --outdir of the catalogue to update (it must contain catalogue_manifest.json).",
+                    "fa_icon": "fas fa-folder-open"
+                },
                 "multiqc_title": {
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",

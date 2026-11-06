@@ -279,6 +279,29 @@ nextflow run main.nf \
 
 Protein clustering (`--skip_phammseqs`, `--skip_mmseqs`) and AMR detection (`--skip_<tool>_for_viruses`, `--skip_<tool>_for_plasmids`) can be switched off separately; see the [README](../README.md#run) for all options.
 
+## Update an existing catalogue (in development)
+
+`--mode update` adds new input to a catalogue built earlier. The inputs are given as for a new catalogue (`--input` and/or `--third_party_input`); `--existing_catalogue` is the `--outdir` of the earlier run:
+
+```bash
+nextflow run main.nf \
+    -profile <appropriate profile> \
+    --mode update \
+    --existing_catalogue <OUTDIR of the catalogue to update> \
+    --outdir <NEW_OUTDIR> \
+    --input new_samplesheet.csv \
+    --catalogues_metadata genomes-all_metadata.tsv \
+    --rename_accession MGYV \
+    --viral_clustering vjdb
+```
+
+- The existing catalogue must have been built with `--viral_clustering vjdb` and must contain `catalogue_manifest.json` (written by every run since this version). Its `viral_clustering.update_ready` field tells whether it can be updated.
+- `--rename_accession` must be the one the existing catalogue was built with, and `--viral_clustering` must be `vjdb`.
+- `--outdir` must be a new directory: the existing catalogue is only read, never changed.
+- Before anything else uses it, every file the manifest lists is checked for its size and SHA-256 (`update/existing_catalogue_check.json`); a missing or changed file stops the run.
+
+So far only reading and checking the existing catalogue is implemented. New sequences are not yet deduplicated against it, numbered after it or clustered with it, so the output is still a separate catalogue of the input sequences; its `catalogue_manifest.json` records the existing catalogue as its parent.
+
 ## Outputs
 
 Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](output.md).

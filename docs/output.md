@@ -227,7 +227,9 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 ```text
 {
   "manifest_version":   version of this file format
-  "catalogue":          creation time (UTC), mode ("generate"), pipeline version, run name, commit
+  "catalogue":          creation time (UTC), mode ("generate" or "update"), pipeline version, run name,
+                        commit, and with --mode update the "parent": the SHA-256 of the existing
+                        catalogue's manifest and its "catalogue" fields
   "accessions":         accession prefix (--rename_accession), first and last accession number used
                         and how many, and the width of zero-padded IDs (null if not padded).
                         Every input sequence gets a number, including excluded ones, so an update
@@ -242,6 +244,16 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
                         skipped are missing; "viruses.hmmer_tables" is a list
 }
 ```
+
+## Catalogue update
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `update/` (`--mode update` only)
+  - `existing_catalogue_check.json`: result of checking the existing catalogue (`--existing_catalogue`) against its `catalogue_manifest.json`: status, SHA-256 of the manifest, the existing catalogue's `catalogue` and `accessions` fields, and the number of files checked.
+
+</details>
 
 ## Additional data
 

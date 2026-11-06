@@ -23,6 +23,8 @@ process WRITE_CATALOGUE_MANIFEST {
     )
     rename_accession: String
     viral_clustering: String
+    mode: String              // --mode: 'generate' or 'update'
+    parent_check: Path?       // --mode update: existing_catalogue_check.json of the catalogue this run updates
 
     output:
     record(
@@ -31,10 +33,13 @@ process WRITE_CATALOGUE_MANIFEST {
 
     script:
     def entry_args = entries.collect { e -> "--entry ${e}" }.join(' \\\n        ')
+    def parent_arg = parent_check ? "--parent-check ${parent_check}" : ""
     """
     write_catalogue_manifest.py \\
         --rename-accession ${rename_accession} \\
         --viral-clustering ${viral_clustering} \\
+        --mode ${mode} \\
+        ${parent_arg} \\
         --pipeline-version '${workflow.manifest.version}' \\
         --run-name '${workflow.runName}' \\
         --commit '${workflow.commitId ?: ''}' \\

@@ -15,6 +15,7 @@ include { PREPROCESSING ; PreprocessingParams ; Preprocessed } from '../subworkf
 include { PROCESS_VIRAL_SEQUENCES ; ViralParams ; ViralCatalogue } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS ; PlasmidParams ; PlasmidCatalogue } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
+include { ExistingCatalogue                     } from '../subworkflows/local/existing_catalogue/main'
 
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
@@ -31,6 +32,7 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 */
 
 record MetaviraverseParams {
+    mode: String                   // 'generate' or 'update'
     catalogues_metadata: Path
     rename_accession: String
     viral_clustering: String
@@ -74,6 +76,7 @@ workflow METAVIRAVERSE {
     take:
     samples: Channel<Sample>                       // samplesheet read in from --input
     third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input (may be empty)
+    existing: Value<ExistingCatalogue?>            // --mode update: the checked existing catalogue; null in generate mode
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -245,7 +248,9 @@ workflow METAVIRAVERSE {
     manifest = WRITE_CATALOGUE_MANIFEST(
         manifest_input,
         opts.rename_accession,
-        opts.viral_clustering
+        opts.viral_clustering,
+        opts.mode,
+        existing.map { e -> e?.check_report }
     )
 
     summary = summary_tables

@@ -168,7 +168,7 @@ class TestMain(InTempDir):
                 "--entry", "file", "viruses.vjdb_clusters_csv", "viruses/clustering/viruses_vjdb_clusters.csv", "vjdb1_merged_reps.csv",
                 "--entry", "file", "viruses.vjdb_reps_fna", "viruses/clustering/viruses_vjdb_reps.fna.gz", "vjdb1_merged_reps.fna.gz",
             ]
-        wcm.main(argv)
+        wcm.main(argv + getattr(self, "extra", []))
         with open("catalogue_manifest.json") as fh:
             return json.load(fh)
 
@@ -192,6 +192,27 @@ class TestMain(InTempDir):
         manifest = self.run_main("vjdb", with_vjdb=False)
         self.assertFalse(manifest["viral_clustering"]["update_ready"])
         self.assertIn("viruses.vjdb_clusters_csv", manifest["viral_clustering"]["not_update_ready_reason"])
+
+    def test_generate_has_no_parent(self):
+        manifest = self.run_main("vjdb")
+        self.assertEqual(manifest["catalogue"]["mode"], "generate")
+        self.assertIsNone(manifest["catalogue"]["parent"])
+
+    def test_update_records_parent(self):
+        Path("existing_catalogue_check.json").write_text(json.dumps({
+            "status": "ok", "manifest_sha256": "abc",
+            "catalogue": {"created": "2026-01-01T00:00:00+00:00", "mode": "generate", "pipeline_version": "1.0.0"},
+        }))
+        self.extra = ["--mode", "update", "--parent-check", "existing_catalogue_check.json"]
+        manifest = self.run_main("vjdb")
+        self.assertEqual(manifest["catalogue"]["mode"], "update")
+        self.assertEqual(manifest["catalogue"]["parent"]["manifest_sha256"], "abc")
+        self.assertEqual(manifest["catalogue"]["parent"]["pipeline_version"], "1.0.0")
+
+    def test_update_without_parent_fails(self):
+        self.extra = ["--mode", "update"]
+        with self.assertRaises(SystemExit):
+            self.run_main("vjdb")
 
     def test_rename_map_required(self):
         with self.assertRaises(SystemExit):

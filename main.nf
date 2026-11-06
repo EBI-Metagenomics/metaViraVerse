@@ -19,6 +19,7 @@ include { METAVIRAVERSE ; MetaviraverseParams ; CatalogueSummary } from './workf
 include { PreprocessingParams ; Preprocessed } from './subworkflows/local/preprocessing/main'
 include { ViralParams ; ViralCatalogue } from './subworkflows/local/process_viral_sequences'
 include { PlasmidParams ; PlasmidCatalogue } from './subworkflows/local/process_plasmids'
+include { LOAD_EXISTING_CATALOGUE ; ExistingCatalogue } from './subworkflows/local/existing_catalogue/main'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 /*
@@ -32,6 +33,10 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_meta
 */
 
 params {
+    // Mode
+    mode: String = 'generate'                       // 'generate' a new catalogue or 'update' an existing one
+    existing_catalogue: Path?                       // --mode update: --outdir of the catalogue to update
+
     // Input/output
     input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
@@ -159,6 +164,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     take:
     samplesheet: Channel<SamplesheetRow>
     samplesheet_third_party: Channel<ThirdPartyRow>
+    existing: Value<ExistingCatalogue?>
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -184,6 +190,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
             ]
             record(meta: meta, fasta: s.fasta)
         },
+        existing,
         opts,
         preprocessing_opts,
         viral_opts,
@@ -197,6 +204,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     multiqc = metaviraverse.multiqc
     versions = metaviraverse.versions
     invalid_fastas = metaviraverse.invalid_fastas
+    existing_catalogue_check = existing.map { e -> e?.check_report }
 
     emit:
     multiqc_report = multiqc_report // channel: /path/to/multiqc_report.html
@@ -207,6 +215,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     multiqc: Channel<Path> = multiqc
     versions: Channel<Path> = versions
     invalid_fastas: Channel<Path> = invalid_fastas
+    existing_catalogue_check: Value<Path?> = existing_catalogue_check
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -229,11 +238,21 @@ workflow {
     )
 
     //
+    // --mode update: read and check the existing catalogue
+    //
+    checkMode(params.mode, params.existing_catalogue, params.viral_clustering, params.outdir)
+    def existing: Value<ExistingCatalogue?> = channel.value(null)
+    if( params.mode == 'update' ) {
+        existing = LOAD_EXISTING_CATALOGUE(params.existing_catalogue, params.rename_accession)
+    }
+
+    //
     // WORKFLOW: Run main workflow
     //
     metaviraverse = EBIMETAGENOMICS_METAVIRAVERSE (
         params.input ?: channel.empty(),
         params.third_party_input ?: channel.empty(),
+        existing,
         params,
         params,
         params,
@@ -258,6 +277,7 @@ workflow {
     multiqc = metaviraverse.multiqc
     versions = metaviraverse.versions
     invalid_fastas = metaviraverse.invalid_fastas
+    existing_catalogue_check = metaviraverse.existing_catalogue_check
 }
 
 /*
@@ -265,6 +285,31 @@ workflow {
     FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+// --mode and the params it needs
+def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String, outdir: String) {
+    if( !(mode in ['generate', 'update']) )
+        error("--mode must be 'generate' or 'update', got '${mode}'")
+    if( mode == 'generate' ) {
+        if( existing_catalogue )
+            error("--existing_catalogue is only used with --mode update")
+        return
+    }
+    if( !existing_catalogue )
+        error("--mode update needs --existing_catalogue: the --outdir of the catalogue to update")
+    if( !existing_catalogue.isDirectory() )
+        error("--existing_catalogue ${existing_catalogue} is not a directory")
+    if( viral_clustering != 'vjdb' )
+        error("--mode update clusters viruses with vjdb-clustering: set --viral_clustering vjdb")
+    // file() gives an absolute, normalised path
+    if( ("${file(outdir)}" as String) == ("${file("${existing_catalogue}")}" as String) )
+        error("--outdir must differ from --existing_catalogue: an update writes a new catalogue and leaves the existing one as it is")
+    log.warn(
+        "--mode update is in development: the existing catalogue is read and checked, but new sequences " +
+        "are not yet deduplicated against it, numbered after it or clustered with it. The output is a new, " +
+        "separate catalogue of the input sequences."
+    )
+}
 
 // Samplesheet checks beyond the record types (formerly assets/schema_input.json)
 def checkSamplesheetRow(s: SamplesheetRow) {
@@ -511,6 +556,11 @@ output {
     // third-party FASTAs that failed validation
     invalid_fastas: Channel<Path> {
         path '.'
+    }
+
+    // --mode update: check report of the existing catalogue (null in generate mode)
+    existing_catalogue_check: Value<Path?> {
+        path 'update'
     }
 }
 
