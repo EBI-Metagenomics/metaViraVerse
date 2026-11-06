@@ -19,6 +19,7 @@ include { METAVIRAVERSE ; MetaviraverseParams ; CatalogueSummary } from './workf
 include { PreprocessingParams ; Preprocessed } from './subworkflows/local/preprocessing/main'
 include { ViralParams ; ViralCatalogue } from './subworkflows/local/process_viral_sequences'
 include { PlasmidParams ; PlasmidCatalogue } from './subworkflows/local/process_plasmids'
+include { LOAD_EXISTING_CATALOGUE ; ExistingCatalogue } from './subworkflows/local/existing_catalogue/main'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_metaviraverse_pipeline'
 /*
@@ -32,6 +33,10 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_meta
 */
 
 params {
+    // Mode
+    mode: String = 'generate'                       // 'generate' a new catalogue or 'update' an existing one
+    existing_catalogue: Path?                       // --mode update: --outdir of the catalogue to update
+
     // Input/output
     input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
@@ -159,6 +164,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     take:
     samplesheet: Channel<SamplesheetRow>
     samplesheet_third_party: Channel<ThirdPartyRow>
+    existing: Value<ExistingCatalogue?>
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -184,6 +190,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
             ]
             record(meta: meta, fasta: s.fasta)
         },
+        existing,
         opts,
         preprocessing_opts,
         viral_opts,
@@ -197,6 +204,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     multiqc = metaviraverse.multiqc
     versions = metaviraverse.versions
     invalid_fastas = metaviraverse.invalid_fastas
+    existing_catalogue_check = existing.map { e -> e?.check_report }
 
     emit:
     multiqc_report = multiqc_report // channel: /path/to/multiqc_report.html
@@ -207,6 +215,7 @@ workflow EBIMETAGENOMICS_METAVIRAVERSE {
     multiqc: Channel<Path> = multiqc
     versions: Channel<Path> = versions
     invalid_fastas: Channel<Path> = invalid_fastas
+    existing_catalogue_check: Value<Path?> = existing_catalogue_check
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -229,11 +238,21 @@ workflow {
     )
 
     //
+    // --mode update: read and check the existing catalogue
+    //
+    checkMode(params.mode, params.existing_catalogue, params.viral_clustering, params.outdir, params.start_accession, params.end_accession)
+    def existing: Value<ExistingCatalogue?> = channel.value(null)
+    if( params.mode == 'update' ) {
+        existing = LOAD_EXISTING_CATALOGUE(params.existing_catalogue, params.rename_accession)
+    }
+
+    //
     // WORKFLOW: Run main workflow
     //
     metaviraverse = EBIMETAGENOMICS_METAVIRAVERSE (
         params.input ?: channel.empty(),
         params.third_party_input ?: channel.empty(),
+        existing,
         params,
         params,
         params,
@@ -258,6 +277,7 @@ workflow {
     multiqc = metaviraverse.multiqc
     versions = metaviraverse.versions
     invalid_fastas = metaviraverse.invalid_fastas
+    existing_catalogue_check = metaviraverse.existing_catalogue_check
 }
 
 /*
@@ -265,6 +285,35 @@ workflow {
     FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+// --mode and the params it needs
+def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String, outdir: String, start_accession: Integer, end_accession: Integer) {
+    if( !(mode in ['generate', 'update']) )
+        error("--mode must be 'generate' or 'update', got '${mode}'")
+    if( mode == 'generate' ) {
+        if( existing_catalogue )
+            error("--existing_catalogue is only used with --mode update")
+        return
+    }
+    if( !existing_catalogue )
+        error("--mode update needs --existing_catalogue: the --outdir of the catalogue to update")
+    if( !existing_catalogue.isDirectory() )
+        error("--existing_catalogue ${existing_catalogue} is not a directory")
+    if( viral_clustering != 'vjdb' )
+        error("--mode update clusters viruses with vjdb-clustering: set --viral_clustering vjdb")
+    // file() gives an absolute, normalised path
+    if( ("${file(outdir)}" as String) == ("${file("${existing_catalogue}")}" as String) )
+        error("--outdir must differ from --existing_catalogue: an update writes a new catalogue and leaves the existing one as it is")
+    if( start_accession != 1 || end_accession != 1 )
+        log.warn("--mode update: --start_accession and --end_accession are ignored; new accessions continue after the last one of the existing catalogue")
+    log.warn(
+        "--mode update is in development: new sequences are numbered after the existing catalogue, sequences " +
+        "it already has are left out, and new viruses are clustered with its representatives, but only the " +
+        "new viral clusters are annotated and the annotations are not yet merged with the existing ones. " +
+        "Plasmids cover only the new sequences. The rename map, the catalogue metadata tables in " +
+        "additional_data/ and the viral clusters cover the whole catalogue. The result cannot be updated again."
+    )
+}
 
 // Samplesheet checks beyond the record types (formerly assets/schema_input.json)
 def checkSamplesheetRow(s: SamplesheetRow) {
@@ -295,15 +344,18 @@ def checkThirdPartyRow(s: ThirdPartyRow) {
     Published into `outputDir` (--outdir); see docs/output.md for the layout.
     `*_intermediates` outputs are published only with --save_intermediates.
     Null fields (skipped steps, missing optional files) are not published.
+    catalogue_manifest.json lists the publish paths of the files a later --mode update
+    reads (manifestInput() in workflows/metaviraverse.nf): keep the two in sync.
 */
 
 output {
     // rename map, catalogue metadata tables and the chosen sequences (before clustering)
     preprocessed: Preprocessed {
         path { r ->
-            r.map_file >> "additional_data/rename_mapfile.tsv"
-            r.excluded_metadata >> "additional_data/catalogue_excluded_records_metadata.tsv"
-            r.metadata >> "additional_data/catalogue_filtered_metadata.tsv"
+            // whole catalogue: with --mode update the existing catalogue's rows, then this run's
+            r.catalogue_map >> "additional_data/rename_mapfile.tsv"
+            r.catalogue_excluded >> "additional_data/catalogue_excluded_records_metadata.tsv"
+            r.catalogue_metadata >> "additional_data/catalogue_filtered_metadata.tsv"
             r.virus_gz.fna >> "viruses/viral_sequences.fna.gz"
             r.virus_gz.gff >> "viruses/viral_sequences.gff.gz"
             r.virus_gz.faa >> "viruses/viral_sequences.faa.gz"
@@ -345,8 +397,13 @@ output {
             // CheckV ANI clustering (--cluster_vclust false)
             r.ani_tsv >> "${r.meta.id}/clustering/"
             r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
-            // vjdb-clustering membership table (--viral_clustering vjdb)
-            r.vjdb_clusters_csv >> "${r.meta.id}/clustering/"
+            // vjdb-clustering membership table and representatives (--viral_clustering vjdb);
+            // the input of a later --mode update, listed in catalogue_manifest.json
+            r.vjdb_clusters_csv >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_clusters.csv"
+            r.vjdb_reps_fna >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_reps.fna.gz"
+            // --mode update: what the update did to the clusters
+            r.vjdb_new_clusters >> "${r.meta.id}/clustering/update/${r.meta.id}_new_sequences_clusters.csv"
+            r.vjdb_cluster_events >> "${r.meta.id}/clustering/update/${r.meta.id}_cluster_events.tsv"
 
             r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
             r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"
@@ -486,6 +543,7 @@ output {
     summary: Channel<CatalogueSummary> {
         path { r ->
             r.catalogue_json >> "./"
+            r.catalogue_manifest >> "./"
             r.viruses_metadata >> "viruses/"
             r.viruses_cluster_stats >> "viruses/"
             r.plasmids_metadata >> "plasmids/"
@@ -506,6 +564,11 @@ output {
     // third-party FASTAs that failed validation
     invalid_fastas: Channel<Path> {
         path '.'
+    }
+
+    // --mode update: check report of the existing catalogue (null in generate mode)
+    existing_catalogue_check: Value<Path?> {
+        path 'update'
     }
 }
 

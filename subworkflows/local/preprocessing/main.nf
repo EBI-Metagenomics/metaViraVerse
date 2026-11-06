@@ -14,6 +14,8 @@ include { PIGZ_COMPRESS as COMPRESS_VIRAL_SEQ_FILES      } from '../../../module
 include { PIGZ_COMPRESS as COMPRESS_PLASMIDS_FILES       } from '../../../modules/nf-core/pigz/compress/main'
 include { PIGZ_COMPRESS as COMPRESS_PROPHAGES_FILES      } from '../../../modules/nf-core/pigz/compress/main'
 
+include { ExistingCatalogue                              } from '../existing_catalogue/main'
+
 
 record Sample {
     meta: Map    // [id, source, biome] (MGnify) or [id, type, source, biome, ...] (third-party)
@@ -67,6 +69,10 @@ record Preprocessed {
     prophage_gz: CompressedFiles
     plasmid_gz: CompressedFiles
     stats: Path
+    // whole catalogue (--mode update: the existing catalogue's rows, then this run's; otherwise this run's)
+    catalogue_map: Path         // published as rename_mapfile.tsv
+    catalogue_metadata: Path    // published as catalogue_filtered_metadata.tsv
+    catalogue_excluded: Path    // published as catalogue_excluded_records_metadata.tsv
 }
 
 workflow PREPROCESSING {
@@ -74,6 +80,7 @@ workflow PREPROCESSING {
     take:
     samples: Channel<Sample>
     third_party: Channel<Sample>
+    existing: Value<ExistingCatalogue?>   // --mode update: the existing catalogue; null for a new one
     opts: PreprocessingParams
 
     main:
@@ -89,6 +96,11 @@ workflow PREPROCESSING {
     // there are no samples of that kind.
 
     def combined_meta = [id: 'combined']
+
+    // --mode update: new accessions continue after the last one of the existing catalogue
+    // (--start_accession/--end_accession are not used)
+    def start_accession = existing.map { e -> e ? e.last_accession + 1 : opts.start_accession }
+    def end_accession   = existing.map { e -> e ? null : opts.end_accession }
     def mgnify      = samples.collect().map { ss -> ss.toList() }
     def third_party_list = third_party.collect().map { ss -> ss.toList() }
 
@@ -98,8 +110,8 @@ workflow PREPROCESSING {
         mgnify.map { ss -> ss.collect { s -> s.gff }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
-        opts.start_accession,
-        opts.end_accession,
+        start_accession,
+        end_accession,
         third_party_list.map { ss -> ss.collect { s -> s.fna }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.gff }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.meta.type as String }.toList() },
@@ -226,7 +238,10 @@ workflow PREPROCESSING {
         prophages,
         plasmids,
         quality,
-        rna_gff
+        rna_gff,
+        existing.map { e -> e?.catalogue_metadata },
+        existing.map { e -> e?.excluded_metadata },
+        existing.map { e -> e?.rename_map }
     )
 
     virus_gz = COMPRESS_VIRAL_SEQ_FILES (
@@ -253,7 +268,8 @@ workflow PREPROCESSING {
                 virus_fna: r.virus_fna, virus_gff: r.virus_gff, virus_faa: r.virus_faa,
                 prophage_fna: r.prophage_fna, prophage_gff: r.prophage_gff, prophage_faa: r.prophage_faa,
                 plasmid_fna: r.plasmid_fna, plasmid_gff: r.plasmid_gff, plasmid_faa: r.plasmid_faa,
-                stats: r.stats
+                stats: r.stats,
+                catalogue_map: r.catalogue_map, catalogue_metadata: r.catalogue_metadata, catalogue_excluded: r.catalogue_excluded
             )
         }
         .combine(map_file: map_file)

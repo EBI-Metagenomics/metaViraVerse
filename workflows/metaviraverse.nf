@@ -15,12 +15,15 @@ include { PREPROCESSING ; PreprocessingParams ; Preprocessed } from '../subworkf
 include { PROCESS_VIRAL_SEQUENCES ; ViralParams ; ViralCatalogue } from '../subworkflows/local/process_viral_sequences'
 include { PROCESS_PLASMIDS ; PlasmidParams ; PlasmidCatalogue } from '../subworkflows/local/process_plasmids'
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
+include { ExistingCatalogue                     } from '../subworkflows/local/existing_catalogue/main'
+include { PREPARE_RGI_DB                        } from '../subworkflows/local/prepare_rgi_db/main'
 
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
+include { WRITE_CATALOGUE_MANIFEST              } from '../modules/local/write_catalogue_manifest/main'
 
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -30,7 +33,10 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 */
 
 record MetaviraverseParams {
+    mode: String                   // 'generate' or 'update'
     catalogues_metadata: Path
+    rename_accession: String
+    viral_clustering: String
     multiqc_config: Path?
     multiqc_logo: String?
 }
@@ -63,6 +69,7 @@ record CatalogueSummary {
     plasmids_metadata: Path
     viruses_source_sankey: Path?    // taxonomy of the source genomes
     plasmids_source_sankey: Path?
+    catalogue_manifest: Path        // what a later --mode update reads (see WRITE_CATALOGUE_MANIFEST)
 }
 
 workflow METAVIRAVERSE {
@@ -70,6 +77,7 @@ workflow METAVIRAVERSE {
     take:
     samples: Channel<Sample>                       // samplesheet read in from --input
     third_party_input: Channel<ThirdPartyInput>    // samplesheet read in from --third_party_input (may be empty)
+    existing: Value<ExistingCatalogue?>            // --mode update: the checked existing catalogue; null in generate mode
     opts: MetaviraverseParams
     preprocessing_opts: PreprocessingParams
     viral_opts: ViralParams
@@ -93,7 +101,16 @@ workflow METAVIRAVERSE {
     preprocessed = PREPROCESSING (
        samples,
        third_party,
+       existing,
        preprocessing_opts
+    )
+
+    //
+    // RGI/CARD database: downloaded and/or processed once, for viruses and plasmids
+    //
+    rgi_db = PREPARE_RGI_DB(
+        viral_opts.rgi_db,
+        viral_opts.skip_rgi_for_viruses && plasmid_opts.skip_rgi_for_plasmids
     )
 
     viruses = preprocessed
@@ -110,6 +127,8 @@ workflow METAVIRAVERSE {
        preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
        preprocessed.map { r -> r.filtered_metadata },
        preprocessed.map { r -> r.map_file },
+       existing,
+       rgi_db,
        viral_opts
     )
 
@@ -127,6 +146,7 @@ workflow METAVIRAVERSE {
        plasmids,
        preprocessed.map { r -> r.filtered_faa },
        preprocessed.map { r -> r.filtered_gff },  // concatenated GFF built from all inputs
+       rgi_db,
        plasmid_opts
     )
 
@@ -169,7 +189,8 @@ workflow METAVIRAVERSE {
                 vitap_best: r.viral.taxonomy.vitap_best,
                 viphogs_taxonomy: r.viral.taxonomy.viphogs,
                 genomad: r.viral.taxonomy.genomad,
-                map_file: r.preprocessed.map_file,
+                // whole catalogue: with --mode update the viral cluster representatives can be old sequences
+                map_file: r.preprocessed.catalogue_map,
                 iphop_genome: r.viral.hosts.iphop_genome,
                 iphop_genus: r.viral.hosts.iphop_genus,
                 spacepharer: r.viral.hosts.spacepharer
@@ -190,7 +211,7 @@ workflow METAVIRAVERSE {
     )
 
     // one record for the whole catalogue (each channel has a single item)
-    summary = final_metadata
+    summary_tables = final_metadata
         .combine(catalogue_stats)
         .map { m, s ->
             record(
@@ -225,6 +246,30 @@ workflow METAVIRAVERSE {
             sort: true,
             newLine: true
         )
+
+    //
+    // Catalogue manifest: accession range, clustering method, software versions and
+    // the files a later --mode update reads, with their publish paths and checksums
+    //
+    manifest_input = catalogues
+        .combine(summary_tables)
+        .map { c, s -> c + record(summary: s) }
+        .combine(collated_versions)
+        .map { c, versions ->
+            manifestInput(c.viral, c.preprocessed, c.summary.viruses_metadata, c.summary.viruses_cluster_stats, versions)
+        }
+
+    manifest = WRITE_CATALOGUE_MANIFEST(
+        manifest_input,
+        opts.rename_accession,
+        opts.viral_clustering,
+        opts.mode,
+        existing.map { e -> e?.check_report }
+    )
+
+    summary = summary_tables
+        .combine(manifest)
+        .map { r, m -> r + record(catalogue_manifest: m.catalogue_manifest) }
 
     //
     // MODULE: MultiQC
@@ -266,6 +311,74 @@ workflow METAVIRAVERSE {
     versions: Channel<Path> = collated_versions
     invalid_fastas: Channel<Path> = ch_invalid_fastas   // third-party FASTAs that failed validation
 
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    FUNCTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// One entry of catalogue_manifest.json: KIND KEY TARGET and the files (see bin/write_catalogue_manifest.py)
+record ManifestEntry {
+    kind: String          // 'file' (one file) or 'list' (several files under one key)
+    key: String
+    target: String        // publish path; ending in '/' = directory, the file keeps its name
+    files: List<Path>     // empty when the step was skipped: the entry is left out
+}
+
+record ManifestInput {
+    files: List<Path>
+    entries: List<String>
+}
+
+def manifestFile(key: String, target: String, f: Path?) -> ManifestEntry {
+    return record(kind: 'file', key: key, target: target, files: f ? [f] : [])
+}
+
+def manifestList(key: String, target: String, fs: List<Path>?) -> ManifestEntry {
+    return record(kind: 'list', key: key, target: target, files: fs ?: [])
+}
+
+// Files of the catalogue that a later --mode update reads.
+// The targets are the ones in the `output` block of main.nf: keep the two in sync.
+def manifestInput(v: ViralCatalogue, p: Preprocessed, viruses_metadata: Path, viruses_cluster_stats: Path, versions: Path) -> ManifestInput {
+    def vdir = v.meta.id as String
+    def reps = "${vdir}/cluster_representatives"
+    def entries = [
+        // whole catalogue
+        manifestFile('rename_map', 'additional_data/rename_mapfile.tsv', p.catalogue_map),
+        manifestFile('catalogue_metadata', 'additional_data/catalogue_filtered_metadata.tsv', p.catalogue_metadata),
+        manifestFile('excluded_metadata', 'additional_data/catalogue_excluded_records_metadata.tsv', p.catalogue_excluded),
+        manifestFile('software_versions', 'pipeline_info/', versions),
+        // viruses
+        manifestFile('viruses.metadata', 'viruses/', viruses_metadata),
+        manifestFile('viruses.cluster_stats', 'viruses/', viruses_cluster_stats),
+        manifestFile('viruses.vjdb_clusters_csv', "${vdir}/clustering/${vdir}_vjdb_clusters.csv", v.vjdb_clusters_csv),
+        manifestFile('viruses.vjdb_reps_fna', "${vdir}/clustering/${vdir}_vjdb_reps.fna.gz", v.vjdb_reps_fna),
+        manifestFile('viruses.reps_fna', "${reps}/", v.index.fna_gz),
+        manifestFile('viruses.reps_faa', "${reps}/", v.index.faa_gz),
+        manifestFile('viruses.reps_gff', "${reps}/", v.index.gff_gz),
+        manifestFile('viruses.annotated_gff', "${reps}/viruses_reps_annotated.gff.gz", v.final_gff),
+        manifestFile('viruses.bacphlip', "${reps}/functional_annotation/lifestyle/", v.index.bacphlip_gz),
+        manifestFile('viruses.genomad', "${reps}/taxonomy/genomad/", v.taxonomy.genomad),
+        manifestFile('viruses.vitap', "${reps}/taxonomy/vitap/", v.taxonomy.vitap_best),
+        manifestFile('viruses.viphogs', "${reps}/taxonomy/viphogs/", v.taxonomy.viphogs),
+        manifestFile('viruses.viphogs_annotation', "${reps}/taxonomy/viphogs/", v.taxonomy.viphogs_annotation),
+        manifestFile('viruses.iphop_genome', "${reps}/host_detection/iphop/${v.hosts.iphop_genome?.name}.csv", v.hosts.iphop_genome),
+        manifestFile('viruses.iphop_genus', "${reps}/host_detection/iphop/${v.hosts.iphop_genus?.name}.csv", v.hosts.iphop_genus),
+        manifestFile('viruses.spacepharer', "${reps}/host_detection/spacepharer/", v.hosts.spacepharer),
+        manifestFile('viruses.amrfinderplus', "${reps}/functional_annotation/amr/${vdir}_amrfinderplus.tsv", v.proteins.amrfinderplus_tsv),
+        manifestFile('viruses.deeparg', "${reps}/functional_annotation/amr/${vdir}_deeparg.tsv", v.proteins.deeparg_tsv),
+        manifestFile('viruses.rgi', "${reps}/functional_annotation/amr/${vdir}_rgi.tsv", v.proteins.rgi_tsv),
+        manifestFile('viruses.amr_gff', "${reps}/functional_annotation/amr/", v.proteins.amr_gff),
+        manifestFile('viruses.phams', "${reps}/protein_clusters_phammseqs/", v.proteins.phams_tsv),
+        manifestList('viruses.hmmer_tables', "${reps}/functional_annotation/hmmer/", v.proteins.hmmer_tables)
+    ]
+    return record(
+        files: entries.collectMany { e -> e.files }.toList(),
+        entries: entries.collectMany { e -> e.files.collect { f -> "${e.kind} ${e.key} ${e.target} ${f.name}" } }.toList()
+    )
 }
 
 /*
