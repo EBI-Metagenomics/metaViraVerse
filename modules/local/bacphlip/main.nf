@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process BACPHLIP {
 
     label 'process_medium'
@@ -5,11 +7,19 @@ process BACPHLIP {
     container "quay.io/microbiome-informatics/bacphlip:v0.9.3-alpha"
 
     input:
-    tuple val(meta), path(fasta)
+    record(
+        meta: Map,
+        fasta: Path
+    )
 
     output:
-    tuple val(meta), path("*.bacphlip"),        emit: bacphlip_table
-    path "versions.yml",                        emit: versions
+    record(
+        meta: meta,
+        bacphlip_table: file("*.bacphlip")
+    )
+
+    topic:
+    tuple(task.process, 'bacphlip', '0.9.3-alpha') >> 'versions'
 
     script:
     """
@@ -17,11 +27,10 @@ process BACPHLIP {
         --multi_fasta \\
         -f \\
         --input_file ${fasta}
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        bacphlip: 0.9.3-alpha
-
-    END_VERSIONS
+    stub:
+    """
+    echo stub > stub.bacphlip
     """
 }

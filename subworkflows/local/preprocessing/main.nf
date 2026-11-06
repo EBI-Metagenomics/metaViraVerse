@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 include { CHOOSE_SEQUENCES                               } from '../../../modules/local/choose_sequences'
 include { RENAME_CONTIGS                                 } from '../../../modules/local/rename_contigs'
 include { SEPARATE_SEQUENCES as SEPARATE_VIRAL_SEQUENCES } from '../../../modules/local/separate_sequences'
@@ -13,14 +15,68 @@ include { PIGZ_COMPRESS as COMPRESS_PLASMIDS_FILES       } from '../../../module
 include { PIGZ_COMPRESS as COMPRESS_PROPHAGES_FILES      } from '../../../modules/nf-core/pigz/compress/main'
 
 
+record Sample {
+    meta: Map    // [id, source, biome] (MGnify) or [id, type, source, biome, ...] (third-party)
+    fna: Path
+    gff: Path
+    faa: Path
+}
+
+record PreprocessingParams {
+    start_accession: Integer?
+    end_accession: Integer?
+    viral_sequence_identifier: String?
+    prophage_identifier: String?
+    plasmid_identifier: String?
+    rename_accession: String
+    skip_checkv: Boolean
+    checkv_db: Path?
+    skip_rrna_detection: Boolean
+    nucleotide_fasta_chunksize: Integer
+}
+
+record CompressedFiles {
+    fna: Path
+    gff: Path
+    faa: Path
+}
+
+record Preprocessed {
+    meta: Map                   // [id: 'combined']
+    map_file: Path              // rename map
+    fna_renamed: Path           // all input sequences, renamed
+    gff_renamed: Path
+    metadata: Path              // metadata of all records
+    filtered_metadata: Path
+    excluded_metadata: Path
+    checkv_report: Path?        // null with --skip_checkv
+    rrna_gff: Path?             // barrnap rRNA predictions; null with --skip_rrna_detection
+    filtered_fna: Path
+    filtered_gff: Path          // concatenated GFF built from all inputs
+    filtered_faa: Path          // concatenated FAA built from all inputs
+    virus_fna: Path
+    virus_gff: Path
+    virus_faa: Path
+    prophage_fna: Path
+    prophage_gff: Path
+    prophage_faa: Path
+    plasmid_fna: Path
+    plasmid_gff: Path
+    plasmid_faa: Path
+    virus_gz: CompressedFiles   // chosen viral sequences, compressed
+    prophage_gz: CompressedFiles
+    plasmid_gz: CompressedFiles
+    stats: Path
+}
+
 workflow PREPROCESSING {
 
     take:
-    input   // [meta, gff, fna, faa]
-    ch_third_party_data  // [meta[id, biome, type, source], fasta, gff, faa]
+    samples: Channel<Sample>
+    third_party: Channel<Sample>
+    opts: PreprocessingParams
 
     main:
-    ch_versions = channel.empty()
 
     // ----------- Assign unique identifiers to all coming sequences by each record in samplesheet
     // We will combine all sequences together and keep track of names, biomes and types in map file
@@ -28,44 +84,40 @@ workflow PREPROCESSING {
     // For MGnify processing rename_accession should be MGYV
     // It will also rename ID in attributes column in GFF
     // That step is running with --combine option and it will return one renamed FASTA and GFF
+    // Samples are collected once (in arrival order, which sets the accession numbering),
+    // so that the per-field lists below stay aligned; collect emits an empty list when
+    // there are no samples of that kind.
 
-    ch_fna       = input.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
-    ch_gff       = input.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
-    ch_sources   = input.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
-    ch_biomes    = input.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
+    def combined_meta = [id: 'combined']
+    def mgnify      = samples.collect().map { ss -> ss.toList() }
+    def third_party_list = third_party.collect().map { ss -> ss.toList() }
 
-    ch_fna_tp    = ch_third_party_data.map { meta, fna, gff, faa -> fna }.collect().ifEmpty([])
-    ch_gff_tp    = ch_third_party_data.map { meta, fna, gff, faa -> gff }.collect().ifEmpty([])
-    ch_types_tp  = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.type]) }.collect().ifEmpty([])
-    ch_biomes_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.biome]) }.collect().ifEmpty([])
-    ch_source_tp = ch_third_party_data.map { meta, fna, gff, faa -> tuple([meta.source]) }.collect().ifEmpty([])
+    renamed = RENAME_CONTIGS(
+        combined_meta,
+        mgnify.map { ss -> ss.collect { s -> s.fna }.toList() },
+        mgnify.map { ss -> ss.collect { s -> s.gff }.toList() },
+        mgnify.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
+        mgnify.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
+        opts.start_accession,
+        opts.end_accession,
+        third_party_list.map { ss -> ss.collect { s -> s.fna }.toList() },
+        third_party_list.map { ss -> ss.collect { s -> s.gff }.toList() },
+        third_party_list.map { ss -> ss.collect { s -> s.meta.type as String }.toList() },
+        third_party_list.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
+        third_party_list.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
+        opts.viral_sequence_identifier,
+        opts.prophage_identifier,
+        opts.plasmid_identifier,
+        opts.rename_accession
+    )
 
     // Raw pool of protein sequences (original, unrenamed protein IDs) from both sources,
     // used later to pull out just the proteins that survive separation + deduplication
-    def combined_meta = [id: 'combined']
-
-    ch_faa_raw = input.map { meta, fna, gff, faa -> faa }
-        .mix( ch_third_party_data.map { meta, fna, gff, faa -> faa } )
+    def faa_raw = samples.map { r -> r.faa }
+        .mix( third_party.map { r -> r.faa } )
         .collectFile( name: 'combined_raw.faa' )
-        .map { faa -> [combined_meta, faa] }
-
-    RENAME_CONTIGS(
-        combined_meta,
-        ch_fna,
-        ch_gff,
-        ch_sources,
-        ch_biomes,
-        params.start_accession,
-        params.end_accession,
-        ch_fna_tp,
-        ch_gff_tp,
-        ch_types_tp,
-        ch_biomes_tp,
-        ch_source_tp,
-        params.viral_sequence_identifier,
-        params.prophage_identifier,
-        params.plasmid_identifier
-    )
+        .collect()
+        .map { files -> files.toList()[0] }
 
     //
     // ----- SEPARATE SEQUENCES INTO VIRUSES, PROPHAGES AND PLASMIDS ------
@@ -74,75 +126,90 @@ workflow PREPROCESSING {
     // MGnify counterpart). FNA, GFF and FAA are all split together so downstream steps
     // (quality evaluation, choose_sequences) have a consistent triple per category.
     //
+    def renamed_fna = renamed.map { r -> record(meta: r.meta, fna: r.fna_renamed) }
+    def renamed_gff = renamed.map { r -> r.gff_renamed }
+    def map_file    = renamed.map { r -> r.map_file }
 
-    SEPARATE_VIRAL_SEQUENCES(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+    viruses = SEPARATE_VIRAL_SEQUENCES(
+       renamed_fna,
+       renamed_gff,
+       faa_raw,
+       map_file,
        'virus'
     )
 
-    SEPARATE_PROPHAGES(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+    prophages = SEPARATE_PROPHAGES(
+       renamed_fna,
+       renamed_gff,
+       faa_raw,
+       map_file,
        'prophage'
     )
 
-    SEPARATE_PLASMIDS(
-       RENAME_CONTIGS.out.fna_renamed,
-       RENAME_CONTIGS.out.gff_renamed,
-       ch_faa_raw,
-       RENAME_CONTIGS.out.map_file,
+    plasmids = SEPARATE_PLASMIDS(
+       renamed_fna,
+       renamed_gff,
+       faa_raw,
+       map_file,
        'plasmid'
     )
 
-    ch_virus_prophage_fna = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences.map{ meta, fna, gff, faa -> fna }
-        .mix( SEPARATE_PROPHAGES.out.chosen_sequences.map{ meta, fna, gff, faa -> fna } )
+    def ch_virus_prophage_fna = viruses.combine(prophages)
+        .flatMap { v, p -> [v.fna, p.fna] }
         .collectFile( name: 'viruses_and_prophages.fna' )
-        .map{ fna -> [[id: 'combined'], fna] }
+        .map { fna -> tuple(combined_meta, fna) }
 
     //
     // ----------- Evaluate quality and rRNA content for viruses + prophages only
     // (plasmids are not checked for viral quality/rRNA contamination)
     //
-    if ( ! params.skip_checkv ) {
-        CHUNK_FNA (
+    def quality: Value<Path?> = channel.value(null)
+    if ( ! opts.skip_checkv ) {
+        chunks = CHUNK_FNA (
             ch_virus_prophage_fna,
             [],                                        // length: (disabled) max number of nucleotides per chunk
-            params.nucleotide_fasta_chunksize,         // size: max number of sequences per chunk
+            opts.nucleotide_fasta_chunksize,           // size: max number of sequences per chunk
         )
-        ch_versions = ch_versions.mix(CHUNK_FNA.out.versions)
-        def ch_fna_chunks = CHUNK_FNA.out.chunked_output.transpose()
+        // a single chunk is emitted as a path, several as a list: transpose handles both
+        def ch_fna_chunks = chunks.chunked_output.transpose()
 
-        CHECKV_ENDTOEND (
+        checkv = CHECKV_ENDTOEND (
             ch_fna_chunks,
-            params.checkv_db
+            opts.checkv_db
         )
 
-        CONCATENATE_CHECKV (
-            CHECKV_ENDTOEND.out.quality_summary.groupTuple(),
+        checkv_quality = CONCATENATE_CHECKV (
+            checkv.quality_summary.groupTuple(),
             'tsv',
             'tsv'
         )
-        quality_ch = CONCATENATE_CHECKV.out.csv
-    } else {
-        quality_ch = tuple([id:'combined'], [])
+        quality = checkv_quality.csv
+            .map { _meta, table -> table }
+            .collect()
+            .map { tables ->
+                if( tables.isEmpty() )
+                    error "CheckV produced no quality summary -- refusing to choose sequences without quality filtering"
+                tables.toList()[0]
+            }
     }
 
     //
     // ----- Detect rRNA sequences ------
     //
-    if ( ! params.skip_rrna_detection ) {
-        BARRNAP(
-          ch_virus_prophage_fna.map { meta, fasta -> [meta, fasta, "bac"] }
+    def rna_gff: Value<Path?> = channel.value(null)
+    if ( ! opts.skip_rrna_detection ) {
+        barrnap = BARRNAP(
+          ch_virus_prophage_fna.map { meta, fasta -> tuple(meta, fasta, "bac") }
         )
 
-        rna_gff = BARRNAP.out.gff
-    } else {
-        rna_gff = tuple([id:'combined'], [])
+        rna_gff = barrnap.gff
+            .map { _meta, gff -> gff }
+            .collect()
+            .map { gffs ->
+                if( gffs.isEmpty() )
+                    error "barrnap produced no GFF -- refusing to choose sequences without rRNA filtering"
+                gffs.toList()[0]
+            }
     }
 
     //
@@ -153,59 +220,60 @@ workflow PREPROCESSING {
     // Also filters out non-determined-quality viruses/prophages, and drops the
     // corresponding GFF/FAA records for any sequence that gets deduplicated away.
     //
-    CHOOSE_SEQUENCES (
-        SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences,
-        SEPARATE_PROPHAGES.out.chosen_sequences,
-        SEPARATE_PLASMIDS.out.chosen_sequences,
-        quality_ch,
-        rna_gff,
-        RENAME_CONTIGS.out.map_file
+    chosen = CHOOSE_SEQUENCES (
+        renamed.map { r -> record(meta: r.meta, map_file: r.map_file) },
+        viruses,
+        prophages,
+        plasmids,
+        quality,
+        rna_gff
     )
 
-    COMPRESS_VIRAL_SEQ_FILES (
-        CHOOSE_SEQUENCES.out.virus_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
-        }
-        .transpose()
+    virus_gz = COMPRESS_VIRAL_SEQ_FILES (
+        chosen
+            .flatMap { r -> [r.virus_fna, r.virus_gff, r.virus_faa].collect { f -> tuple(r.meta, f) } }
     )
 
-    COMPRESS_PLASMIDS_FILES (
-        CHOOSE_SEQUENCES.out.plasmid_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
-        }
-        .transpose()
+    plasmid_gz = COMPRESS_PLASMIDS_FILES (
+        chosen
+            .flatMap { r -> [r.plasmid_fna, r.plasmid_gff, r.plasmid_faa].collect { f -> tuple(r.meta, f) } }
     )
 
-    COMPRESS_PROPHAGES_FILES (
-        CHOOSE_SEQUENCES.out.prophage_data
-        .map { meta, fna, gff, faa ->
-            [meta, [fna, gff, faa]]
-        }
-        .transpose()
+    prophage_gz = COMPRESS_PROPHAGES_FILES (
+        chosen
+            .flatMap { r -> [r.prophage_fna, r.prophage_gff, r.prophage_faa].collect { f -> tuple(r.meta, f) } }
     )
+
+    preprocessed = chosen
+        .map { r ->
+            record(
+                meta: r.meta,
+                metadata: r.metadata, filtered_metadata: r.filtered_metadata, excluded_metadata: r.excluded_metadata,
+                filtered_fna: r.filtered_fna, filtered_gff: r.filtered_gff, filtered_faa: r.filtered_faa,
+                virus_fna: r.virus_fna, virus_gff: r.virus_gff, virus_faa: r.virus_faa,
+                prophage_fna: r.prophage_fna, prophage_gff: r.prophage_gff, prophage_faa: r.prophage_faa,
+                plasmid_fna: r.plasmid_fna, plasmid_gff: r.plasmid_gff, plasmid_faa: r.plasmid_faa,
+                stats: r.stats
+            )
+        }
+        .combine(map_file: map_file)
+        .combine(fna_renamed: renamed.map { r -> r.fna_renamed })
+        .combine(gff_renamed: renamed.map { r -> r.gff_renamed })
+        .combine(checkv_report: quality)
+        .combine(rrna_gff: rna_gff)
+        .combine(virus_gz: virus_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
+        .combine(prophage_gz: prophage_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
+        .combine(plasmid_gz: plasmid_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
 
     emit:
-    mapfile             = RENAME_CONTIGS.out.map_file             // [id:combined, metadata.tsv]
+    preprocessed: Value<Preprocessed> = preprocessed
+}
 
-    separated_prophages = SEPARATE_PROPHAGES.out.chosen_sequences  // [[id:combined_prophage], fna, gff, faa]
-    separated_viruses   = SEPARATE_VIRAL_SEQUENCES.out.chosen_sequences  // [[id:combined_virus], fna, gff, faa]
-    separated_plasmids  = SEPARATE_PLASMIDS.out.chosen_sequences  // [[id:combined_plasmid], fna, gff, faa]
-
-    input_metadata      = CHOOSE_SEQUENCES.out.metadata           // [id:combined, combined_metadata.tsv]
-    metadata            = CHOOSE_SEQUENCES.out.filtered_metadata  // [id:combined, combined_filtered.tsv]
-    excluded_qc         = CHOOSE_SEQUENCES.out.excluded_metadata  // [id:combined, excluded_metadata.tsv]
-
-    viral_sequences     = CHOOSE_SEQUENCES.out.virus_data     // [id:combined, combined_virus_filtered.fna, gff, faa]
-    prophages           = CHOOSE_SEQUENCES.out.prophage_data  // [id:combined, combined_prophage_filtered.fna, gff, faa]
-    plasmids            = CHOOSE_SEQUENCES.out.plasmid_data   // [id:combined, combined_plasmid_filtered.fna, gff, faa]
-
-    combined_gff        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> gff }
-
-    combined_faa        = CHOOSE_SEQUENCES.out.filtered_data.map { meta, fna, gff, faa -> faa }
-
-    stats_json          = CHOOSE_SEQUENCES.out.stats
-
-    versions            = ch_versions                        // channel: [ path(versions.yml) ]
+// The three compressed files of one category (one PIGZ task each, same meta), by extension
+def compressedFiles(files: List<Path>) -> CompressedFiles {
+    return record(
+        fna: files.find { f -> f.name.endsWith('.fna.gz') },
+        gff: files.find { f -> f.name.endsWith('.gff.gz') },
+        faa: files.find { f -> f.name.endsWith('.faa.gz') }
+    )
 }

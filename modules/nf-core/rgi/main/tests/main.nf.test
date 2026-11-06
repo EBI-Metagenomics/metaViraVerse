@@ -56,7 +56,7 @@ nextflow_process {
             assertAll(
                 { assert process.success },
                 { assert snapshot(
-                    process.out.versions,
+                    process.out.findAll { key, val -> key.startsWith('versions') },
                     process.out.tsv,
                     process.out.json,
                     file(process.out.tmp.get(0).get(1)).list().sort(),

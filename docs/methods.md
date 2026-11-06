@@ -29,6 +29,8 @@ Third party input format:
 | `study_accession`  | No       | INSDC study accession (primary or secondary) associated with the data, kept as metadata.                                                                                                                                                                   |
 | `sample_accession` | No       | INSDC sample accession associated with the data, kept as metadata.                                                                                                                                                                                         |
 
+MGnify input is prepared with the helper scripts in `scripts/`, which take the viral, prophage and plasmid records (and their CDS) from the VIRify/MAP GFFs of MAG catalogues or of assembly analyses, together with the corresponding region of each contig and the proteins; see [MGnify docs](mgnify_usage.md#fetch-data-from-mgnify-genomes).
+
 Third-party records go through their own preparation subworkflow (annotation, gene calling where needed) before being merged with the MGnify samplesheet, so that from the pre-processing stage onward both sources are treated uniformly. A run may supply only MGnify input, only third-party input, or both together.
 
 ## Pre-processing
@@ -126,6 +128,7 @@ Viral (including prophage) sequences are dereplicated into representative genome
 
 - Clustering here is based on ANI rather than gANI, with a minimum identity of 0.95 (95%) between a sequence and its cluster representative — the community-standard threshold (in line with MIUVIG recommendations) for grouping viral genomes into species-level vOTUs.
 - As with plasmid clustering, the same `--cluster_vclust` switch controls whether vclust or the BLASTN + `anicalc`/`aniclust` fallback pipeline is used.
+- With `--viral_clustering vjdb`, viruses are instead clustered with [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) (included as a pipeline from `pipelines/vjdb-clustering`), which scales to millions of sequences: sequences are deduplicated by hash and split into chunks, each chunk is pre-clustered with MMseqs2 `easy-linclust` (95% identity) and then with vclust (Leiden, 95% ANI, 85% coverage), and the chunk representatives are clustered again with vclust to give the final clusters. `--cluster_vclust` has no effect on viruses in this mode; plasmids are clustered as above.
 - Only cluster representatives are propagated to the rest of the viral analysis branch (host detection, lifestyle prediction, taxonomy assignment, protein annotation), keeping the compute-intensive downstream steps focused on non-redundant genomes while every member sequence remains recorded in the clustering table.
 
 ### Lifestyle

@@ -1,0 +1,2 @@
+stub runs do not read the databases: every database param points here
+nf-test test subworkflows/local/process_viral_sequences/tests/main.nf.test --profile +docker
