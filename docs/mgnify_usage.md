@@ -369,6 +369,7 @@ nextflow run main.nf \
     --outdir <OUTDIRNAME> \
     --input samplesheet.csv \
     --catalogues_metadata genomes-all_metadata.tsv \
+    --analyses_metadata analyses_metadata.tsv <if the input includes MGnify analyses (ERZ accessions) [optional]> \
     --rename_accession MGYV \
     --start_accession <first identifier number, e.g. 30, used when renaming into MGYV space, e.g. MGYV0000030> \
     --end_accession <last identifier number, e.g. 40, used when renaming into MGYV space, e.g. MGYV0000040> \

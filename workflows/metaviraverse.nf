@@ -31,6 +31,7 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 
 record MetaviraverseParams {
     catalogues_metadata: Path
+    analyses_metadata: Path?   // fills source study/sample of sequences named <ERZ accession>|...
     multiqc_config: Path?
     multiqc_logo: String?
 }
@@ -175,7 +176,8 @@ workflow METAVIRAVERSE {
                 spacepharer: r.viral.hosts.spacepharer
             )
         },
-        opts.catalogues_metadata
+        opts.catalogues_metadata,
+        opts.analyses_metadata
     )
 
 

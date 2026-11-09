@@ -41,6 +41,14 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "analyses_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "TSV with metadata of MGnify analyses (accession, study_id, sample_id, biome_id)",
+                    "help_text": "analyses_metadata.tsv written by scripts/collect_mobilome_from_analyses.py (plain or gzip). Sequences whose original name starts with an analysis accession (e.g. ERZ2772503|viral_sequence-1:500) get Source_accession, Source_sample and Source_project from it in the final metadata tables, and Biome when the samplesheet gave none.",
+                    "fa_icon": "fas fa-file-alt"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
