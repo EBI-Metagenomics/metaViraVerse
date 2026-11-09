@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "catalogue": {
-    "created": "2026-11-06T14:59:57+00:00",
+    "created": "2026-11-09T11:03:24+00:00",
     "mode": "generate",
     "parent": null,
     "pipeline_version": "test",
@@ -46,6 +46,11 @@
       "path": "viruses/cluster_representatives/viruses_reps_annotated.gff.gz",
       "size": 111,
       "sha256": "1ebd503b264f9c8226eae09c360cc09759f64247f5ff47a1fe9949c56567ba23"
+    },
+    "viruses.bacphlip": {
+      "path": "viruses/cluster_representatives/functional_annotation/lifestyle/viruses.bacphlip.gz",
+      "size": 79,
+      "sha256": "224d9d7df5b347c8297a7996a6c9b8a7a2d3d55818da26ea3a3df283b48b78d8"
     },
     "viruses.reps_faa": {
       "path": "viruses/cluster_representatives/viruses_reps.faa.gz",

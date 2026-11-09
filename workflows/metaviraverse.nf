@@ -17,6 +17,7 @@ include { PROCESS_PLASMIDS ; PlasmidParams ; PlasmidCatalogue } from '../subwork
 include { THIRD_PARTY_DATA                      } from '../subworkflows/local/third_party_data'
 include { ExistingCatalogue                     } from '../subworkflows/local/existing_catalogue/main'
 include { PREPARE_RGI_DB                        } from '../subworkflows/local/prepare_rgi_db/main'
+include { MERGE_VIRAL_CATALOGUE                 } from '../subworkflows/local/merge_viral_catalogue/main'
 
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
@@ -121,7 +122,7 @@ workflow METAVIRAVERSE {
     //
     // Process viruses
     //
-    viral_catalogue = PROCESS_VIRAL_SEQUENCES (
+    def viral_catalogue: Channel<ViralCatalogue> = PROCESS_VIRAL_SEQUENCES (
        viruses,
        preprocessed.map { r -> r.filtered_gff },   // concatenated GFF built from all inputs
        preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
@@ -131,6 +132,12 @@ workflow METAVIRAVERSE {
        rgi_db,
        viral_opts
     )
+
+    // --mode update: the annotations above cover the new clusters only; merge them with
+    // the existing catalogue's
+    if ( viral_opts.mode == 'update' ) {
+        viral_catalogue = MERGE_VIRAL_CATALOGUE(viral_catalogue, existing)
+    }
 
     // Process plasmids filtered from input, those already compressed and published in PREPROCESSING
 
@@ -180,7 +187,9 @@ workflow METAVIRAVERSE {
     final_metadata = COLLECT_METADATA (
         catalogues.map { r ->
             record(
-                combined_meta: r.preprocessed.filtered_metadata,
+                // whole catalogue (with --mode update the existing sequences too; same as
+                // filtered_metadata in generate mode)
+                combined_meta: r.preprocessed.catalogue_metadata,
                 viral_meta: r.viral.meta,
                 viral_clusters: r.viral.clusters_tsv,
                 plasmid_meta: r.plasmid.meta,

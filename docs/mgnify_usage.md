@@ -306,7 +306,9 @@ nextflow run main.nf \
 
 - New viruses are clustered with the representatives of the existing catalogue (vjdb-clustering update). Existing cluster IDs stay stable; `viruses/clustering/update/viruses_cluster_events.tsv` lists the clusters that are new, grew or were merged. Only the representatives of new clusters are annotated.
 
-Not implemented yet: the annotations of the new clusters are not merged with those of the existing catalogue, and plasmids are not clustered with the existing plasmids, so annotation outputs and plasmids cover only this run's new sequences. An updated catalogue therefore cannot be updated again (`update_ready: false` in its `catalogue_manifest.json`, which records the existing catalogue as its parent).
+- The annotations of the new clusters are merged with those of the existing catalogue (rows of representatives dropped by cluster merges are removed). The update must use the same annotation tools as the existing catalogue (same `--skip_*` options, `--annotation_db` databases and `--predict_host_from_custom_spacers`); otherwise the run stops before any task. The updated catalogue records the existing one as its `parent` in `catalogue_manifest.json` and can be updated again.
+
+Not implemented yet: plasmids are not clustered with the existing plasmids, so the plasmid outputs cover only this run's new plasmids; the viral plots, taxonomy counts, HMMER summaries and protein clusters are not recomputed (not published), and `catalogue.json` counts only this run's input apart from the viral clusters. See [Catalogue update](output.md#catalogue-update).
 
 ## Outputs
 

@@ -53,9 +53,10 @@ workflow LOAD_EXISTING_CATALOGUE {
     take:
     dir: Path
     rename_accession: String
+    annotations: Map<String,Boolean>   // manifest key -> whether this run produces it (same tools as the existing catalogue)
 
     main:
-    def loaded = loadExistingCatalogue(dir, rename_accession)
+    def loaded = loadExistingCatalogue(dir, rename_accession, annotations)
     log.info("--mode update: existing catalogue ${dir}, last accession ${loaded.accession_prefix}${loaded.last_accession}")
 
     check = CHECK_EXISTING_CATALOGUE(
@@ -80,7 +81,7 @@ workflow LOAD_EXISTING_CATALOGUE {
 // Read the manifest, check what can be checked without reading the files (format,
 // update readiness, accession prefix, required keys, files present) and build the record.
 // Sizes and checksums are checked by CHECK_EXISTING_CATALOGUE.
-def loadExistingCatalogue(dir: Path, rename_accession: String) -> ExistingCatalogue {
+def loadExistingCatalogue(dir: Path, rename_accession: String, annotations: Map<String,Boolean>) -> ExistingCatalogue {
     def manifest_file = dir.resolve('catalogue_manifest.json')
     if( !manifest_file.exists() )
         error("--existing_catalogue ${dir} has no catalogue_manifest.json: give the --outdir of a metaViraVerse run that wrote one")
@@ -107,6 +108,16 @@ def loadExistingCatalogue(dir: Path, rename_accession: String) -> ExistingCatalo
     def missing_keys = required.findAll { k -> !files.containsKey(k) }
     if( missing_keys )
         error("${manifest_file} lists no ${missing_keys.join(', ')}")
+
+    // the update's annotations are merged with the existing ones: both need the same tools
+    def only_existing = annotations.keySet().findAll { k -> files.containsKey(k) && !annotations[k] }
+    def only_update = annotations.keySet().findAll { k -> !files.containsKey(k) && annotations[k] }
+    if( only_existing || only_update ) {
+        def lines = only_existing.collect { k -> "  ${k}: in the existing catalogue, but this run skips it" }.toList() +
+            only_update.collect { k -> "  ${k}: this run produces it, but the existing catalogue has none" }.toList()
+        error("--mode update must annotate with the same tools as the existing catalogue ${dir}:\n" + lines.join('\n') +
+            "\nSet the --skip_* options, --annotation_db and --predict_host_from_custom_spacers as for the existing catalogue.")
+    }
 
     // a list key (viruses.hmmer_tables) holds several entries
     def all_files = files.values().collectMany { v -> (v instanceof List ? v : [v]) as List }

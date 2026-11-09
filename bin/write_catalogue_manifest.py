@@ -179,10 +179,6 @@ def build_manifest(args, files):
         reason = f"viruses were clustered with --viral_clustering {args.viral_clustering}; updates need 'vjdb'"
     elif missing_vjdb:
         reason = f"missing {', '.join(missing_vjdb)}"
-    elif args.mode == "update":
-        # until the update merges the annotations with those of the existing catalogue,
-        # the annotation tables of an updated catalogue cover only its new clusters
-        reason = "annotations of an updated catalogue are not merged with the existing ones yet"
     else:
         reason = None
     update_ready = reason is None

@@ -1,5 +1,6 @@
 // tests/data/catalogue: a two-virus catalogue (the sequences of process_viral_sequences/tests/data)
 // with its catalogue_manifest.json written by bin/write_catalogue_manifest.py.
+// The fixture has no per-representative annotations (input[2]: this run produces none either).
 // tests/data/catalogue_tampered: the same, with viruses_vjdb_clusters.csv changed after the manifest was written.
 nextflow_workflow {
 
@@ -17,6 +18,7 @@ nextflow_workflow {
                 """
                 input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
                 input[1] = 'MGYV'
+                input[2] = ['viruses.genomad': false, 'viruses.vitap': false, 'viruses.viphogs': false, 'viruses.iphop_genome': false, 'viruses.spacepharer': false, 'viruses.amrfinderplus': false, 'viruses.deeparg': false, 'viruses.rgi': false, 'viruses.hmmer_tables': false]   // the fixture has no annotations
                 """
             }
         }
@@ -29,7 +31,7 @@ nextflow_workflow {
                 { assert workflow.out[0][0].accession_prefix == 'MGYV' },
                 { assert workflow.out[0][0].last_accession == 2 },
                 { assert workflow.out[0][0].zero_padded_digits == 10 },
-                { assert workflow.out[0][0].manifest_files.size() == 9 },
+                { assert workflow.out[0][0].manifest_files.size() == 10 },
                 { assert file(workflow.out[0][0].vjdb_clusters_csv).name == 'viruses_vjdb_clusters.csv' },
                 { assert file(workflow.out[0][0].vjdb_reps_fna).name == 'viruses_vjdb_reps.fna.gz' },
                 { assert workflow.out[0][0].genomad == null },          // skipped steps are not in the manifest
@@ -49,6 +51,7 @@ nextflow_workflow {
                 """
                 input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
                 input[1] = 'MGYV'
+                input[2] = ['viruses.genomad': false, 'viruses.vitap': false, 'viruses.viphogs': false, 'viruses.iphop_genome': false, 'viruses.spacepharer': false, 'viruses.amrfinderplus': false, 'viruses.deeparg': false, 'viruses.rgi': false, 'viruses.hmmer_tables': false]   // the fixture has no annotations
                 """
             }
         }
@@ -68,6 +71,7 @@ nextflow_workflow {
                 """
                 input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue_tampered", checkIfExists: true)
                 input[1] = 'MGYV'
+                input[2] = ['viruses.genomad': false, 'viruses.vitap': false, 'viruses.viphogs': false, 'viruses.iphop_genome': false, 'viruses.spacepharer': false, 'viruses.amrfinderplus': false, 'viruses.deeparg': false, 'viruses.rgi': false, 'viruses.hmmer_tables': false]   // the fixture has no annotations
                 """
             }
         }
@@ -90,6 +94,7 @@ nextflow_workflow {
                 """
                 input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
                 input[1] = 'seq'
+                input[2] = ['viruses.genomad': false, 'viruses.vitap': false, 'viruses.viphogs': false, 'viruses.iphop_genome': false, 'viruses.spacepharer': false, 'viruses.amrfinderplus': false, 'viruses.deeparg': false, 'viruses.rgi': false, 'viruses.hmmer_tables': false]
                 """
             }
         }
@@ -99,6 +104,27 @@ nextflow_workflow {
                 { assert workflow.failed },
                 { assert workflow.trace.tasks().size() == 0 },
                 { assert workflow.stdout.any { line -> line.contains("uses the accession prefix 'MGYV'") } }
+            )
+        }
+    }
+
+    test("other annotation tools than the existing catalogue - fails before any task") {
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
+                input[1] = 'MGYV'
+                input[2] = ['viruses.genomad': true, 'viruses.vitap': false]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.trace.tasks().size() == 0 },
+                { assert workflow.stdout.any { line -> line.contains('viruses.genomad: this run produces it, but the existing catalogue has none') } }
             )
         }
     }

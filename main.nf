@@ -243,7 +243,7 @@ workflow {
     checkMode(params.mode, params.existing_catalogue, params.viral_clustering, params.outdir, params.start_accession, params.end_accession)
     def existing: Value<ExistingCatalogue?> = channel.value(null)
     if( params.mode == 'update' ) {
-        existing = LOAD_EXISTING_CATALOGUE(params.existing_catalogue, params.rename_accession)
+        existing = LOAD_EXISTING_CATALOGUE(params.existing_catalogue, params.rename_accession, updateAnnotations(params))
     }
 
     //
@@ -286,6 +286,22 @@ workflow {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+// --mode update: the per-representative annotation files (catalogue_manifest.json keys)
+// this run produces; the existing catalogue must have the same ones to merge them
+def updateAnnotations(p: ViralParams) -> Map<String,Boolean> {
+    return [
+        'viruses.genomad': !p.skip_genomad,
+        'viruses.vitap': !p.skip_vitap,
+        'viruses.viphogs': !p.skip_viphogs,
+        'viruses.iphop_genome': !p.skip_iphop,
+        'viruses.spacepharer': p.predict_host_from_custom_spacers,
+        'viruses.amrfinderplus': !p.skip_amrfinderplus_for_viruses,
+        'viruses.deeparg': !p.skip_deeparg_for_viruses,
+        'viruses.rgi': !p.skip_rgi_for_viruses,
+        'viruses.hmmer_tables': p.annotation_db != null
+    ]
+}
+
 // --mode and the params it needs
 def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String, outdir: String, start_accession: Integer, end_accession: Integer) {
     if( !(mode in ['generate', 'update']) )
@@ -308,10 +324,10 @@ def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String,
         log.warn("--mode update: --start_accession and --end_accession are ignored; new accessions continue after the last one of the existing catalogue")
     log.warn(
         "--mode update is in development: new sequences are numbered after the existing catalogue, sequences " +
-        "it already has are left out, and new viruses are clustered with its representatives, but only the " +
-        "new viral clusters are annotated and the annotations are not yet merged with the existing ones. " +
-        "Plasmids cover only the new sequences. The rename map, the catalogue metadata tables in " +
-        "additional_data/ and the viral clusters cover the whole catalogue. The result cannot be updated again."
+        "it already has are left out, new viruses are clustered with its representatives, and only the new " +
+        "viral clusters are annotated; their annotations are merged with the existing ones. Viral plots, " +
+        "taxonomy counts, HMMER summaries and protein clusters are not recomputed (not published), and " +
+        "plasmids cover only the new sequences."
     )
 }
 
