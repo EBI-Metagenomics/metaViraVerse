@@ -47,6 +47,48 @@ Unit tests import scripts directly from `bin/` (`sys.path.insert(0, BIN_DIR)`); 
 
 Original MGnify sequence names look like `MGYG000519004_12|viral_sequence-1:32972` (genome, contig, type, coordinates); the source genome is the part before the first `_`, which is how scripts join to `--catalogues_metadata` (lineage, sample, study).
 
+## File formats
+
+Identifiers: after renaming, **sequences** are catalogue IDs (`MGYV0000000001`), but **proteins keep their source IDs** (`MGYG000999448_03173`, with a description in FASTA headers). A protein's representative cannot be derived from its ID; use the reps GFF (CDS rows lie on the representative's seqid). All files below may be plain or gzip/bgzip; bgzipped published files (`*.gz` with `.tbi`/`.fai`/`.gzi`) read with plain gzip.
+
+Sequences and annotation
+
+- Renamed GFF / reps GFF (`viruses_reps.gff.gz`, published sorted, bgzipped, tabix-indexed): GFF3, `##gff-version 3`; seqid (col 1) = catalogue ID; one region feature per sequence (source `VIRify`, type `viral_sequence`/`prophage`/`plasmid`, `ID=<MGYV…>` plus VIRify/CheckV attributes), then `CDS` rows with `ID=<source protein ID>`. No `##FASTA` section.
+- `viruses_reps_annotated.gff.gz` (`BUILD_FINAL_GFF`): the reps GFF with BACPHLIP (`bacphlip_virulent`/`bacphlip_temperate` on the region), HMMER (`<db>_accession`, … on CDS) and AMR attributes added.
+- `integrated_viruses.gff` (AMRINTEGRATOR): GFF of AMR hits, seqid = catalogue ID.
+- Reps FASTA (`viruses_reps.fasta.gz` / `.faa.gz`): FNA headers = catalogue ID; FAA headers = source protein ID + description.
+
+Clustering
+
+- vclust cluster TSV (internal `*_clusters.tsv`): header `object\tcluster`, one row per sequence, `cluster` = representative ID. The blastn/CheckV variant has no header (`rep\tmembers`).
+- vjdb membership CSV (`viruses_vjdb_clusters.csv`): `vjdb_id,copy_of,seq_gc,seq_len,seq_hash,cluster_rep`; `seq_hash` = case-sensitive MD5 of the sequence; `copy_of` must equal `vjdb_id` (identical sequences were removed before). `viruses_vjdb_reps.fna.gz`: one sequence per `cluster_rep`.
+- `--mode update` only: `viruses_new_sequences_clusters.csv` (vjdb `*_new_clusters.csv`: the CSV columns plus `status` = `new_unique`/`new_copy`/`existing_copy`/`resubmitted`/`duplicate_in_batch`) and `viruses_cluster_events.tsv` (`cluster_rep, event, old_cluster_reps, n_existing, n_new`; `event` = `new`/`grown`/`merged`; `old_cluster_reps` `;`-separated; unchanged clusters are not listed). Internal `*_clusters_to_annotate.tsv` (vclust format, `new` clusters only) and `*_dropped_reps.txt` (one old representative per line, absorbed by a merge) come from `bin/vjdb_clusters_tsv.py`.
+
+Per-representative annotation tables (ID column → what it holds)
+
+- geNomad `viruses.tsv`: TSV, `seq_name` (catalogue ID), …, `taxonomy` (`;`-separated).
+- VITAP best: TSV, `Genome_ID` (catalogue ID), `lineage`.
+- ViPhOGs taxonomy `viruses_reps_annotation_taxonomy.tsv`: TSV, header `contig_ID` (with leading spaces: strip header names), then rank columns `superkingdom … genus`; all-empty ranks = no assignment.
+- ViPhOGs annotation `viruses_reps_annotation.tsv`: TSV `Contig` (catalogue ID), `CDS_ID` (source protein ID), `Start, End, Direction, Best_hit, Abs_Evalue_exp, Label`. `viruses_modified*.tsv`: `ViPhOG, query` (protein ID), `Ratio, Abs_Evalue_exp, Taxon`.
+- iPHoP `iphop_genome.csv` / `iphop_genus.csv`: CSV, `Virus` (catalogue ID), host lineage in `Host taxonomy` / `Host genus`, `Confidence score`; several rows per virus (best = highest score); chunk concatenation repeats the header.
+- SpacePHARER `custom_chosen_host.tsv`: TSV, `viral_seq` (catalogue ID), `host_lineage` (`NA` = none), `evalue`; several rows per virus (best = lowest evalue).
+- BACPHLIP `*.bacphlip`: TSV, header `\tVirulent\tTemperate` (first column unnamed = catalogue ID); published bgzipped + tabix (`viruses.bacphlip.gz`).
+- HMMER `*.tbl.gz`: `hmmsearch --tblout`, whitespace-separated, `#` comment lines; col 1 = target = source protein ID, col 3 = profile accession. Several hits per protein (`BUILD_FINAL_GFF` keeps the first). One file per HMM database, named `<meta.id>_<db>.tbl.gz`; `*_summary.tsv.gz` per database.
+- AMR: `viruses_amrfinderplus.tsv` (AMRFinderPlus 4 TSV, protein ID in `Protein id`); `viruses_deeparg.tsv`, `viruses_rgi.tsv` (hAMRonization TSV, protein ID in `input_sequence_id`).
+- PhaMMseqs `viruses_phams.tsv`: `phamID\tproteinID function` (protein ID + description); whole-catalogue analysis, not per representative.
+
+Metadata tables
+
+- Combined/filtered/catalogue metadata (`CHOOSE_SEQUENCES`; `catalogue_filtered_metadata.tsv`): `sequence_id, original_name, description, type, source_of_prediction, biomes, sequence_length, rrna, sequence_sha256`, the CheckV `QUALITY_COLUMNS` (`provirus … warnings`), `definition`. `sequence_sha256` = SHA-256 of the upper-cased, stripped sequence. The excluded table adds `filter_reason` (quality filters, `duplicate`, `in_existing_catalogue`).
+- `viruses-all-metadata.tsv.gz` (`COLLECT_METADATA`): one row per input viral sequence: `ID, Original_ID, Source_of_prediction, rRNA, Cluster_rep, vitap_lineage, viphogs_lineage, genomad_lineage, Host_iphop_genome_lineage, Host_iphop_genus_lineage, Host_spacepharer_lineage, Source, Biome, Source_accession, Source_lineage, Source_sample, Source_project, Sequence_length, Sequence_sha256` + CheckV fields.
+- `viruses-cluster-stats.tsv.gz`: one row per representative: `Rep_ID, Rep_vitap_lineage, Rep_viphogs_lineage, Rep_genomad_lineage, Rep_source, Rep_biome, cluster_size, cluster_mean_viral_genes, cluster_mean_gene_count, cluster_biomes, cluster_types, cluster_completeness_range, cluster_contamination_range`.
+- `--catalogues_metadata` (MGnify `genomes-all_metadata.tsv`): joined on `Genome` (the part of the original name before the first `_`); uses `Genome_accession, Lineage, Sample_accession, Study_accession`.
+
+Catalogue description and update
+
+- `catalogue_manifest.json` (`bin/write_catalogue_manifest.py`): `manifest_version` (1), `catalogue` (`created, mode, parent, pipeline_version, run_name, commit`), `accessions` (`prefix, first, last, count, zero_padded_digits`), `deduplication`, `viral_clustering` (`method, update_ready, not_update_ready_reason`), `software_versions`, `files`: key → `{path, size, sha256}` (a list for `viruses.hmmer_tables`); `path` is relative to `--outdir`. Keys are written by `manifestInput()` in `workflows/metaviraverse.nf` and read by `loadExistingCatalogue()` in `subworkflows/local/existing_catalogue/main.nf`: keep them in sync.
+- `update/existing_catalogue_check.json` (`bin/check_existing_catalogue.py`): `status, manifest_sha256, manifest_version, catalogue, accessions, files_checked`.
+
 ## Conventions
 
 - **Optional inputs/steps** (`--skip_*`, `--predict_host_from_custom_spacers`, `--annotation_db`): skipped steps emit `channel.empty()`. Before passing such a channel into a process, map to the file and add `.ifEmpty([])`; in the module build the flag conditionally (`def x_arg = x ? "--x ${x}" : ""`); in the script make the argument `required=False` and handle its absence. Otherwise the downstream process never runs.

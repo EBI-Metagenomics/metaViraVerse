@@ -279,6 +279,37 @@ nextflow run main.nf \
 
 Protein clustering (`--skip_phammseqs`, `--skip_mmseqs`) and AMR detection (`--skip_<tool>_for_viruses`, `--skip_<tool>_for_plasmids`) can be switched off separately; see the [README](../README.md#run) for all options.
 
+## Update an existing catalogue (in development)
+
+`--mode update` adds new input to a catalogue built earlier. The inputs are given as for a new catalogue (`--input` and/or `--third_party_input`); `--existing_catalogue` is the `--outdir` of the earlier run:
+
+```bash
+nextflow run main.nf \
+    -profile <appropriate profile> \
+    --mode update \
+    --existing_catalogue <OUTDIR of the catalogue to update> \
+    --outdir <NEW_OUTDIR> \
+    --input new_samplesheet.csv \
+    --catalogues_metadata genomes-all_metadata.tsv \
+    --rename_accession MGYV \
+    --viral_clustering vjdb
+```
+
+- The existing catalogue must have been built with `--viral_clustering vjdb` and must contain `catalogue_manifest.json` (written by every run since this version). Its `viral_clustering.update_ready` field tells whether it can be updated.
+- `--rename_accession` must be the one the existing catalogue was built with, and `--viral_clustering` must be `vjdb`.
+- `--outdir` must be a new directory: the existing catalogue is only read, never changed.
+- Before anything else uses it, every file the manifest lists is checked for its size and SHA-256 (`update/existing_catalogue_check.json`); a missing or changed file stops the run.
+
+- New accessions continue after the last one of the existing catalogue; `--start_accession` and `--end_accession` are ignored.
+- Sequences the existing catalogue already has (same upper-cased sequence, under any name) keep their existing ID and record; they are listed in `catalogue_excluded_records_metadata.tsv` with reason `in_existing_catalogue`, and their biomes are added to the existing record.
+- `rename_mapfile.tsv`, `catalogue_filtered_metadata.tsv` and `catalogue_excluded_records_metadata.tsv` cover the whole catalogue (existing rows, then new ones), so the result can be updated again.
+
+- New viruses are clustered with the representatives of the existing catalogue (vjdb-clustering update). Existing cluster IDs stay stable; `viruses/clustering/update/viruses_cluster_events.tsv` lists the clusters that are new, grew or were merged. Only the representatives of new clusters are annotated.
+
+- The annotations of the new clusters are merged with those of the existing catalogue (rows of representatives dropped by cluster merges are removed). The update must use the same annotation tools as the existing catalogue (same `--skip_*` options, `--annotation_db` databases and `--predict_host_from_custom_spacers`); otherwise the run stops before any task. The updated catalogue records the existing one as its `parent` in `catalogue_manifest.json` and can be updated again.
+
+Not implemented yet: plasmids are not clustered with the existing plasmids, so the plasmid outputs cover only this run's new plasmids; the viral plots, taxonomy counts, HMMER summaries and protein clusters are not recomputed (not published), and `catalogue.json` counts only this run's input apart from the viral clusters. See [Catalogue update](output.md#catalogue-update).
+
 ## Outputs
 
 Pipeline results are written to the specified `OUTDIRNAME`, following the structure described in the [output documentation](output.md).

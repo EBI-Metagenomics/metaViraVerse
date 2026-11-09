@@ -1,8 +1,9 @@
 // Source of the ViralParams record: every tool enabled, every database pointing at the
 // placeholder directory `db` (stub runs do not read the databases)
 class ViralParamsSource {
-    static String of(String viralClustering) {
+    static String of(String viralClustering, String mode = 'generate') {
         return """record(
+            mode: '${mode}',
             viral_clustering: '${viralClustering}',
             cluster_vclust: true,
             nucleotide_fasta_chunksize: 1000,
@@ -66,7 +67,9 @@ nextflow_workflow {
                 input[2] = channel.value(file("\${data}/viruses.faa", checkIfExists: true))
                 input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
                 input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
-                input[5] = ${ViralParamsSource.of('default')}
+                input[5] = channel.value(null)   // no existing catalogue (generate mode)
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('default')}
                 """
             }
         }
@@ -94,7 +97,9 @@ nextflow_workflow {
                 input[2] = channel.value(file("\${data}/viruses.faa", checkIfExists: true))
                 input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
                 input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
-                input[5] = ${ViralParamsSource.of('vjdb')}
+                input[5] = channel.value(null)   // no existing catalogue (generate mode)
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('vjdb')}
                 """
             }
         }
@@ -103,6 +108,63 @@ nextflow_workflow {
             assertAll(
                 { assert workflow.success },
                 { assert snapshot(workflow.trace.tasks()*.name.collect { n -> n.replaceAll(/ \(.*\)$/, '') }.unique().sort()).match() }
+            )
+        }
+    }
+
+    // --mode update: the new viruses are clustered with the representatives of the existing
+    // catalogue (subworkflows/local/existing_catalogue/tests/data/catalogue, which holds
+    // MGYV0000000001-2); new_viruses.fna holds the next accession, as CHOOSE_SEQUENCES numbers it.
+    // Only the vjdb tables of the existing catalogue are read here.
+    test("stub - vjdb update of an existing catalogue, all annotations") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def data = "${projectDir}/subworkflows/local/process_viral_sequences/tests/data"
+                def existing = "${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue/viruses/clustering"
+                def db = file("\${data}/db", checkIfExists: true)   // stub runs do not read the databases
+
+                input[0] = channel.of(record(meta: [id: 'viruses'], fna: file("\${data}/new_viruses.fna", checkIfExists: true)))
+                input[1] = channel.value(file("\${data}/viruses.gff", checkIfExists: true))
+                input[2] = channel.value(file("\${data}/viruses.faa", checkIfExists: true))
+                input[3] = channel.value(file("\${data}/metadata.tsv", checkIfExists: true))
+                input[4] = channel.value(file("\${data}/rename_map.tsv", checkIfExists: true))
+                input[5] = channel.value(record(
+                    vjdb_clusters_csv: file("\${existing}/viruses_vjdb_clusters.csv", checkIfExists: true),
+                    vjdb_reps_fna: file("\${existing}/viruses_vjdb_reps.fna.gz", checkIfExists: true)
+                ))
+                input[6] = channel.value(db)     // processed RGI database (PREPARE_RGI_DB)
+                input[7] = ${ViralParamsSource.of('vjdb', 'update')}
+                """
+            }
+        }
+
+        then {
+            def tasks = workflow.trace.tasks()*.name.collect { n -> n.replaceAll(/ \(.*\)$/, '') }.unique()
+            assertAll(
+                { assert workflow.success },
+                // the update clustering instead of the initial one
+                { assert tasks.containsAll([
+                    'PROCESS_VIRAL_SEQUENCES:COMPRESS_VJDB_NEW_SEQS',
+                    'PROCESS_VIRAL_SEQUENCES:VJDB_CLUSTERING:UPDATE_CLUSTERING:PREPARE_UPDATE',
+                    'PROCESS_VIRAL_SEQUENCES:VJDB_CLUSTERING:UPDATE_CLUSTERING:VCLUST_CLUSTER_UPDATE',
+                    'PROCESS_VIRAL_SEQUENCES:VJDB_CLUSTERING:UPDATE_CLUSTERING:FINALIZE_UPDATE',
+                    'PROCESS_VIRAL_SEQUENCES:VJDB_CLUSTERS_TSV'
+                ]) },
+                { assert !tasks.any { n -> n.contains(':INITIAL_CLUSTERING:') } },
+                // the new clusters are annotated as in generate mode
+                { assert tasks.containsAll([
+                    'PROCESS_VIRAL_SEQUENCES:EXTRACT_CLUSTER_FILES:EXTRACT_REPS_STATS',
+                    'PROCESS_VIRAL_SEQUENCES:BUILD_FINAL_GFF',
+                    'PROCESS_VIRAL_SEQUENCES:INDEX_RESULTS:SORT_GFF'
+                ]) },
+                // the update report is emitted
+                { assert workflow.out[0][0].vjdb_cluster_events != null },
+                { assert workflow.out[0][0].vjdb_new_clusters != null },
+                { assert workflow.out[0][0].dropped_reps != null }
             )
         }
     }

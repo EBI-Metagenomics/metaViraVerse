@@ -48,7 +48,6 @@ record PlasmidParams {
     deeparg_db_version: String?
     deeparg_model: String?
     deeparg_tool_version: String?
-    rgi_db: String?
     mmseqs_id_threshold: Float
     mmseqs_cov_threshold: Float
     protein_annotation_fasta_chunksize: Integer
@@ -89,6 +88,7 @@ workflow PROCESS_PLASMIDS {
     sequences: Channel<PlasmidSequences>
     combined_faa: Value<Path>
     combined_gff: Value<Path>
+    rgi_db: Value<Path?>        // processed RGI/CARD database (PREPARE_RGI_DB)
     opts: PlasmidParams
 
     main:
@@ -207,6 +207,7 @@ workflow PROCESS_PLASMIDS {
        true,
        opts.skip_mmseqs,
        null,
+       rgi_db,
        opts
     )
 

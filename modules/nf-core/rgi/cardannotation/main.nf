@@ -44,7 +44,8 @@ process RGI_CARDANNOTATION {
     mkdir card_database_processed
     mv card*.fasta card_database_processed
 
-    RGI_VERSION=\$(rgi main --version)
+    # no rgi call: stub runs need no container
+    RGI_VERSION=stub_version
     DB_VERSION=stub_version
     """
 }

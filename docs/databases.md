@@ -39,7 +39,7 @@
 | --------- | ---------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------- | ------------------ | ----------------------------------------------------- |
 | AMRFinder | AMRFinderPlus database                                                                                     | `--amrfinderplus_db` | https://github.com/ncbi/amr/wiki/New-in-AMRFinderPlus | 4.0 (2025-07-16.1) | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8208984/ |
 | DeepARG   | DeepARG database. Also check arguments `--deeparg_db_version`, `--deeparg_model`, `--deeparg_tool_version` | `--deeparg_db`       | https://github.com/gaarangoa/deeparg                  | 2 ( tool v1.0.4)   | https://doi.org/10.1186/s40168-018-0401-z             |
-| RGI       | RGI database                                                                                               | `--rgi_db`           | https://github.com/arpcard/rgi                        | 4.0.1              | https://pubmed.ncbi.nlm.nih.gov/36263822/             |
+| RGI       | RGI database: `card_database_processed` or a directory with `card.json`; downloaded when not given         | `--rgi_db`           | https://github.com/arpcard/rgi                        | 4.0.1              | https://pubmed.ncbi.nlm.nih.gov/36263822/             |
 
 ## Databases for Plasmids
 
