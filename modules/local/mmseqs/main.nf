@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process MMSEQS {
 
     tag "${meta.id}"
@@ -9,16 +11,24 @@ process MMSEQS {
         : 'community.wave.seqera.io/library/mmseqs2:18.8cc5c--af05c9a98d9f6139'}"
 
     input:
-    tuple val(meta), path(faa_file)
-    val id_threshold
-    val cov_threshold
+    record(
+        meta: Map,
+        faa_file: Path
+    )
+    id_threshold: Float
+    cov_threshold: Float
 
     output:
-    path "protein_catalogue-*.tsv", emit: mmseq_cluster_tsv
-    tuple val("${task.process}"), val('mmseqs'), eval('mmseqs version'), topic: versions, emit: versions_mmseqs
+    record(
+        meta: meta,
+        mmseq_cluster_tsv: file("protein_catalogue-*.tsv")
+    )
+
+    topic:
+    tuple(task.process, 'mmseqs', eval('mmseqs version')) >> 'versions'
 
     script:
-    int threshold_rounded = id_threshold * 100;
+    def threshold_rounded = Math.round(id_threshold * 100)
     """
     timestamp() {
         date +"%H:%M:%S"
@@ -61,8 +71,6 @@ process MMSEQS {
     """
 
     stub:
-    def args = task.ext.args ?: ''
-    prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch protein_catalogue-90.tsv
     """

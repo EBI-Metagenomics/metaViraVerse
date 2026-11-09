@@ -1,0 +1,6 @@
+[submodule "pipelines/pipelines"]
+	path = pipelines/pipelines
+	url = https://github.com/maltesie/vjdb-clustering.git
+[submodule "pipelines/vjdb-clustering"]
+	path = pipelines/vjdb-clustering
+	url = https://github.com/maltesie/vjdb-clustering.git

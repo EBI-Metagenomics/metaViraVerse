@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process SPACEPHARER_CREATEDB {
 
     label 'process_medium'
@@ -6,12 +8,20 @@ process SPACEPHARER_CREATEDB {
     container "quay.io/biocontainers/spacepharer:5.c2e680a--hd6d6fdc_7"
 
     input:
-    tuple val(meta), path(fasta)
-    val(target_db_name)
+    record(
+        meta: Map,
+        fasta: Path
+    )
+    target_db_name: String
 
     output:
-    tuple val(meta), path("${target_db_name}*"), emit: db
-    path "versions.yml",                        emit: versions
+    record(
+        meta: meta,
+        db: files("${target_db_name}*")
+    )
+
+    topic:
+    tuple(task.process, 'spacepharer', eval("spacepharer | grep Version | sed 's/SpacePHARER Version: //g'")) >> 'versions'
 
     script:
     def args = task.ext.args   ?: ''
@@ -22,10 +32,10 @@ process SPACEPHARER_CREATEDB {
       ${target_db_name} \\
       tmpFolder \\
       ${args}
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        spacepharer: \$(spacepharer | grep Version | sed 's/SpacePHARER Version: //g')
-    END_VERSIONS
+    stub:
+    """
+    echo stub > ${target_db_name}stub
     """
 }

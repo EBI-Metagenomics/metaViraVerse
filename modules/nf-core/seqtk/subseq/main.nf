@@ -13,7 +13,7 @@ process SEQTK_SUBSEQ {
 
     output:
     tuple val(meta), path("*.gz"),  emit: sequences
-    path "versions.yml",            emit: versions
+    tuple val("${task.process}"), val('seqtk'), eval("seqtk 2>&1 | sed -n 's/^.*Version: //p' | sed 's/ .*//' | head -n 1"), emit: versions_seqtk, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -31,11 +31,6 @@ process SEQTK_SUBSEQ {
         $sequences \\
         $filter_list | \\
         gzip --no-name > ${meta.id}${prefix}.${ext}.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        seqtk: \$(echo \$(seqtk 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
-    END_VERSIONS
     """
 
     stub:
@@ -46,10 +41,5 @@ process SEQTK_SUBSEQ {
     }
     """
     echo "" | gzip > ${sequences}${prefix}.${ext}.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        seqtk: \$(echo \$(seqtk 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
-    END_VERSIONS
     """
 }

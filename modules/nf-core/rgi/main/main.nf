@@ -18,7 +18,8 @@ process RGI_MAIN {
     tuple val(meta), path("temp/"), emit: tmp
     env 'RGI_VERSION', emit: tool_version
     env 'DB_VERSION', emit: db_version
-    path "versions.yml", emit: versions
+    tuple val("${task.process}"), val('rgi'), env('RGI_VERSION'), emit: versions_rgi, topic: versions
+    tuple val("${task.process}"), val('rgi-database'), env('DB_VERSION'), emit: versions_rgi_database, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -65,12 +66,6 @@ process RGI_MAIN {
     for FILE in *.xml *.fsa *.{nhr,nin,nsq} *.draft *.potentialGenes *{variant,rrna,protein,predictedGenes,overexpression,homolog}.json; do [[ -e \$FILE ]] && mv \$FILE temp/; done
 
     RGI_VERSION=\$(rgi main --version)
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
-    END_VERSIONS
     """
 
     stub:
@@ -81,11 +76,5 @@ process RGI_MAIN {
 
     RGI_VERSION=\$(rgi main --version)
     DB_VERSION=stub_version
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
-    END_VERSIONS
     """
 }

@@ -1,16 +1,29 @@
+nextflow.enable.types = true
+
 process SORT_GFF {
 
     label 'process_low'
     tag "$meta.id"
 
     input:
-    tuple val(meta), path(gff)
+    record(
+        meta: Map,
+        gff: Path
+    )
 
     output:
-    tuple val(meta), path("*sorted*"), emit: sorted_gff
+    record(
+        meta: meta,
+        sorted_gff: file("*sorted*")
+    )
 
     script:
     """
     sort -k1,1V -k4,4n ${gff} > ${gff.baseName}.sorted.gff
+    """
+
+    stub:
+    """
+    echo stub > ${meta.id}_sorted.gff
     """
 }
