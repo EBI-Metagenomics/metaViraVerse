@@ -3,6 +3,7 @@
 import argparse
 import csv
 import gzip
+import sys
 from collections import defaultdict
 
 
@@ -32,6 +33,9 @@ def parse_args():
                         help="Plasmids cluster TSV from vclust (columns: object, cluster)")
     parser.add_argument("--additional_metadata", required=True,
                         help="Concatenated catalogue metadata tables with header")
+    parser.add_argument("--analyses_metadata", required=False, default=None,
+                        help="Metadata of MGnify analyses (columns: accession, study_id, sample_id, biome_id), "
+                             "joined on the original name up to the first '|' (e.g. ERZ2772503). Optional")
     parser.add_argument("--viruses_vitap", required=False, default=None,
                         help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...). Optional")
     parser.add_argument("--viphogs_taxonomy", required=False, default=None,
@@ -89,6 +93,40 @@ def load_all_metadata(path):
                 "Sample_accession": row.get("Sample_accession", MISSING) or MISSING,
                 "Study_accession":  row.get("Study_accession", MISSING) or MISSING,
             }
+    return meta
+
+
+def _value(val):
+    """Empty and "NA"-like values are missing."""
+    val = (val or "").strip()
+    return MISSING if val in ("", "NA", "N/A", "None", "null", "not-provided", MISSING) else val
+
+
+def load_analyses_metadata(path):
+    """Return dict: analysis accession (ERZ...) -> {Genome_accession, Source_lineage, Sample_accession,
+    Study_accession, Biome}. Rows repeated across concatenated files are fine; a value already
+    set is not overwritten by a missing one."""
+    meta = {}
+    with open(path, "rb") as fh:
+        is_gzip = fh.read(2) == b"\x1f\x8b"
+    with (gzip.open(path, "rt", newline="") if is_gzip else open(path, newline="")) as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        if not reader.fieldnames or "accession" not in [f.strip() for f in reader.fieldnames]:
+            sys.exit(f"Error: {path} has no 'accession' column")
+        for row in reader:
+            row = {(k or "").strip(): v for k, v in row.items()}
+            acc = _value(row.get("accession"))
+            if acc == MISSING or acc == "accession":
+                continue
+            new = {
+                "Genome_accession": acc,
+                "Source_lineage":   MISSING,
+                "Sample_accession": _value(row.get("sample_id")),
+                "Study_accession":  _value(row.get("study_id")),
+                "Biome":            _value(row.get("biome_id")),
+            }
+            old = meta.get(acc)
+            meta[acc] = new if old is None else {k: old[k] if old[k] != MISSING else new[k] for k in new}
     return meta
 
 
@@ -231,6 +269,27 @@ def genome_key(description):
     return description.split("|")[0].split("_")[0]
 
 
+def source_meta(description, all_meta, analyses_meta):
+    """Source metadata of a sequence: the genome catalogue's (joined on the genome ID), with the
+    missing fields filled from the analyses metadata (joined on the name up to the first '|',
+    e.g. 'ERZ2772503|viral_sequence-1:...' -> 'ERZ2772503')."""
+    meta = dict(all_meta.get(genome_key(description), {}))
+    analysis = analyses_meta.get(description.split("|")[0].strip())
+    if analysis:
+        for key, val in analysis.items():
+            if meta.get(key, MISSING) in (MISSING, "", "NA"):
+                meta[key] = val
+    return meta
+
+
+def biome(row, meta):
+    """Biome of the rename map; the analyses metadata's when the map has none."""
+    val = _value(row.get("biomes"))
+    if val in (MISSING, "[]"):
+        val = meta.get("Biome", MISSING)
+    return val
+
+
 def open_output(path, compress):
     if compress:
         path = path + ".gz"
@@ -249,7 +308,8 @@ def _safe_float(val):
 
 def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                   viphogs_tax, genomad, desc_to_mgyv,
-                  out_path, compress, hosts):
+                  out_path, compress, hosts, analyses_meta=None):
+    analyses_meta = analyses_meta or {}
     fieldnames = [
         "ID", "Original_ID", "Source_of_prediction", "rRNA", "Cluster_rep",
         "vitap_lineage", "viphogs_lineage", "genomad_lineage",
@@ -263,8 +323,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         for desc, row in combined_meta_rows.items():
-            gid = genome_key(desc)
-            meta = all_meta.get(gid, {})
+            meta = source_meta(desc, all_meta, analyses_meta)
             mgyv = desc_to_mgyv.get(desc, "")
             checkv = {f: row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
             writer.writerow({
@@ -280,7 +339,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                 "Host_iphop_genus_lineage":  hosts["iphop_genus"].get(mgyv, MISSING) if mgyv else MISSING,
                 "Host_spacepharer_lineage":  hosts["spacepharer"].get(mgyv, MISSING) if mgyv else MISSING,
                 "Source":               row.get("type", MISSING),
-                "Biome":                row.get("biomes", MISSING),
+                "Biome":                biome(row, meta),
                 "Source_accession":     meta.get("Genome_accession", MISSING),
                 "Source_lineage":       meta.get("Source_lineage", MISSING),
                 "Source_sample":        meta.get("Sample_accession", MISSING),
@@ -293,7 +352,8 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
 
 
 def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
-                   out_path, compress, desc_to_mgyv):
+                   out_path, compress, desc_to_mgyv, analyses_meta=None):
+    analyses_meta = analyses_meta or {}
     fieldnames = [
         "ID", "Original_ID", "Cluster_rep",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
@@ -305,15 +365,14 @@ def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         for desc, row in combined_meta_rows.items():
-            gid = genome_key(desc)
-            meta = all_meta.get(gid, {})
+            meta = source_meta(desc, all_meta, analyses_meta)
             mgyv = desc_to_mgyv.get(desc, "")
             writer.writerow({
                 "ID":               mgyv,
                 "Original_ID":      desc,
                 "Cluster_rep":      member_to_rep.get(mgyv, MISSING),
                 "Source":           row.get("type", MISSING),
-                "Biome":            row.get("biomes", MISSING),
+                "Biome":            biome(row, meta),
                 "Source_accession": meta.get("Genome_accession", MISSING),
                 "Source_lineage":   meta.get("Source_lineage", MISSING),
                 "Source_sample":    meta.get("Sample_accession", MISSING),
@@ -453,6 +512,11 @@ def main():
 
     print("Loading genome metadata...")
     all_meta = load_all_metadata(args.additional_metadata)
+    analyses_meta = {}
+    if args.analyses_metadata:
+        print("Loading analyses metadata...")
+        analyses_meta = load_analyses_metadata(args.analyses_metadata)
+        print(f"  {len(analyses_meta)} analyses")
 
     # Taxonomy inputs are optional (the tools can be skipped); a missing input
     # leaves the corresponding lineage columns as "missing".
@@ -502,14 +566,14 @@ def main():
     written = write_viruses(
         virus_rows, virus_member_to_rep, all_meta, vitap,
         viphogs_tax, genomad, desc_to_mgyv,
-        args.output_viruses, args.compress, hosts,
+        args.output_viruses, args.compress, hosts, analyses_meta,
     )
     print(f"  -> {written}")
 
     print(f"Writing {args.output_plasmids}...")
     written = write_plasmids(
         plasmid_rows, plasmid_member_to_rep, all_meta,
-        args.output_plasmids, args.compress, desc_to_mgyv
+        args.output_plasmids, args.compress, desc_to_mgyv, analyses_meta,
     )
     print(f"  -> {written}")
 

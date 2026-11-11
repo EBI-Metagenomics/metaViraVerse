@@ -36,6 +36,7 @@ params {
     input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
     catalogues_metadata: Path
+    analyses_metadata: Path?                        // metadata of MGnify analyses (ERZ...): accession, study_id, sample_id, biome_id
     outdir: String
 
     // Pre-processing

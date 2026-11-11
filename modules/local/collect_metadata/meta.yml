@@ -46,6 +46,11 @@ input:
         description: Additional per-catalogue metadata (from `--catalogues_metadata`)
         pattern: "*"
         ontologies: []
+  - - analyses_metadata:
+        type: file
+        description: Optional metadata of MGnify analyses (`--analyses_metadata`; columns accession, study_id, sample_id, biome_id), joined on the original sequence name up to the first `|`
+        pattern: "*.{tsv,tsv.gz}"
+        ontologies: []
   - - meta5:
         type: map
         description: Groovy Map containing sample information
