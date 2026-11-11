@@ -30,6 +30,7 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="Skip analyses whose mobilome GFF is not on disk and warn about missing CDS/contigs files",
     )
+    parser.add_argument("-e", "--external-dir", required=False, help="Base path to external location (usually FTP)")
     return parser.parse_args()
 
 
@@ -69,7 +70,11 @@ def main() -> None:
                 print(f"WARNING: {acc}: downloads have no cds FAA or contigs FASTA, skipped", file=sys.stderr)
                 missing_file += 1
                 continue
-            map_gff, cds_faa, contigs_fasta = (os.path.join(results_dir, f) for f in files)
+            if args.external_dir:
+                base_dir = os.path.join(args.external_dir, ext_results_dir)
+            else:
+                base_dir = results_dir
+            map_gff, cds_faa, contigs_fasta = (os.path.join(base_dir, f) for f in files)
             if args.check_exists:
                 if not os.path.isfile(map_gff):
                     print(f"WARNING: {acc}: {map_gff} does not exist, skipped", file=sys.stderr)

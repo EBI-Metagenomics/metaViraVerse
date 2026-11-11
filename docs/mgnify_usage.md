@@ -143,7 +143,7 @@ Export the analyses you want to use (for example, all analyses of a biome) from 
 Then run [`collect_mobilome_from_analyses.py`](../scripts/collect_mobilome_from_analyses.py):
 
 ```commandline
-usage: collect_mobilome_from_analyses.py [-h] -i INPUT -o OUTPUT [--check-exists]
+usage: collect_mobilome_from_analyses.py [-h] -i INPUT -o OUTPUT [--check-exists] [--external-dir]
 
 Builds a TSV (id, map_gff, cds_faa, contigs_fasta) from an analyses CSV export, for the analyses
 whose downloads list a mobilome_full.gff.gz
@@ -154,6 +154,7 @@ options:
   -o, --output OUTPUT  Output TSV
   --check-exists       Skip analyses whose mobilome GFF is not on disk and warn about missing
                        CDS/contigs files
+  --external-dir       Base path to external location (usually FTP)
 ```
 
 Example:
@@ -162,7 +163,8 @@ Example:
 python3 collect_mobilome_from_analyses.py \
   -i marine_analyses.csv \
   -o marine_mobilome.tsv \
-  --check-exists
+  --check-exists \
+  --external-dir "nfs_path_to_results"
 ```
 
 An analysis is kept when its `downloads` list a `mobilome_full.gff.gz`. Analyses without `results_dir` are skipped, as paths can't be built without it, and an ERZ accession that appears more than once is written once. The output TSV has one row per analysis:
