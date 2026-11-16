@@ -35,11 +35,9 @@ process SEQTK_SUBSEQ {
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def ext = "fa"
-    if ("$sequences" ==~ /.+\.fq|.+\.fq.gz|.+\.fastq|.+\.fastq.gz/) {
-        ext = "fq"
-    }
+    def base = sequences.name.replaceFirst(/\.gz$/, '')
+    def ext  = base.tokenize('.')[-1]
     """
-    echo "" | gzip > ${sequences}${prefix}.${ext}.gz
+    echo "" | gzip > ${meta.id}${prefix}.${ext}.gz
     """
 }

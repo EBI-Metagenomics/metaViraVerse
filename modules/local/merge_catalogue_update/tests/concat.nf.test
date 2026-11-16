@@ -1,0 +1,49 @@
+nextflow_process {
+
+    name "Test Process CONCAT_CATALOGUE_SEQUENCES"
+    script "../main.nf"
+    process "CONCAT_CATALOGUE_SEQUENCES"
+
+    tag "modules"
+    tag "merge_catalogue_update"
+
+    test("whole catalogue viral sequences") {
+
+        when {
+            process {
+                """
+                def cat = "${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue/viruses"
+                def upd = "${moduleDir}/tests/data/update_sequences"
+                input[0] = record(
+                    virus_fna: file("\${upd}/viruses.fna", checkIfExists: true),
+                    virus_gff: file("\${upd}/viruses.gff", checkIfExists: true),
+                    virus_faa: file("\${upd}/viruses.faa", checkIfExists: true),
+                    prophage_fna: file("\${upd}/prophages.fna", checkIfExists: true),
+                    prophage_gff: file("\${upd}/prophages.gff", checkIfExists: true),
+                    prophage_faa: file("\${upd}/prophages.faa", checkIfExists: true)
+                )
+                input[1] = record(
+                    virus_fna: file("\${cat}/viral_sequences.fna.gz", checkIfExists: true),
+                    virus_gff: file("\${cat}/viral_sequences.gff.gz", checkIfExists: true),
+                    virus_faa: file("\${cat}/viral_sequences.faa.gz", checkIfExists: true),
+                    prophage_fna: file("\${cat}/prophages.fna.gz", checkIfExists: true),
+                    prophage_gff: file("\${cat}/prophages.gff.gz", checkIfExists: true),
+                    prophage_faa: file("\${cat}/prophages.faa.gz", checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            assertAll(
+                { assert process.success },
+                { assert path(out.virus_fna).readLines().findAll { l -> l.startsWith('>') } == ['>MGYV0000000001', '>MGYV0000000003'] },
+                { assert path(out.virus_gff).readLines().count { l -> l.startsWith('##gff-version') } == 1 },
+                { assert path(out.virus_gff).readLines().findAll { l -> !l.startsWith('#') }.collect { l -> l.split('\t')[0] } == ['MGYV0000000001', 'MGYV0000000003'] },
+                { assert path(out.virus_faa).readLines().findAll { l -> l.startsWith('>') } == ['>MGYV0000000001_1', '>MGYV0000000003_1'] },
+                { assert path(out.prophage_fna).readLines().findAll { l -> l.startsWith('>') } == ['>MGYV0000000002'] }
+            )
+        }
+    }
+}

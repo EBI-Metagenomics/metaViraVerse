@@ -22,9 +22,18 @@ record ExistingCatalogue {
     rename_map: Path
     catalogue_metadata: Path      // every unique sequence, with sequence_sha256
     excluded_metadata: Path?
-    // viruses: vjdb-clustering tables (input of the clustering update)
-    vjdb_clusters_csv: Path
-    vjdb_reps_fna: Path
+    // viruses: clustering (--viral_clustering of the run that built the catalogue)
+    viral_clustering: String
+    clusters_tsv: Path            // clusters of the whole catalogue (vclust or CheckV ANI format)
+    vjdb_clusters_csv: Path?      // vjdb-clustering tables: catalogues clustered with vjdb only
+    vjdb_reps_fna: Path?
+    // viruses: every sequence of the whole catalogue (FNA, GFF, FAA)
+    viral_fna: Path
+    viral_gff: Path
+    viral_faa: Path
+    prophage_fna: Path
+    prophage_gff: Path
+    prophage_faa: Path
     // viruses: cluster representatives and their annotations
     reps_fna: Path
     reps_faa: Path
@@ -101,10 +110,13 @@ def loadExistingCatalogue(dir: Path, rename_accession: String, annotations: Map<
         error("${manifest_file} has no accessions (empty catalogue)")
 
     def files = manifest.files as Map
+    def method = clustering.method as String
     def required = [
-        'rename_map', 'catalogue_metadata', 'viruses.vjdb_clusters_csv', 'viruses.vjdb_reps_fna',
+        'rename_map', 'catalogue_metadata', 'viruses.clusters_tsv',
+        'viruses.viral_sequences_fna', 'viruses.viral_sequences_gff', 'viruses.viral_sequences_faa',
+        'viruses.prophages_fna', 'viruses.prophages_gff', 'viruses.prophages_faa',
         'viruses.reps_fna', 'viruses.reps_faa', 'viruses.reps_gff', 'viruses.annotated_gff'
-    ]
+    ] + (method == 'vjdb' ? ['viruses.vjdb_clusters_csv', 'viruses.vjdb_reps_fna'] : [])
     def missing_keys = required.findAll { k -> !files.containsKey(k) }
     if( missing_keys )
         error("${manifest_file} lists no ${missing_keys.join(', ')}")
@@ -138,8 +150,16 @@ def loadExistingCatalogue(dir: Path, rename_accession: String, annotations: Map<
         rename_map: manifestPath(dir, files, 'rename_map'),
         catalogue_metadata: manifestPath(dir, files, 'catalogue_metadata'),
         excluded_metadata: manifestPath(dir, files, 'excluded_metadata'),
+        viral_clustering: method,
+        clusters_tsv: manifestPath(dir, files, 'viruses.clusters_tsv'),
         vjdb_clusters_csv: manifestPath(dir, files, 'viruses.vjdb_clusters_csv'),
         vjdb_reps_fna: manifestPath(dir, files, 'viruses.vjdb_reps_fna'),
+        viral_fna: manifestPath(dir, files, 'viruses.viral_sequences_fna'),
+        viral_gff: manifestPath(dir, files, 'viruses.viral_sequences_gff'),
+        viral_faa: manifestPath(dir, files, 'viruses.viral_sequences_faa'),
+        prophage_fna: manifestPath(dir, files, 'viruses.prophages_fna'),
+        prophage_gff: manifestPath(dir, files, 'viruses.prophages_gff'),
+        prophage_faa: manifestPath(dir, files, 'viruses.prophages_faa'),
         reps_fna: manifestPath(dir, files, 'viruses.reps_fna'),
         reps_faa: manifestPath(dir, files, 'viruses.reps_faa'),
         reps_gff: manifestPath(dir, files, 'viruses.reps_gff'),

@@ -1,0 +1,36 @@
+nextflow_process {
+
+    name "Test Process COMPARE_CLUSTERS"
+    script "../main.nf"
+    process "COMPARE_CLUSTERS"
+
+    tag "modules"
+    tag "update_clusters"
+
+    test("whole catalogue clustered again") {
+
+        when {
+            process {
+                """
+                input[0] = record(meta: [id: 'viruses'], new_clusters: file("${moduleDir}/tests/data/new_clusters.tsv", checkIfExists: true))
+                input[1] = file("${moduleDir}/tests/data/old_clusters.tsv", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            assertAll(
+                { assert process.success },
+                { assert path(out.annotate_tsv).readLines() == ['object\tcluster', 'N2\tN2'] },
+                { assert path(out.dropped_reps).readLines() == ['V4'] },
+                { assert path(out.cluster_events).readLines() == [
+                    'cluster_rep\tevent\told_cluster_reps\tn_existing\tn_new',
+                    'V1\tgrown\tV1\t2\t1',
+                    'V3\tmerged\tV3;V4\t2\t0',
+                    'N2\tnew\t\t0\t1'
+                ] }
+            )
+        }
+    }
+}

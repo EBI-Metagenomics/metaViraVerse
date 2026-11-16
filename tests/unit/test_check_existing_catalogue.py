@@ -38,12 +38,25 @@ class TestRoundTrip(unittest.TestCase):
             fh.write(">MGYV0000000001\nACGT\n")
         Path("h1.tbl").write_text("hit\n")
         Path("h2.tbl").write_text("hit2\n")
+        # the clusters and sequence files every update reads (published under these names)
+        self.sequence_files = ["viruses_clusters.tsv"] + [
+            f"{name}.{ext}.gz" for name in ("viral_sequences", "prophages") for ext in ("fna", "gff", "faa")
+        ]
+        for name in self.sequence_files:
+            Path(name).write_text(f"{name}\n")
 
     def tearDown(self):
         os.chdir(self._cwd)
         self._tmp.cleanup()
 
-    def write_manifest(self, clustering="vjdb"):
+    def write_manifest(self, clustering="vjdb", with_sequences=True):
+        sequence_entries = [
+            "--entry", "file", "viruses.clusters_tsv", "viruses/clustering/viruses_clusters.tsv", "viruses_clusters.tsv",
+        ] + [
+            arg
+            for name in ("viral_sequences", "prophages") for ext in ("fna", "gff", "faa")
+            for arg in ("--entry", "file", f"viruses.{name}_{ext}", "viruses/", f"{name}.{ext}.gz")
+        ]
         wcm.main([
             "--rename-accession", "MGYV", "--viral-clustering", clustering,
             "--entry", "file", "rename_map", "additional_data/rename_mapfile.tsv", "rename_map.tsv",
@@ -51,7 +64,7 @@ class TestRoundTrip(unittest.TestCase):
             "--entry", "file", "viruses.vjdb_reps_fna", "viruses/clustering/viruses_vjdb_reps.fna.gz", "vjdb1_merged_reps.fna.gz",
             "--entry", "list", "viruses.hmmer_tables", "viruses/hmmer/", "h1.tbl",
             "--entry", "list", "viruses.hmmer_tables", "viruses/hmmer/", "h2.tbl",
-        ])
+        ] + (sequence_entries if with_sequences else []))
 
     def publish(self):
         """Lay the files out as the next task sees them: under their published names."""
@@ -69,7 +82,7 @@ class TestRoundTrip(unittest.TestCase):
         self.publish()
         report = self.check()
         self.assertEqual(report["status"], "ok")
-        self.assertEqual(report["files_checked"], 5)
+        self.assertEqual(report["files_checked"], 12)
         self.assertEqual(report["accessions"]["last"], 2)
         self.assertEqual(report["manifest_sha256"], cec.sha256sum("catalogue_manifest.json"))
 
@@ -95,7 +108,8 @@ class TestRoundTrip(unittest.TestCase):
             self.check()
 
     def test_not_update_ready_fails(self):
-        self.write_manifest(clustering="default")
+        # without the clusters and sequence files every update reads
+        self.write_manifest(with_sequences=False)
         self.publish()
         with self.assertRaises(SystemExit):
             self.check()

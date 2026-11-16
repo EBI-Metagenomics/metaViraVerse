@@ -1,0 +1,4 @@
+The viral catalogue of an update of subworkflows/local/existing_catalogue/tests/data/catalogue
+(representatives MGYV0000000001-2): the new sequence MGYV0000000003 forms a new cluster, and
+MGYV0000000002 was merged into the cluster of MGYV0000000001 (viruses_dropped_reps.txt).
+Only the new cluster is annotated: reps GFF/FASTA, annotated GFF and BACPHLIP table.

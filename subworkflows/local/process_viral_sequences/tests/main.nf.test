@@ -162,7 +162,7 @@ nextflow_workflow {
                     'PROCESS_VIRAL_SEQUENCES:INDEX_RESULTS:SORT_GFF'
                 ]) },
                 // the update report is emitted
-                { assert workflow.out[0][0].vjdb_cluster_events != null },
+                { assert workflow.out[0][0].cluster_events != null },
                 { assert workflow.out[0][0].vjdb_new_clusters != null },
                 { assert workflow.out[0][0].dropped_reps != null }
             )

@@ -114,18 +114,42 @@ workflow METAVIRAVERSE {
         viral_opts.skip_rgi_for_viruses && plasmid_opts.skip_rgi_for_plasmids
     )
 
+    // --mode update with --viral_clustering default: the whole catalogue is clustered again,
+    // and the representatives annotated in this run may be existing sequences
+    def recluster = viral_opts.mode == 'update' && viral_opts.viral_clustering == 'default'
+
     viruses = preprocessed
-        .flatMap { r -> [r.virus_fna, r.prophage_fna] }
+        .flatMap { r ->
+            recluster
+                ? [r.catalogue_sequences.virus_fna, r.catalogue_sequences.prophage_fna]
+                : [r.virus_fna, r.prophage_fna]
+        }
         .collectFile(name: "viruses.fasta")
         .map { seqs -> record(meta: [id: 'viruses'], fna: seqs) }
+
+    // GFF and proteins the representatives are taken from
+    def viral_gff: Value<Path> = preprocessed.map { r -> r.filtered_gff }   // concatenated GFF built from all inputs
+    def viral_faa: Value<Path> = preprocessed.map { r -> r.filtered_faa }   // concatenated FAA built from all inputs
+    if ( recluster ) {
+        viral_gff = preprocessed
+            .flatMap { r -> [r.catalogue_sequences.virus_gff, r.catalogue_sequences.prophage_gff] }
+            .collectFile(name: "viruses_catalogue.gff")
+            .collect()
+            .map { fs -> fs.toList()[0] }
+        viral_faa = preprocessed
+            .flatMap { r -> [r.catalogue_sequences.virus_faa, r.catalogue_sequences.prophage_faa] }
+            .collectFile(name: "viruses_catalogue.faa")
+            .collect()
+            .map { fs -> fs.toList()[0] }
+    }
 
     //
     // Process viruses
     //
     def viral_catalogue: Channel<ViralCatalogue> = PROCESS_VIRAL_SEQUENCES (
        viruses,
-       preprocessed.map { r -> r.filtered_gff },   // concatenated GFF built from all inputs
-       preprocessed.map { r -> r.filtered_faa },   // concatenated FAA built from all inputs
+       viral_gff,
+       viral_faa,
        preprocessed.map { r -> r.filtered_metadata },
        preprocessed.map { r -> r.map_file },
        existing,
@@ -363,6 +387,15 @@ def manifestInput(v: ViralCatalogue, p: Preprocessed, viruses_metadata: Path, vi
         // viruses
         manifestFile('viruses.metadata', 'viruses/', viruses_metadata),
         manifestFile('viruses.cluster_stats', 'viruses/', viruses_cluster_stats),
+        // the clusters and every viral sequence of the whole catalogue (read by every update)
+        manifestFile('viruses.clusters_tsv', "${vdir}/clustering/${vdir}_clusters.tsv", v.clusters_tsv),
+        manifestFile('viruses.viral_sequences_fna', 'viruses/viral_sequences.fna.gz', p.virus_gz.fna),
+        manifestFile('viruses.viral_sequences_gff', 'viruses/viral_sequences.gff.gz', p.virus_gz.gff),
+        manifestFile('viruses.viral_sequences_faa', 'viruses/viral_sequences.faa.gz', p.virus_gz.faa),
+        manifestFile('viruses.prophages_fna', 'viruses/prophages.fna.gz', p.prophage_gz.fna),
+        manifestFile('viruses.prophages_gff', 'viruses/prophages.gff.gz', p.prophage_gz.gff),
+        manifestFile('viruses.prophages_faa', 'viruses/prophages.faa.gz', p.prophage_gz.faa),
+        // vjdb-clustering tables (catalogues clustered with vjdb)
         manifestFile('viruses.vjdb_clusters_csv', "${vdir}/clustering/${vdir}_vjdb_clusters.csv", v.vjdb_clusters_csv),
         manifestFile('viruses.vjdb_reps_fna', "${vdir}/clustering/${vdir}_vjdb_reps.fna.gz", v.vjdb_reps_fna),
         manifestFile('viruses.reps_fna', "${reps}/", v.index.fna_gz),

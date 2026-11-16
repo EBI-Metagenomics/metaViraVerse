@@ -315,8 +315,6 @@ def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String,
         error("--mode update needs --existing_catalogue: the --outdir of the catalogue to update")
     if( !existing_catalogue.isDirectory() )
         error("--existing_catalogue ${existing_catalogue} is not a directory")
-    if( viral_clustering != 'vjdb' )
-        error("--mode update clusters viruses with vjdb-clustering: set --viral_clustering vjdb")
     // file() gives an absolute, normalised path
     if( ("${file(outdir)}" as String) == ("${file("${existing_catalogue}")}" as String) )
         error("--outdir must differ from --existing_catalogue: an update writes a new catalogue and leaves the existing one as it is")
@@ -324,8 +322,12 @@ def checkMode(mode: String, existing_catalogue: Path?, viral_clustering: String,
         log.warn("--mode update: --start_accession and --end_accession are ignored; new accessions continue after the last one of the existing catalogue")
     log.warn(
         "--mode update is in development: new sequences are numbered after the existing catalogue, sequences " +
-        "it already has are left out, new viruses are clustered with its representatives, and only the new " +
-        "viral clusters are annotated; their annotations are merged with the existing ones. Viral plots, " +
+        "it already has are left out, and viruses are clustered " +
+        (viral_clustering == 'vjdb'
+            ? "with the representatives of the existing catalogue (vjdb-clustering update)"
+            : "again from scratch with the existing ones (cluster IDs may change)") +
+        "; only clusters with a new representative are annotated, and their annotations are merged with " +
+        "the existing ones. Viral plots, " +
         "taxonomy counts, HMMER summaries and protein clusters are not recomputed (not published), and " +
         "plasmids cover only the new sequences."
     )
@@ -413,13 +415,15 @@ output {
             // CheckV ANI clustering (--cluster_vclust false)
             r.ani_tsv >> "${r.meta.id}/clustering/"
             r.ani_clusters_tsv >> "${r.meta.id}/clustering/"
+            // clusters of the whole catalogue: the input of a later --mode update, listed in catalogue_manifest.json
+            r.clusters_tsv >> "${r.meta.id}/clustering/${r.meta.id}_clusters.tsv"
             // vjdb-clustering membership table and representatives (--viral_clustering vjdb);
             // the input of a later --mode update, listed in catalogue_manifest.json
             r.vjdb_clusters_csv >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_clusters.csv"
             r.vjdb_reps_fna >> "${r.meta.id}/clustering/${r.meta.id}_vjdb_reps.fna.gz"
             // --mode update: what the update did to the clusters
             r.vjdb_new_clusters >> "${r.meta.id}/clustering/update/${r.meta.id}_new_sequences_clusters.csv"
-            r.vjdb_cluster_events >> "${r.meta.id}/clustering/update/${r.meta.id}_cluster_events.tsv"
+            r.cluster_events >> "${r.meta.id}/clustering/update/${r.meta.id}_cluster_events.tsv"
 
             r.final_gff >> "${r.meta.id}/cluster_representatives/viruses_reps_annotated.gff.gz"
             r.index.fna_gz >> "${r.meta.id}/cluster_representatives/"

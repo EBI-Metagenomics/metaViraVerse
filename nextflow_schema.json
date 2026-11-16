@@ -50,7 +50,7 @@
                 "mode": {
                     "type": "string",
                     "description": "'generate' a new catalogue, or 'update' the catalogue given with --existing_catalogue (in development).",
-                    "help_text": "In update mode the existing catalogue is read through its catalogue_manifest.json and every file it lists is checked (size and SHA-256) before the run continues. Needs --viral_clustering vjdb, the same --rename_accession as the existing catalogue, and an --outdir different from --existing_catalogue.",
+                    "help_text": "In update mode the existing catalogue is read through its catalogue_manifest.json and every file it lists is checked (size and SHA-256) before the run continues. Needs the same --rename_accession as the existing catalogue and an --outdir different from --existing_catalogue. With --viral_clustering vjdb the new viruses are clustered with the existing representatives (vjdb-clustering update; the vjdb tables of an existing catalogue clustered otherwise are built from its clusters); with --viral_clustering default the whole catalogue is clustered again. Either way only clusters with a new representative are annotated.",
                     "enum": ["generate", "update"],
                     "default": "generate",
                     "fa_icon": "fas fa-code-branch"

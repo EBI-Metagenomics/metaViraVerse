@@ -1,0 +1,3 @@
+Existing catalogue: representatives V1 and V4 (proteins G1_1, G4_1). The update merged
+V4 into V1 (dropped_reps.txt) and added the new cluster V7. existing/viruses.tsv and
+update/viruses.tsv (geNomad format) have the same name, as the files of both catalogues do.

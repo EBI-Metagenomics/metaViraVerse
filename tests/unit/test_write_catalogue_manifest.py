@@ -156,8 +156,12 @@ class TestMain(InTempDir):
         write("versions.yml", VERSIONS_YML)
         write("vjdb1_merged_reps.csv", "vjdb_id,copy_of,seq_gc,seq_len,seq_hash,cluster_rep\n")
         write("vjdb1_merged_reps.fna.gz", ">MGYV0000000001\nACGT\n", compress=True)
+        write("viruses_clusters.tsv", "object\tcluster\nMGYV0000000001\tMGYV0000000001\n")
+        for name in ("viral_sequences", "prophages"):
+            for ext in ("fna", "gff", "faa"):
+                write(f"{name}.{ext}.gz", "", compress=True)
 
-    def run_main(self, clustering, with_vjdb=True):
+    def run_main(self, clustering, with_vjdb=True, with_sequences=True):
         argv = [
             "--rename-accession", "MGYV", "--viral-clustering", clustering, "--pipeline-version", "1.0.0dev",
             "--entry", "file", "rename_map", "additional_data/rename_mapfile.tsv", "rename_map.tsv",
@@ -168,6 +172,11 @@ class TestMain(InTempDir):
                 "--entry", "file", "viruses.vjdb_clusters_csv", "viruses/clustering/viruses_vjdb_clusters.csv", "vjdb1_merged_reps.csv",
                 "--entry", "file", "viruses.vjdb_reps_fna", "viruses/clustering/viruses_vjdb_reps.fna.gz", "vjdb1_merged_reps.fna.gz",
             ]
+        if with_sequences:
+            argv += ["--entry", "file", "viruses.clusters_tsv", "viruses/clustering/viruses_clusters.tsv", "viruses_clusters.tsv"]
+            for name in ("viral_sequences", "prophages"):
+                for ext in ("fna", "gff", "faa"):
+                    argv += ["--entry", "file", f"viruses.{name}_{ext}", "viruses/", f"{name}.{ext}.gz"]
         wcm.main(argv + getattr(self, "extra", []))
         with open("catalogue_manifest.json") as fh:
             return json.load(fh)
@@ -183,10 +192,16 @@ class TestMain(InTempDir):
         self.assertEqual(manifest["files"]["software_versions"]["path"], "pipeline_info/versions.yml")
         self.assertEqual(manifest["software_versions"]["VCLUST_CLUSTER"]["vclust"], "1.3.1")
 
-    def test_default_clustering_is_not_update_ready(self):
+    def test_default_clustering_is_update_ready(self):
+        # a later update clusters the whole catalogue again, or builds the vjdb tables
         manifest = self.run_main("default", with_vjdb=False)
+        self.assertTrue(manifest["viral_clustering"]["update_ready"])
+        self.assertEqual(manifest["files"]["viruses.prophages_faa"]["path"], "viruses/prophages.faa.gz")
+
+    def test_without_sequences_is_not_update_ready(self):
+        manifest = self.run_main("default", with_vjdb=False, with_sequences=False)
         self.assertFalse(manifest["viral_clustering"]["update_ready"])
-        self.assertIn("vjdb", manifest["viral_clustering"]["not_update_ready_reason"])
+        self.assertIn("viruses.clusters_tsv", manifest["viral_clustering"]["not_update_ready_reason"])
 
     def test_vjdb_without_tables_is_not_update_ready(self):
         manifest = self.run_main("vjdb", with_vjdb=False)

@@ -60,9 +60,9 @@ Sequences and annotation
 
 Clustering
 
-- vclust cluster TSV (internal `*_clusters.tsv`): header `object\tcluster`, one row per sequence, `cluster` = representative ID. The blastn/CheckV variant has no header (`rep\tmembers`).
+- vclust cluster TSV (`*_clusters.tsv`; viruses published as `viruses/clustering/viruses_clusters.tsv`, whole catalogue): header `object\tcluster`, one row per sequence, `cluster` = representative ID. The blastn/CheckV variant has no header (`rep\tmembers`, members comma-separated).
 - vjdb membership CSV (`viruses_vjdb_clusters.csv`): `vjdb_id,copy_of,seq_gc,seq_len,seq_hash,cluster_rep`; `seq_hash` = case-sensitive MD5 of the sequence; `copy_of` must equal `vjdb_id` (identical sequences were removed before). `viruses_vjdb_reps.fna.gz`: one sequence per `cluster_rep`.
-- `--mode update` only: `viruses_new_sequences_clusters.csv` (vjdb `*_new_clusters.csv`: the CSV columns plus `status` = `new_unique`/`new_copy`/`existing_copy`/`resubmitted`/`duplicate_in_batch`) and `viruses_cluster_events.tsv` (`cluster_rep, event, old_cluster_reps, n_existing, n_new`; `event` = `new`/`grown`/`merged`; `old_cluster_reps` `;`-separated; unchanged clusters are not listed). Internal `*_clusters_to_annotate.tsv` (vclust format, `new` clusters only) and `*_dropped_reps.txt` (one old representative per line, absorbed by a merge) come from `bin/vjdb_clusters_tsv.py`.
+- `--mode update` only: `viruses_new_sequences_clusters.csv` (vjdb only; vjdb `*_new_clusters.csv`: the CSV columns plus `status` = `new_unique`/`new_copy`/`existing_copy`/`resubmitted`/`duplicate_in_batch`) and `viruses_cluster_events.tsv` (`cluster_rep, event, old_cluster_reps, n_existing, n_new`; `event` = `new`/`grown`/`merged`, and for a vclust re-clustering also `new_rep`/`split`; `old_cluster_reps` `;`-separated; unchanged clusters are not listed). Internal `*_clusters_to_annotate.tsv` (vclust format, clusters with a new representative) and `*_dropped_reps.txt` (one existing representative per line that no longer is) come from `bin/vjdb_clusters_tsv.py` (vjdb update) or `bin/update_clusters.py compare` (vclust re-clustering of the whole catalogue). `bin/update_clusters.py to-vjdb` builds the vjdb CSV/reps of a catalogue clustered with vclust.
 
 Per-representative annotation tables (ID column → what it holds)
 
@@ -86,7 +86,7 @@ Metadata tables
 
 Catalogue description and update
 
-- `catalogue_manifest.json` (`bin/write_catalogue_manifest.py`): `manifest_version` (1), `catalogue` (`created, mode, parent, pipeline_version, run_name, commit`), `accessions` (`prefix, first, last, count, zero_padded_digits`), `deduplication`, `viral_clustering` (`method, update_ready, not_update_ready_reason`), `software_versions`, `files`: key → `{path, size, sha256}` (a list for `viruses.hmmer_tables`); `path` is relative to `--outdir`. Keys are written by `manifestInput()` in `workflows/metaviraverse.nf` and read by `loadExistingCatalogue()` in `subworkflows/local/existing_catalogue/main.nf`: keep them in sync.
+- `catalogue_manifest.json` (`bin/write_catalogue_manifest.py`): `manifest_version` (1), `catalogue` (`created, mode, parent, pipeline_version, run_name, commit`), `accessions` (`prefix, first, last, count, zero_padded_digits`), `deduplication`, `viral_clustering` (`method, update_ready, not_update_ready_reason`), `software_versions`, `files`: key → `{path, size, sha256}` (a list for `viruses.hmmer_tables`); `path` is relative to `--outdir`. Every update reads `viruses.clusters_tsv` and the whole-catalogue sequence files `viruses.{viral_sequences,prophages}_{fna,gff,faa}` (published `viruses/viral_sequences.*.gz`, `viruses/prophages.*.gz`; existing + new in update mode, built by `CONCAT_CATALOGUE_SEQUENCES`); the vjdb keys are required only when `method` is `vjdb`. Keys are written by `manifestInput()` in `workflows/metaviraverse.nf` and read by `loadExistingCatalogue()` in `subworkflows/local/existing_catalogue/main.nf`: keep them in sync.
 - `update/existing_catalogue_check.json` (`bin/check_existing_catalogue.py`): `status, manifest_sha256, manifest_version, catalogue, accessions, files_checked`.
 
 ## Conventions

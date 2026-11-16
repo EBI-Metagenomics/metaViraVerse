@@ -6,7 +6,8 @@ about this catalogue.
 The manifest records
   - the accession range used by rename_contigs.py (an update continues after `last`)
   - how sequences were deduplicated (an update must hash the same way)
-  - how viruses were clustered (an update needs the vjdb-clustering tables)
+  - how viruses were clustered (a vjdb update of a vjdb catalogue reads its vjdb tables;
+    other updates read the clusters and every viral sequence)
   - the software versions of the run
   - every published file an update reads: its path relative to --outdir,
     size and SHA-256, so an update can check it reads the right files
@@ -37,7 +38,15 @@ DEDUPLICATION = {
     "column": "sequence_sha256",
 }
 
-# keys a vjdb update reads (see pipelines/vjdb-clustering, --mode update)
+# keys every update reads: the clusters and every viral sequence of the catalogue (a
+# --viral_clustering default update clusters them again; a vjdb update of a catalogue not
+# clustered with vjdb builds the vjdb tables from them)
+UPDATE_KEYS = (
+    "viruses.clusters_tsv",
+    "viruses.viral_sequences_fna", "viruses.viral_sequences_gff", "viruses.viral_sequences_faa",
+    "viruses.prophages_fna", "viruses.prophages_gff", "viruses.prophages_faa",
+)
+# keys a vjdb update of a vjdb catalogue reads (see pipelines/vjdb-clustering, --mode update)
 VJDB_UPDATE_KEYS = ("viruses.vjdb_clusters_csv", "viruses.vjdb_reps_fna")
 
 
@@ -174,13 +183,9 @@ def build_manifest(args, files):
     rename_map = next(name for kind, key, _t, name in args.entry if key == "rename_map")
     versions_name = next((name for kind, key, _t, name in args.entry if key == "software_versions"), None)
 
-    missing_vjdb = [k for k in VJDB_UPDATE_KEYS if k not in files]
-    if args.viral_clustering != "vjdb":
-        reason = f"viruses were clustered with --viral_clustering {args.viral_clustering}; updates need 'vjdb'"
-    elif missing_vjdb:
-        reason = f"missing {', '.join(missing_vjdb)}"
-    else:
-        reason = None
+    needed = UPDATE_KEYS + (VJDB_UPDATE_KEYS if args.viral_clustering == "vjdb" else ())
+    missing = [k for k in needed if k not in files]
+    reason = f"missing {', '.join(missing)}" if missing else None
     update_ready = reason is None
 
     parent = None
