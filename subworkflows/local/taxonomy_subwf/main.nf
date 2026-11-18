@@ -149,6 +149,9 @@ workflow TAXONOMY_ASSIGNMENT {
     // Taxonomy Viphogs
     //
     if ( !opts.skip_viphogs ) {
+        // contig_taxonomic_assign.py: without the CDS counts per taxon no contig passes the size filter
+        if ( !opts.viphogs_factor_file )
+            error("ViPhOGs taxonomy needs --viphogs_factor_file (viphogs_cds_per_taxon_cummulative.csv, see docs/databases.md), or set --skip_viphogs")
         viphogs = VIPHOGS_ANNOTATION (
             reps.map { r -> record(meta: r.meta, faa: r.faa, gff: r.reps_gff) },
             opts
