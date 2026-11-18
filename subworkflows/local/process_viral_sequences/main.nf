@@ -6,13 +6,16 @@ nextflow.enable.types = true
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { FIND_CONCATENATE as CONCATENATE_BACPHLIP     } from '../../../modules/nf-core/find/concatenate'
+include { PIGZ_COMPRESS as COMPRESS_VJDB_NEW_SEQS      } from '../../../modules/nf-core/pigz/compress/main'
 include { SEQKIT_SPLIT2 as CHUNK_FNA                   } from '../../../modules/nf-core/seqkit/split2'
 
 include { BACPHLIP                                     } from '../../../modules/local/bacphlip'
 include { BUILD_FINAL_GFF                              } from '../../../modules/local/build_final_gff'
 include { VJDB_CLUSTERS_TSV                            } from '../../../modules/local/vjdb_clusters_tsv'
+include { CLUSTERS_TO_VJDB ; COMPARE_CLUSTERS          } from '../../../modules/local/update_clusters'
 
 include { EXTRACT_CLUSTER_FILES                        } from '../extract_cluster_files/main'
+include { ExistingCatalogue                            } from '../existing_catalogue/main'
 include { CLUSTERING                                   } from '../clustering/main'
 include { HOST_DETECTION ; HostResult                  } from '../host_detection_subwf/main'
 include { INDEX_RESULTS ; IndexedReps                  } from '../index_results/main'
@@ -29,6 +32,7 @@ include { params as VjdbParams ; workflow as VJDB_CLUSTERING } from '../../../pi
 
 // params of this workflow and of the subworkflows it calls
 record ViralParams {
+    mode: String               // 'generate', or 'update' (needs the existing catalogue)
     viral_clustering: String   // 'default' (vclust, or blastn with cluster_vclust false) or 'vjdb'
     cluster_vclust: Boolean
     nucleotide_fasta_chunksize: Integer
@@ -75,10 +79,15 @@ record ViralSequences {
 
 record ViralClusters {
     meta: Map
-    clusters_tsv: Path         // vclust format (object, cluster)
+    clusters_tsv: Path         // vclust format (object, cluster), or CheckV ANI format; with --mode update the whole catalogue
+    annotate_tsv: Path         // the clusters whose representatives are annotated in this run (same format)
     ani_tsv: Path?             // CheckV ANI clustering only
     ani_clusters_tsv: Path?
     vjdb_clusters_csv: Path?   // vjdb-clustering only
+    vjdb_reps_fna: Path?       // vjdb-clustering only: representatives as vjdb wrote them (input of an update)
+    vjdb_new_clusters: Path?   // --mode update only: every new sequence with its status and cluster
+    cluster_events: Path?      // --mode update only: what the update did to the clusters (vjdb: new, grown, merged; a vclust update also new_rep, split)
+    dropped_reps: Path?        // --mode update only: existing representatives that no longer are (merges, or a vclust update's new representatives)
 }
 
 record LifestyleTable {
@@ -88,10 +97,15 @@ record LifestyleTable {
 
 record ViralCatalogue {
     meta: Map
-    clusters_tsv: Path
+    clusters_tsv: Path         // with --mode update the whole catalogue
+    annotate_tsv: Path         // clusters annotated in this run: all of them, or with --mode update the new ones
     ani_tsv: Path?             // CheckV ANI clustering only
     ani_clusters_tsv: Path?
     vjdb_clusters_csv: Path?   // vjdb-clustering only
+    vjdb_reps_fna: Path?       // vjdb-clustering only
+    vjdb_new_clusters: Path?   // --mode update only
+    cluster_events: Path?      // --mode update only: what the update did to the clusters
+    dropped_reps: Path?        // --mode update only
     reps_list: Path
     fna_gz: Path               // representative sequences, compressed
     faa_gz: Path               // representative proteins, compressed
@@ -111,6 +125,8 @@ workflow PROCESS_VIRAL_SEQUENCES {
     faa: Value<Path>
     combined_metadata: Value<Path>
     mapfile: Value<Path>
+    existing: Value<ExistingCatalogue?>   // --mode update: the existing catalogue; null in generate mode
+    rgi_db: Value<Path?>                  // processed RGI/CARD database (PREPARE_RGI_DB)
     opts: ViralParams
 
     main:
@@ -129,26 +145,93 @@ workflow PROCESS_VIRAL_SEQUENCES {
     if ( opts.viral_clustering == 'vjdb' ) {
         // vjdb-clustering (pipelines/vjdb-clustering) takes the single FASTA of viruses and prophages as a dataflow value
         def viruses = samples_seqs.reduce { a, _b -> a }
-        def vjdb = VJDB_CLUSTERING(record(mode: 'initial', input: viruses.map { r -> r.fna }))
+        def vjdb = null
+        if ( opts.mode == 'update' ) {
+            // Cluster the new sequences with the representatives of the existing catalogue.
+            // CHOOSE_SEQUENCES has removed sequences the catalogue already has and gave the
+            // new ones accessions after its last one, so vjdb finds no copies or ID clashes.
+            // vjdb reads the new sequences as gzip.
+            def new_seqs = COMPRESS_VJDB_NEW_SEQS(viruses.map { r -> tuple(r.meta, r.fna) })
+                .archive
+                .map { _meta, gz -> gz }
 
-        clusters = VJDB_CLUSTERS_TSV(samples_seqs.map { r -> r.meta }, vjdb.clusters_csv)
-            .map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: null, ani_clusters_tsv: null, vjdb_clusters_csv: r.clusters_csv) }
+            // vjdb tables of the existing catalogue: its own, or, when it was not clustered
+            // with vjdb, built from its clusters and sequences (runs at most once)
+            def converted = CLUSTERS_TO_VJDB(
+                existing.flatMap { e ->
+                    e.vjdb_clusters_csv ? [] : [record(meta: [id: 'viruses'], clusters_tsv: e.clusters_tsv, fasta: [e.viral_fna, e.prophage_fna].toSet())]
+                }
+            )
+            def existing_vjdb = existing
+                .flatMap { e -> e.vjdb_clusters_csv ? [record(clusters_csv: e.vjdb_clusters_csv, reps_fasta: e.vjdb_reps_fna)] : [] }
+                .mix(converted.map { r -> record(clusters_csv: r.clusters_csv, reps_fasta: r.reps_fasta) })
+                .collect()
+                .map { rs -> rs.toList()[0] }
+
+            vjdb = VJDB_CLUSTERING(record(
+                mode: 'update',
+                new_seqs: new_seqs,
+                existing_reps: existing_vjdb.map { r -> r.reps_fasta },
+                existing_csv: existing_vjdb.map { r -> r.clusters_csv },
+                prefix_update: 'viruses_update'
+            ))
+        } else {
+            vjdb = VJDB_CLUSTERING(record(mode: 'initial', input: viruses.map { r -> r.fna }))
+        }
+
+        clusters = VJDB_CLUSTERS_TSV(samples_seqs.map { r -> r.meta }, vjdb.clusters_csv, vjdb.reps_fasta, vjdb.cluster_events)
+            .combine(new_clusters: vjdb.new_clusters, events: vjdb.cluster_events)
+            .map { r ->
+                record(
+                    meta: r.meta, clusters_tsv: r.clusters_tsv, annotate_tsv: r.annotate_tsv, ani_tsv: null, ani_clusters_tsv: null,
+                    vjdb_clusters_csv: r.clusters_csv, vjdb_reps_fna: r.reps_fasta,
+                    vjdb_new_clusters: r.new_clusters, cluster_events: r.events,
+                    dropped_reps: opts.mode == 'update' ? r.dropped_reps : null
+                )
+            }
     } else {
-        clusters = CLUSTERING(
+        // with --mode update, samples_seqs holds every viral sequence of the whole catalogue:
+        // it is clustered again from scratch
+        def clustered = CLUSTERING(
            samples_seqs,
            'ani',
            0,
            0,
            0.95,
            opts.cluster_vclust
-        ).map { r -> record(meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv, vjdb_clusters_csv: null) }
+        )
+        if ( opts.mode == 'update' ) {
+            // annotate only the clusters whose representative was not one in the existing
+            // catalogue; the existing representatives that no longer are are dropped
+            def compared = COMPARE_CLUSTERS(
+                clustered.map { r -> record(meta: r.meta, new_clusters: r.clusters_tsv) },
+                existing.map { e -> e.clusters_tsv }
+            )
+            clusters = clustered
+                .join(compared, by: 'meta')
+                .map { r ->
+                    record(
+                        meta: r.meta, clusters_tsv: r.clusters_tsv, annotate_tsv: r.annotate_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                        vjdb_clusters_csv: null, vjdb_reps_fna: null, vjdb_new_clusters: null,
+                        cluster_events: r.cluster_events, dropped_reps: r.dropped_reps
+                    )
+                }
+        } else {
+            clusters = clustered.map { r ->
+                record(
+                    meta: r.meta, clusters_tsv: r.clusters_tsv, annotate_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                    vjdb_clusters_csv: null, vjdb_reps_fna: null, vjdb_new_clusters: null, cluster_events: null, dropped_reps: null
+                )
+            }
+        }
     }
 
     //
     // ----------- Extract cluster files: FNA, FAA, TSV, GFF -----------
+    // only for the clusters annotated in this run (with --mode update, the new clusters)
     //
     reps = EXTRACT_CLUSTER_FILES (
-       clusters,
+       clusters.map { r -> record(meta: r.meta, clusters_tsv: r.annotate_tsv) },
        sequences,
        gff,
        faa,
@@ -221,6 +304,7 @@ workflow PROCESS_VIRAL_SEQUENCES {
        opts.skip_phammseqs,
        true,
        opts.annotation_db,
+       rgi_db,
        opts
     )
 
@@ -260,8 +344,10 @@ workflow PROCESS_VIRAL_SEQUENCES {
         .join(proteins.map { r -> record(meta: r.meta, proteins: r) }, by: 'meta')
         .map { r ->
             record(
-                meta: r.meta, clusters_tsv: r.clusters_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
-                vjdb_clusters_csv: r.vjdb_clusters_csv, reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
+                meta: r.meta, clusters_tsv: r.clusters_tsv, annotate_tsv: r.annotate_tsv, ani_tsv: r.ani_tsv, ani_clusters_tsv: r.ani_clusters_tsv,
+                vjdb_clusters_csv: r.vjdb_clusters_csv, vjdb_reps_fna: r.vjdb_reps_fna,
+                vjdb_new_clusters: r.vjdb_new_clusters, cluster_events: r.cluster_events, dropped_reps: r.dropped_reps,
+                reps_list: r.reps_list, fna_gz: r.fna_gz, faa_gz: r.faa_gz, reps_gff: r.reps_gff,
                 final_gff: r.final_gff, index: r.index,
                 taxonomy: r.taxonomy, hosts: r.hosts, proteins: r.proteins
             )

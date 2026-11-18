@@ -1,0 +1,95 @@
+// data/card: an unprocessed database (card.json); data/card_database_processed: a processed one.
+// Stub runs do not read them.
+nextflow_workflow {
+
+    name "Test Subworkflow PREPARE_RGI_DB"
+    script "../main.nf"
+    workflow "PREPARE_RGI_DB"
+
+    tag "subworkflows"
+    tag "prepare_rgi_db"
+
+    test("stub - no --rgi_db: download and process once") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = null
+                input[1] = false
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks()*.name.sort() == ['PREPARE_RGI_DB:RGI_CARDANNOTATION', 'PREPARE_RGI_DB:RGI_DOWNLOADDB'] },
+                { assert file(workflow.out[0][0]).name == 'card_database_processed' }
+            )
+        }
+    }
+
+    test("stub - unprocessed --rgi_db: process once") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = "${projectDir}/subworkflows/local/prepare_rgi_db/tests/data/card"
+                input[1] = false
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks()*.name == ['PREPARE_RGI_DB:RGI_CARDANNOTATION'] },
+                { assert file(workflow.out[0][0]).name == 'card_database_processed' }
+            )
+        }
+    }
+
+    test("processed --rgi_db: used as it is") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${projectDir}/subworkflows/local/prepare_rgi_db/tests/data/card_database_processed"
+                input[1] = false
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks().size() == 0 },
+                { assert workflow.out[0][0] == "${projectDir}/subworkflows/local/prepare_rgi_db/tests/data/card_database_processed" }
+            )
+        }
+    }
+
+    test("RGI skipped for viruses and plasmids: nothing to prepare") {
+
+        when {
+            workflow {
+                """
+                input[0] = null
+                input[1] = true
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks().size() == 0 },
+                { assert workflow.out[0][0] == null }
+            )
+        }
+    }
+}

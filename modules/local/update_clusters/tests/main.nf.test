@@ -1,0 +1,63 @@
+nextflow_process {
+
+    name "Test Process CLUSTERS_TO_VJDB"
+    script "../main.nf"
+    process "CLUSTERS_TO_VJDB"
+
+    tag "modules"
+    tag "update_clusters"
+
+    test("vjdb tables of a catalogue clustered with vclust") {
+
+        when {
+            process {
+                """
+                def cat = "${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue_vclust"
+                input[0] = record(
+                    meta: [id: 'viruses'],
+                    clusters_tsv: file("\${cat}/viruses/clustering/viruses_clusters.tsv", checkIfExists: true),
+                    fasta: [file("\${cat}/viruses/viral_sequences.fna.gz", checkIfExists: true),
+                            file("\${cat}/viruses/prophages.fna.gz", checkIfExists: true)].toSet()
+                )
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            def rows = path(out.clusters_csv).readLines()
+            // the vjdb tables of the same catalogue (catalogue/viruses/clustering), as vjdb-clustering wrote them
+            def vjdb = path("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue/viruses/clustering/viruses_vjdb_clusters.csv").readLines()
+            assertAll(
+                { assert process.success },
+                { assert rows == vjdb },
+                { assert path(out.reps_fasta).linesGzip.findAll { l -> l.startsWith('>') } == ['>MGYV0000000001', '>MGYV0000000002'] }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                def cat = "${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue_vclust"
+                input[0] = record(
+                    meta: [id: 'viruses'],
+                    clusters_tsv: file("\${cat}/viruses/clustering/viruses_clusters.tsv", checkIfExists: true),
+                    fasta: [file("\${cat}/viruses/viral_sequences.fna.gz", checkIfExists: true)].toSet()
+                )
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert file(process.out[0][0].clusters_csv).name == 'viruses_existing_vjdb_clusters.csv' }
+            )
+        }
+    }
+}

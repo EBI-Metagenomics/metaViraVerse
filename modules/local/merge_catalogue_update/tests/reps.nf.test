@@ -1,0 +1,28 @@
+nextflow_process {
+
+    name "Test Process MERGE_UPDATE_REPS"
+    script "../main.nf"
+    process "MERGE_UPDATE_REPS"
+
+    tag "modules"
+    tag "merge_catalogue_update"
+
+    test("representatives of the whole catalogue") {
+
+        when {
+            process {
+                """
+                input[0] = [id: 'viruses']
+                input[1] = file("${moduleDir}/tests/data/clusters.tsv", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert path(process.out[0][0]).readLines() == ['V1', 'V7'] }
+            )
+        }
+    }
+}

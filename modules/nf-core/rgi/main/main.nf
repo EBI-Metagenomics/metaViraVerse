@@ -74,7 +74,8 @@ process RGI_MAIN {
     touch test.json
     touch test.txt
 
-    RGI_VERSION=\$(rgi main --version)
+    # no rgi call: stub runs need no container
+    RGI_VERSION=stub_version
     DB_VERSION=stub_version
     """
 }

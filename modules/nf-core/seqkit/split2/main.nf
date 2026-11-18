@@ -50,4 +50,16 @@ process SEQKIT_SPLIT2 {
         ${input_fasta} \\
         --out-dir ${prefix}
     """
+
+    stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    // one chunk, named as seqkit names it (<meta.id>_part_001 with the input's extension)
+    def name = input_fasta.name
+    def ext = name.contains('.') ? name.substring(name.indexOf('.')) : ''
+    def chunk = "${prefix}/${meta.id}_part_001${ext}"
+    def create = ext.endsWith('.gz') ? "echo '' | gzip > ${chunk}" : "touch ${chunk}"
+    """
+    mkdir -p ${prefix}
+    ${create}
+    """
 }

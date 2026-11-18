@@ -14,6 +14,10 @@ include { PIGZ_COMPRESS as COMPRESS_VIRAL_SEQ_FILES      } from '../../../module
 include { PIGZ_COMPRESS as COMPRESS_PLASMIDS_FILES       } from '../../../modules/nf-core/pigz/compress/main'
 include { PIGZ_COMPRESS as COMPRESS_PROPHAGES_FILES      } from '../../../modules/nf-core/pigz/compress/main'
 
+include { CONCAT_CATALOGUE_SEQUENCES                     } from '../../../modules/local/merge_catalogue_update'
+
+include { ExistingCatalogue                              } from '../existing_catalogue/main'
+
 
 record Sample {
     meta: Map    // [id, source, biome] (MGnify) or [id, type, source, biome, ...] (third-party)
@@ -23,6 +27,7 @@ record Sample {
 }
 
 record PreprocessingParams {
+    mode: String                // 'generate' or 'update'
     start_accession: Integer?
     end_accession: Integer?
     viral_sequence_identifier: String?
@@ -39,6 +44,16 @@ record CompressedFiles {
     fna: Path
     gff: Path
     faa: Path
+}
+
+// viral sequences and prophages of the whole catalogue (plain files)
+record ViralSequenceFiles {
+    virus_fna: Path
+    virus_gff: Path
+    virus_faa: Path
+    prophage_fna: Path
+    prophage_gff: Path
+    prophage_faa: Path
 }
 
 record Preprocessed {
@@ -63,10 +78,17 @@ record Preprocessed {
     plasmid_fna: Path
     plasmid_gff: Path
     plasmid_faa: Path
-    virus_gz: CompressedFiles   // chosen viral sequences, compressed
+    // whole catalogue (--mode update: the existing catalogue's sequences, then this run's;
+    // otherwise this run's chosen sequences): published, and clustered by a vclust update
+    catalogue_sequences: ViralSequenceFiles
+    virus_gz: CompressedFiles   // catalogue_sequences, compressed
     prophage_gz: CompressedFiles
     plasmid_gz: CompressedFiles
     stats: Path
+    // whole catalogue (--mode update: the existing catalogue's rows, then this run's; otherwise this run's)
+    catalogue_map: Path         // published as rename_mapfile.tsv
+    catalogue_metadata: Path    // published as catalogue_filtered_metadata.tsv
+    catalogue_excluded: Path    // published as catalogue_excluded_records_metadata.tsv
 }
 
 workflow PREPROCESSING {
@@ -74,6 +96,7 @@ workflow PREPROCESSING {
     take:
     samples: Channel<Sample>
     third_party: Channel<Sample>
+    existing: Value<ExistingCatalogue?>   // --mode update: the existing catalogue; null for a new one
     opts: PreprocessingParams
 
     main:
@@ -89,6 +112,11 @@ workflow PREPROCESSING {
     // there are no samples of that kind.
 
     def combined_meta = [id: 'combined']
+
+    // --mode update: new accessions continue after the last one of the existing catalogue
+    // (--start_accession/--end_accession are not used)
+    def start_accession = existing.map { e -> e ? e.last_accession + 1 : opts.start_accession }
+    def end_accession   = existing.map { e -> e ? null : opts.end_accession }
     def mgnify      = samples.collect().map { ss -> ss.toList() }
     def third_party_list = third_party.collect().map { ss -> ss.toList() }
 
@@ -98,8 +126,8 @@ workflow PREPROCESSING {
         mgnify.map { ss -> ss.collect { s -> s.gff }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.source as String }.toList() },
         mgnify.map { ss -> ss.collect { s -> s.meta.biome as String }.toList() },
-        opts.start_accession,
-        opts.end_accession,
+        start_accession,
+        end_accession,
         third_party_list.map { ss -> ss.collect { s -> s.fna }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.gff }.toList() },
         third_party_list.map { ss -> ss.collect { s -> s.meta.type as String }.toList() },
@@ -226,12 +254,39 @@ workflow PREPROCESSING {
         prophages,
         plasmids,
         quality,
-        rna_gff
+        rna_gff,
+        existing.map { e -> e?.catalogue_metadata },
+        existing.map { e -> e?.excluded_metadata },
+        existing.map { e -> e?.rename_map }
     )
 
+    //
+    // ----------- Viral sequences of the whole catalogue
+    // --mode update: the existing catalogue's, then the chosen new ones, so that the
+    // published files cover the whole catalogue (the input of a later update)
+    //
+    def chosen_viral: Value<ViralSequenceFiles> = chosen.map { r ->
+        record(
+            virus_fna: r.virus_fna, virus_gff: r.virus_gff, virus_faa: r.virus_faa,
+            prophage_fna: r.prophage_fna, prophage_gff: r.prophage_gff, prophage_faa: r.prophage_faa
+        )
+    }
+    def catalogue_sequences: Value<ViralSequenceFiles> = chosen_viral
+    if ( opts.mode == 'update' ) {
+        catalogue_sequences = CONCAT_CATALOGUE_SEQUENCES(
+            chosen_viral,
+            existing.map { e ->
+                record(
+                    virus_fna: e.viral_fna, virus_gff: e.viral_gff, virus_faa: e.viral_faa,
+                    prophage_fna: e.prophage_fna, prophage_gff: e.prophage_gff, prophage_faa: e.prophage_faa
+                )
+            }
+        )
+    }
+
     virus_gz = COMPRESS_VIRAL_SEQ_FILES (
-        chosen
-            .flatMap { r -> [r.virus_fna, r.virus_gff, r.virus_faa].collect { f -> tuple(r.meta, f) } }
+        catalogue_sequences
+            .flatMap { r -> [r.virus_fna, r.virus_gff, r.virus_faa].collect { f -> tuple(combined_meta, f) } }
     )
 
     plasmid_gz = COMPRESS_PLASMIDS_FILES (
@@ -240,8 +295,8 @@ workflow PREPROCESSING {
     )
 
     prophage_gz = COMPRESS_PROPHAGES_FILES (
-        chosen
-            .flatMap { r -> [r.prophage_fna, r.prophage_gff, r.prophage_faa].collect { f -> tuple(r.meta, f) } }
+        catalogue_sequences
+            .flatMap { r -> [r.prophage_fna, r.prophage_gff, r.prophage_faa].collect { f -> tuple(combined_meta, f) } }
     )
 
     preprocessed = chosen
@@ -253,7 +308,8 @@ workflow PREPROCESSING {
                 virus_fna: r.virus_fna, virus_gff: r.virus_gff, virus_faa: r.virus_faa,
                 prophage_fna: r.prophage_fna, prophage_gff: r.prophage_gff, prophage_faa: r.prophage_faa,
                 plasmid_fna: r.plasmid_fna, plasmid_gff: r.plasmid_gff, plasmid_faa: r.plasmid_faa,
-                stats: r.stats
+                stats: r.stats,
+                catalogue_map: r.catalogue_map, catalogue_metadata: r.catalogue_metadata, catalogue_excluded: r.catalogue_excluded
             )
         }
         .combine(map_file: map_file)
@@ -261,6 +317,7 @@ workflow PREPROCESSING {
         .combine(gff_renamed: renamed.map { r -> r.gff_renamed })
         .combine(checkv_report: quality)
         .combine(rrna_gff: rna_gff)
+        .combine(catalogue_sequences: catalogue_sequences)
         .combine(virus_gz: virus_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
         .combine(prophage_gz: prophage_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })
         .combine(plasmid_gz: plasmid_gz.archive.map { _meta, f -> f }.collect().map { fs -> compressedFiles(fs.toList()) })

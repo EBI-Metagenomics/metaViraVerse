@@ -1,0 +1,4 @@
+old_clusters.tsv: an existing catalogue (V1 {V1, V2}, V3, V4).
+new_clusters.tsv: the whole catalogue clustered again with the new sequences N1 and N2:
+V1 grew (N1), V3 absorbed V4 (merged; V4 dropped), N2 is a new cluster.
+CLUSTERS_TO_VJDB reads the fixture catalogue_vclust of subworkflows/local/existing_catalogue/tests/data.

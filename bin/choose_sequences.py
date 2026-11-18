@@ -17,11 +17,23 @@ sequence's final category, and biomes from every contributing source are
 merged. Corresponding GFF and protein (FAA) records are filtered the same way
 so that dropped duplicates don't leave orphaned annotations behind.
 
-Input:  Up to three (fna, gff, faa) triples -- one per category.
+Catalogue update (--existing-metadata): a sequence whose hash is already in
+the existing catalogue keeps its existing record and ID -- whatever the
+source priorities -- so catalogue IDs stay stable. The new copies are
+excluded with reason 'in_existing_catalogue' and their biomes are merged into
+the existing record. This also covers resubmitted sequences (same name and
+sequence): they get a new number from rename_contigs.py, which is then dropped.
+
+Input:  Up to three (fna, gff, faa) triples -- one per category; with
+        --mode update also the existing catalogue's metadata, excluded
+        records and rename map.
 Output: Per-category and combined deduplicated/filtered FNA, GFF and FAA
-        files, a metadata TSV, and a stats JSON (sequence and protein counts
-        per category, tallied from what was actually written to each
-        category's filtered FNA/FAA).
+        files (new sequences only), a metadata TSV, and a stats JSON
+        (sequence and protein counts per category, tallied from what was
+        actually written to each category's filtered FNA/FAA).
+        The *_catalogue_{metadata,excluded,map}.tsv tables are the existing
+        catalogue's tables (biomes updated) followed by this run's rows; in a
+        new catalogue they hold this run's rows only.
 
 Usage:
     choose_sequences.py \
@@ -37,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import hashlib
 import json
 
@@ -57,6 +70,9 @@ PLURALS = {'virus': 'viruses', 'prophage': 'prophages', 'plasmid': 'plasmids'}
 # collect_data_from_catalogues_marine.py's VIRAL_TYPES) rather than this
 # script's internal 'virus' category name.
 CATEGORY_NOUN = {'virus': 'viral_sequence', 'prophage': 'prophage', 'plasmid': 'plasmid'}
+
+# filter_reason of new sequences that are already in the existing catalogue
+IN_EXISTING_CATALOGUE = 'in_existing_catalogue'
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -95,11 +111,30 @@ def parse_arguments() -> argparse.Namespace:
         help="CheckV results quality_summary.tsv (covers virus/prophage sequences)"
     )
     parser.add_argument(
+        "--existing-metadata",
+        required=False,
+        help="--mode update: metadata of every sequence in the existing catalogue "
+             "(catalogue_filtered_metadata.tsv, with sequence_sha256)"
+    )
+    parser.add_argument(
+        "--existing-excluded",
+        required=False,
+        help="--mode update: excluded records of the existing catalogue (catalogue_excluded_records_metadata.tsv)"
+    )
+    parser.add_argument(
+        "--existing-map",
+        required=False,
+        help="--mode update: rename map of the existing catalogue (rename_mapfile.tsv)"
+    )
+    parser.add_argument(
         "--output-prefix",
         required=True,
         help="Prefix in output files"
     )
     args = parser.parse_args()
+
+    if (args.existing_excluded or args.existing_map) and not args.existing_metadata:
+        parser.error("--existing-excluded and --existing-map need --existing-metadata")
 
     if not any(getattr(args, PLURALS[category]) for category in CATEGORIES):
         parser.error("At least one of --viruses, --prophages, --plasmids must be provided")
@@ -146,6 +181,145 @@ def seq_hash(sequence: str) -> str:
         Hex digest of the SHA256 hash.
     """
     return hashlib.sha256(sequence.upper().strip().encode()).hexdigest()
+
+
+def open_text(path: str):
+    """Open a plain or gzip-compressed text file."""
+    with open(path, 'rb') as fh:
+        gzipped = fh.read(2) == b'\x1f\x8b'
+    return gzip.open(path, 'rt') if gzipped else open(path, 'r')
+
+
+def read_table_lines(path: str, header: str) -> list[str]:
+    """Data lines of a TSV whose first line must be ``header``; repeated header lines are skipped.
+
+    Raises:
+        SystemExit: If the file's header differs from ``header`` (e.g. a catalogue
+            written by an older version with other columns).
+    """
+    with open_text(path) as fh:
+        first = fh.readline().rstrip('\n')
+        if first != header.rstrip('\n'):
+            print(f"ERROR: {path} has the columns\n  {first}\nexpected\n  {header.rstrip()}")
+            exit(1)
+        return [line if line.endswith('\n') else line + '\n'
+                for line in fh if line.strip() and line.rstrip('\n') != first]
+
+
+def read_existing_metadata(path: str, header: str) -> tuple[list[list[str]], dict[str, list[str]]]:
+    """Rows of the existing catalogue's metadata, and the row of each sequence hash.
+
+    Args:
+        path: catalogue_filtered_metadata.tsv of the existing catalogue (every
+            unique sequence, with its sequence_sha256).
+        header: The metadata header this script writes; the existing table must have it.
+
+    Returns:
+        (rows, by_hash): rows as field lists in file order; by_hash maps
+        sequence_sha256 -> the same list objects, so updating one updates both.
+    """
+    columns = header.rstrip('\n').split('\t')
+    hash_col = columns.index('sequence_sha256')
+    rows = [line.rstrip('\n').split('\t') for line in read_table_lines(path, header)]
+    by_hash: dict[str, list[str]] = {}
+    for row in rows:
+        if row[hash_col] in by_hash:
+            print(f"ERROR: {path} lists the sequence hash {row[hash_col]} more than once")
+            exit(1)
+        by_hash[row[hash_col]] = row
+    return rows, by_hash
+
+
+def split_existing(
+    seen: dict[str, dict],
+    duplicates: list[dict],
+    existing_by_hash: dict[str, list[str]],
+    biomes_col: int,
+) -> tuple[list[dict], list[dict]]:
+    """Take the sequences that are already in the existing catalogue out of this run.
+
+    Every record (winner and its duplicates) of a hash that is in the existing
+    catalogue is removed from ``seen``/``duplicates`` and returned for the
+    excluded table; its biomes are merged into the existing row (in place).
+
+    Returns:
+        (in_existing, duplicates): the removed records, and the remaining duplicates.
+    """
+    in_existing: list[dict] = []
+    for h in [h for h in seen if h in existing_by_hash]:
+        entry = seen.pop(h)
+        in_existing.append(entry)
+        row = existing_by_hash[h]
+        biomes = {b for b in row[biomes_col].split(',') if b} | entry['biomes']
+        row[biomes_col] = ','.join(sorted(biomes))
+    existing_hashes = {e['hash'] for e in in_existing}
+    in_existing += [d for d in duplicates if d['hash'] in existing_hashes]
+    duplicates = [d for d in duplicates if d['hash'] not in existing_hashes]
+    return in_existing, duplicates
+
+
+def write_catalogue_tables(
+    output_prefix: str,
+    metadata_header: str,
+    existing_rows: list[list[str]],
+    existing_excluded: str | None,
+    existing_map: str | None,
+    map_files: list[str],
+) -> dict[str, int]:
+    """Write the whole-catalogue tables: the existing catalogue's rows, then this run's.
+
+    ``{prefix}_catalogue_metadata.tsv`` (existing rows with updated biomes, then
+    this run's metadata), ``{prefix}_catalogue_excluded.tsv`` and
+    ``{prefix}_catalogue_map.tsv``. A new accession that is already in the
+    existing rename map stops the script: IDs must never be reused.
+
+    Returns:
+        Number of existing rows per table (for the stats JSON).
+    """
+    excluded_header = f"filter_reason\t{metadata_header}"
+    with open(f"{output_prefix}_catalogue_metadata.tsv", 'w') as out:
+        out.write(metadata_header)
+        out.writelines('\t'.join(row) + '\n' for row in existing_rows)
+        out.writelines(read_table_lines(f"{output_prefix}_metadata.tsv", metadata_header))
+
+    old_excluded = read_table_lines(existing_excluded, excluded_header) if existing_excluded else []
+    with open(f"{output_prefix}_catalogue_excluded.tsv", 'w') as out:
+        out.write(excluded_header)
+        out.writelines(old_excluded)
+        out.writelines(read_table_lines(f"{output_prefix}_excluded.tsv", excluded_header))
+
+    new_map: list[str] = []
+    map_header = None
+    for map_file in map_files:
+        with open_text(map_file) as fh:
+            header = fh.readline()
+        map_header = map_header or header
+        new_map += read_table_lines(map_file, map_header)
+    old_map = read_table_lines(existing_map, map_header) if existing_map and map_header else []
+    if map_header:
+        temporary_col = map_header.rstrip('\n').split('\t').index('temporary')
+        old_ids = {line.split('\t')[temporary_col].rstrip('\n') for line in old_map}
+        reused = [line.split('\t')[temporary_col] for line in new_map
+                  if line.split('\t')[temporary_col].rstrip('\n') in old_ids]
+        if reused:
+            print(f"ERROR: {len(reused)} new accession(s) are already used in the existing catalogue, e.g. {reused[:10]}")
+            exit(1)
+    with open(f"{output_prefix}_catalogue_map.tsv", 'w') as out:
+        if map_header:
+            out.write(map_header)
+            out.writelines(old_map)
+            out.writelines(new_map)
+
+    return {'metadata': len(existing_rows), 'excluded': len(old_excluded), 'map': len(old_map)}
+
+
+def metadata_header() -> str:
+    """Header of the metadata tables (metadata, filtered, catalogue; excluded adds filter_reason)."""
+    quality_header = '\t'.join(QUALITY_COLUMNS)
+    return (
+        f"sequence_id\toriginal_name\tdescription\ttype\tsource_of_prediction\tbiomes\t"
+        f"sequence_length\trrna\tsequence_sha256\t{quality_header}\tdefinition\n"
+    )
 
 
 def read_map(map_files: list[str]) -> dict[str, dict[str, str]]:
@@ -427,6 +601,7 @@ def write_final_files(
     source_map: dict[str, str],
     faa_records: dict[str, SeqRecord],
     output_prefix: str,
+    in_existing: list[dict] | None = None,
 ) -> None:
     """Write all output files from the deduplicated record set.
 
@@ -461,6 +636,9 @@ def write_final_files(
         source_map: Dict of seq_id -> GFF source field (from ``read_input_gff``).
         faa_records: Dict of protein_id -> SeqRecord (from ``read_faa``).
         output_prefix: Prefix used to derive the per-category output filenames.
+        in_existing: Records whose sequence is already in the existing catalogue
+            (--mode update), written to ``excluded_tsv`` with reason
+            'in_existing_catalogue'.
     """
     records_total = 0
     records_filtered = 0
@@ -508,11 +686,7 @@ def write_final_files(
          open(metadata, 'w') as metadata_file:
         filt_gff.write("##gff-version 3\n")
 
-        quality_header = '\t'.join(QUALITY_COLUMNS)
-        header = (
-            f"sequence_id\toriginal_name\tdescription\ttype\tsource_of_prediction\tbiomes\t"
-            f"sequence_length\trrna\tsequence_sha256\t{quality_header}\tdefinition\n"
-        )
+        header = metadata_header()
         out_tsv_f.write(header)
         metadata_file.write(header)
         out_excl.write(f"filter_reason\t{header}")
@@ -571,6 +745,11 @@ def write_final_files(
             out_excl.write(f"duplicate\t{format_tsv_row(entry)}")
             records_excluded += 1
 
+        # Sequences the existing catalogue already has (--mode update): its record is kept
+        for entry in in_existing or []:
+            out_excl.write(f"{IN_EXISTING_CATALOGUE}\t{format_tsv_row(entry)}")
+            records_excluded += 1
+
     for fh in (*category_fna_handles.values(), *category_gff_handles.values(), *category_faa_handles.values()):
         fh.close()
 
@@ -579,6 +758,7 @@ def write_final_files(
         noun = CATEGORY_NOUN[c]
         stats[f"number_of_{noun}s"] = category_seq_counts[c]
         stats[f"number_of_{noun}_proteins"] = category_protein_counts[c]
+    stats["number_of_records_in_existing_catalogue"] = len(in_existing or [])
     stats_json = f"{output_prefix}_stats.json"
     with open(stats_json, 'w') as f:
         json.dump(stats, f, indent=2)
@@ -586,6 +766,7 @@ def write_final_files(
 
     print(f"Total unique sequences processed: {records_total}")
     print(f"Duplicate records excluded: {len(duplicates)}")
+    print(f"Records already in the existing catalogue excluded: {len(in_existing or [])}")
     print(f"Filtered sequences written to {filtered_fna}: {records_filtered}")
     print(f"Excluded sequences written to {excluded_tsv}: {records_excluded}")
     print(f"Total written lines to filtered GFF {gff_records_written}")
@@ -621,6 +802,17 @@ def main() -> None:
 
     seen, duplicates = choose_seqs(category_fastas, mapping, rna_sequences, quality_data)
 
+    # --mode update: sequences the existing catalogue already has keep their existing record
+    header = metadata_header()
+    existing_rows: list[list[str]] = []
+    in_existing: list[dict] = []
+    if args.existing_metadata:
+        existing_rows, existing_by_hash = read_existing_metadata(args.existing_metadata, header)
+        biomes_col = header.rstrip('\n').split('\t').index('biomes')
+        in_existing, duplicates = split_existing(seen, duplicates, existing_by_hash, biomes_col)
+        print(f"Existing catalogue: {len(existing_rows)} sequences; "
+              f"{len({e['hash'] for e in in_existing})} of them are in this run's input again")
+
     metadata     = f"{args.output_prefix}_metadata.tsv"
     filtered_fna = f"{args.output_prefix}_filtered.fna"
     filtered_gff = f"{args.output_prefix}_filtered.gff"
@@ -631,6 +823,11 @@ def main() -> None:
     write_final_files(
         metadata, filtered_fna, filtered_gff, filtered_faa, filtered_tsv, excluded_tsv,
         seen, duplicates, input_gff, source_map, faa_records, args.output_prefix,
+        in_existing=in_existing,
+    )
+    write_catalogue_tables(
+        args.output_prefix, header, existing_rows,
+        args.existing_excluded, args.existing_map, args.map or [],
     )
     processed = [category for category, fna in category_fastas if fna]
     print(f"Categories processed: {processed}")

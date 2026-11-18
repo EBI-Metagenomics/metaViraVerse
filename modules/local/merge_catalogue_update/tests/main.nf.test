@@ -1,0 +1,75 @@
+nextflow_process {
+
+    name "Test Process MERGE_UPDATE"
+    script "../main.nf"
+    process "MERGE_UPDATE"
+
+    tag "modules"
+    tag "merge_catalogue_update"
+
+    test("same-name files of both catalogues, dropped representative") {
+
+        setup {
+            run("MERGE_UPDATE_DROP_IDS") {
+                script "../main.nf"
+                process {
+                    """
+                    input[0] = [id: 'viruses']
+                    input[1] = file("${moduleDir}/tests/data/dropped_reps.txt", checkIfExists: true)
+                    input[2] = file("${moduleDir}/tests/data/existing/viruses_reps.gff", checkIfExists: true)
+                    """
+                }
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = record(
+                    meta: [id: 'viruses'], key: 'genomad', format: 'tsv', id_column: 'seq_name', id_index: null,
+                    existing: file("${moduleDir}/tests/data/existing/viruses.tsv", checkIfExists: true),
+                    update: file("${moduleDir}/tests/data/update/viruses.tsv", checkIfExists: true),
+                    name: 'viruses.tsv'
+                )
+                input[1] = MERGE_UPDATE_DROP_IDS.out[0]
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            assertAll(
+                { assert process.success },
+                { assert out.key == 'genomad' },
+                { assert file(out.merged).name == 'viruses.tsv' },
+                { assert path(out.merged).readLines() == ['seq_name\ttaxonomy', 'V1\tViruses;A', 'V7\tViruses;C'] }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = record(
+                    meta: [id: 'viruses'], key: 'genomad', format: 'tsv', id_column: 'seq_name', id_index: null,
+                    existing: file("${moduleDir}/tests/data/existing/viruses.tsv", checkIfExists: true),
+                    update: file("${moduleDir}/tests/data/update/viruses.tsv", checkIfExists: true),
+                    name: 'viruses.tsv'
+                )
+                input[1] = file("${moduleDir}/tests/data/dropped_reps.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert file(process.out[0][0].merged).name == 'viruses.tsv' }
+            )
+        }
+    }
+}

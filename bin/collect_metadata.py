@@ -212,16 +212,30 @@ def load_map(path):
     return desc_to_mgyv, mgyv_to_desc
 
 
-def load_combined_meta(path):
-    """Return dict: description -> full row dict."""
+def load_combined_meta(path, desc_to_mgyv):
+    """Return dict: catalogue ID -> full row dict (the description is kept in row["description"]).
+
+    Rows are keyed by `sequence_id` (the catalogue ID). Several catalogue IDs can share a
+    description: with --mode update, a sequence of the existing catalogue and a changed
+    sequence with the same original name. Tables without `sequence_id` fall back to the
+    rename map; a row whose ID is not known is keyed by its description.
+    """
     rows = {}
     with open(path) as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for row in reader:
-            desc = row.get("description", "").strip()
-            if desc:
-                rows[desc] = row
+            desc = (row.get("description") or "").strip()
+            if not desc or desc == "description":  # empty or repeated header
+                continue
+            row["description"] = desc
+            seq_id = (row.get("sequence_id") or "").strip() or desc_to_mgyv.get(desc, "")
+            rows[seq_id or desc] = row
     return rows
+
+
+def row_id(key, row, desc_to_mgyv):
+    """Catalogue ID of a combined-metadata row ('' when unknown)."""
+    return (row.get("sequence_id") or "").strip() or desc_to_mgyv.get(row["description"], "")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -262,10 +276,11 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
     with fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
-        for desc, row in combined_meta_rows.items():
+        for key, row in combined_meta_rows.items():
+            desc = row["description"]
             gid = genome_key(desc)
             meta = all_meta.get(gid, {})
-            mgyv = desc_to_mgyv.get(desc, "")
+            mgyv = row_id(key, row, desc_to_mgyv)
             checkv = {f: row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
             writer.writerow({
                 "ID":                   mgyv,
@@ -304,10 +319,11 @@ def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
     with fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
-        for desc, row in combined_meta_rows.items():
+        for key, row in combined_meta_rows.items():
+            desc = row["description"]
             gid = genome_key(desc)
             meta = all_meta.get(gid, {})
-            mgyv = desc_to_mgyv.get(desc, "")
+            mgyv = row_id(key, row, desc_to_mgyv)
             writer.writerow({
                 "ID":               mgyv,
                 "Original_ID":      desc,
@@ -353,8 +369,8 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
         writer.writeheader()
 
         for rep_mgyv, members in sorted(rep_to_members.items()):
-            rep_id = mgyv_to_desc[rep_mgyv]
-            rep_row = virus_rows.get(rep_id, {})
+            # rows are keyed by catalogue ID; older tables without sequence_id by description
+            rep_row = virus_rows.get(rep_mgyv) or virus_rows.get(mgyv_to_desc.get(rep_mgyv, ""), {})
 
             # ── per-rep fields ────────────────────────────────────────────────
             checkv = {f: rep_row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
@@ -368,11 +384,7 @@ def write_virus_reps_stats(virus_rows, rep_to_members, all_meta, vitap,
             completeness_vals, contamination_vals = [], []
 
             for member_desc in members:
-                mrow = virus_rows.get(member_desc, {})
-                if not mrow:
-                    # member may be a MGYV ID if cluster file uses catalogue IDs
-                    alt_desc = mgyv_to_desc.get(member_desc, "")
-                    mrow = virus_rows.get(alt_desc, {})
+                mrow = virus_rows.get(member_desc) or virus_rows.get(mgyv_to_desc.get(member_desc, ""), {})
 
                 vg = _safe_float(mrow.get("viral_genes"))
                 if vg is not None:
@@ -484,16 +496,17 @@ def main():
     desc_to_mgyv, mgyv_to_desc = load_map(args.map)
 
     print("Loading combined metadata (with checkV fields)...")
-    all_rows = load_combined_meta(args.combined_meta)
+    all_rows = load_combined_meta(args.combined_meta, desc_to_mgyv)
 
     print("Splitting combined metadata into viruses and plasmids...")
     virus_rows = {}
     plasmid_rows = {}
-    for desc, row in all_rows.items():
+    for key, row in all_rows.items():
+        desc = row["description"]
         if "plasmid" in desc:
-            plasmid_rows[desc] = row
+            plasmid_rows[key] = row
         elif "viral_sequence" in desc or "prophage" in desc:
-            virus_rows[desc] = row
+            virus_rows[key] = row
 
     print(f"  Viruses/prophages: {len(virus_rows)}")
     print(f"  Plasmids: {len(plasmid_rows)}")

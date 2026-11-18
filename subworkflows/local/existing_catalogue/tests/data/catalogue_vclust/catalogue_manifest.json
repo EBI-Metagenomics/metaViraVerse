@@ -1,0 +1,106 @@
+{
+  "manifest_version": 1,
+  "catalogue": {
+    "created": "2026-11-15T13:48:19+00:00",
+    "mode": "generate",
+    "parent": null,
+    "pipeline_version": "test",
+    "run_name": "fixture_vclust",
+    "commit": null
+  },
+  "accessions": {
+    "prefix": "MGYV",
+    "first": 1,
+    "last": 2,
+    "count": 2,
+    "zero_padded_digits": 10
+  },
+  "deduplication": {
+    "hash": "sha256",
+    "normalisation": "upper().strip()",
+    "column": "sequence_sha256"
+  },
+  "viral_clustering": {
+    "method": "default",
+    "update_ready": true,
+    "not_update_ready_reason": null
+  },
+  "software_versions": {},
+  "files": {
+    "catalogue_metadata": {
+      "path": "additional_data/catalogue_filtered_metadata.tsv",
+      "size": 819,
+      "sha256": "a9c1d50fb43e9f44d7b377417575c73b3fad9887f9517e36d156235b230c5ff9"
+    },
+    "excluded_metadata": {
+      "path": "additional_data/catalogue_excluded_records_metadata.tsv",
+      "size": 288,
+      "sha256": "7a069c3e264df699bcca87041404b14e8f89c9816415839b39fc15cb93ec6c68"
+    },
+    "rename_map": {
+      "path": "additional_data/rename_mapfile.tsv",
+      "size": 244,
+      "sha256": "14927f192605d66faf78d435911f83d3eebc932786929414e0bad8ea132165d6"
+    },
+    "viruses.annotated_gff": {
+      "path": "viruses/cluster_representatives/viruses_reps_annotated.gff.gz",
+      "size": 111,
+      "sha256": "1ebd503b264f9c8226eae09c360cc09759f64247f5ff47a1fe9949c56567ba23"
+    },
+    "viruses.bacphlip": {
+      "path": "viruses/cluster_representatives/functional_annotation/lifestyle/viruses.bacphlip.gz",
+      "size": 79,
+      "sha256": "224d9d7df5b347c8297a7996a6c9b8a7a2d3d55818da26ea3a3df283b48b78d8"
+    },
+    "viruses.clusters_tsv": {
+      "path": "viruses/clustering/viruses_clusters.tsv",
+      "size": 75,
+      "sha256": "70ada40bd17dca20398b64e99dcf450e0361d5682016efc9e0286632c5b1dc0c"
+    },
+    "viruses.prophages_faa": {
+      "path": "viruses/prophages.faa.gz",
+      "size": 56,
+      "sha256": "630778bac8126fc57ce41ec9afda308809791ac71bec9cc55c9573e87037b80c"
+    },
+    "viruses.prophages_fna": {
+      "path": "viruses/prophages.fna.gz",
+      "size": 71,
+      "sha256": "242a5edd6aae8f2662befcf6b21b4752e18ed03385f7f72f536a4b3f0ab0c12b"
+    },
+    "viruses.prophages_gff": {
+      "path": "viruses/prophages.gff.gz",
+      "size": 90,
+      "sha256": "a03fa7e453d52fd8e620b268d19c330444ffedeccf09b57e1c073f091584de99"
+    },
+    "viruses.reps_faa": {
+      "path": "viruses/cluster_representatives/viruses_reps.faa.gz",
+      "size": 65,
+      "sha256": "44b661bdf50244f75d420d6fc8927eed65e5ff1c5855757ef2517352b2e1500a"
+    },
+    "viruses.reps_fna": {
+      "path": "viruses/cluster_representatives/viruses_reps.fna.gz",
+      "size": 83,
+      "sha256": "615988de114c6bb4bdfac71d346f19896a331651cd7f2bdcf3bd74ca03f4b13b"
+    },
+    "viruses.reps_gff": {
+      "path": "viruses/cluster_representatives/viruses_reps.gff.gz",
+      "size": 101,
+      "sha256": "d103b79480c3e5991d0b2c714dd934b343ecf1ac05d7aa15ecd6a65aa7fc9a76"
+    },
+    "viruses.viral_sequences_faa": {
+      "path": "viruses/viral_sequences.faa.gz",
+      "size": 62,
+      "sha256": "4e48b24e39358c9b59d0f0c4db177ad5df8505ad7da644e3627e8e48e553bda7"
+    },
+    "viruses.viral_sequences_fna": {
+      "path": "viruses/viral_sequences.fna.gz",
+      "size": 77,
+      "sha256": "afe617445c0d44c222fb50079fdf602778252211b2667b04a8a7348d7c5a6e6a"
+    },
+    "viruses.viral_sequences_gff": {
+      "path": "viruses/viral_sequences.gff.gz",
+      "size": 96,
+      "sha256": "7c380a8f36fc92e5f41d944b562cf9da304622223f788ed52e786c2f467eebb1"
+    }
+  }
+}

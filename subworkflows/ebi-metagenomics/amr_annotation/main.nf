@@ -19,7 +19,7 @@ workflow AMR_ANNOTATION {
     ch_deeparg_db_version     // channel: val( deeparg_db_version )
     ch_deeparg_model          // channel: val( deeparg_model )
     ch_deeparg_tool_version   // channel: val( deeparg_tool_version )
-    ch_rgi_db                 // channel: path( rgi_db )
+    ch_rgi_db                 // path( rgi_db ), or a channel with the processed database (card_database_processed)
     skip_amrfinderplus        // boolean
     skip_deeparg              // boolean
     skip_rgi                  // boolean
@@ -64,16 +64,15 @@ workflow AMR_ANNOTATION {
             RGI_CARDANNOTATION(RGI_DOWNLOADDB.out.card_json)
             card = RGI_CARDANNOTATION.out.db
         }
+        else if (ch_rgi_db instanceof CharSequence && !ch_rgi_db.contains("card_database_processed")) {
+            // Use user-supplied database, not processed yet
+            RGI_CARDANNOTATION(ch_rgi_db)
+            card = RGI_CARDANNOTATION.out.db
+        }
         else {
-            // Use user-supplied database
-            rgi_db = ch_rgi_db
-            if (!rgi_db.contains("card_database_processed")) {
-                RGI_CARDANNOTATION(rgi_db)
-                card = RGI_CARDANNOTATION.out.db
-            }
-            else {
-                card = rgi_db
-            }
+            // Use a processed database: a path, or a channel with the processed database
+            // (e.g. prepared once by the including pipeline and shared between calls)
+            card = ch_rgi_db
         }
 
         RGI_MAIN(ch_faa, card, [])

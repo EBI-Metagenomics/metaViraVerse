@@ -1,0 +1,51 @@
+// The update of the fixture catalogue in subworkflows/local/existing_catalogue/tests/data
+// (see tests/data/README). Annotations other than BACPHLIP were skipped in both.
+nextflow_workflow {
+
+    name "Test Subworkflow MERGE_VIRAL_CATALOGUE"
+    script "./main.nf"           // typed wrapper, see its header
+    workflow "TEST_MERGE_VIRAL_CATALOGUE"
+
+    tag "subworkflows"
+    tag "merge_viral_catalogue"
+
+    test("stub - merge an update with the existing catalogue") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = file("${projectDir}/subworkflows/local/existing_catalogue/tests/data/catalogue", checkIfExists: true)
+                input[1] = file("${projectDir}/subworkflows/local/merge_viral_catalogue/tests/data", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def tasks = workflow.trace.tasks()*.name.collect { n -> n.replaceAll(/ \(.*\)$/, '') }
+            def c = workflow.out[0][0]
+            assertAll(
+                { assert workflow.success },
+                // one merge per file both catalogues have: reps GFF, FNA, FAA, annotated GFF, BACPHLIP
+                { assert tasks.count { n -> n == 'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:MERGE_UPDATE' } == 5 },
+                { assert tasks.containsAll([
+                    'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:MERGE_UPDATE_DROP_IDS',
+                    'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:MERGE_UPDATE_REPS',
+                    'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:INDEX_RESULTS:SORT_GFF',
+                    'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:INDEX_RESULTS:BGZIP_FNA',
+                    'TEST_MERGE_VIRAL_CATALOGUE:MERGE_VIRAL_CATALOGUE:INDEX_RESULTS:INDEX_COMPRESS_BACPHLIP'
+                ]) },
+                // merged files keep the update's names (uncompressed when INDEX_RESULTS compresses them)
+                { assert file(c.reps_gff).name == 'viruses_reps.gff' },
+                { assert file(c.final_gff).name == 'viruses_reps_annotated.gff.gz' },
+                { assert file(c.reps_list).name == 'viruses_reps.tsv' },
+                { assert c.index.bacphlip_gz != null },
+                // outputs computed from the whole set are not merged yet: left out
+                { assert c.taxonomy.genomad == null },
+                { assert c.proteins.phams_tsv == null },
+                { assert c.hosts.iphop_genome_sankey == null }
+            )
+        }
+    }
+}

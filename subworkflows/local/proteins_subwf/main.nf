@@ -19,7 +19,6 @@ record ProteinsParams {
     deeparg_db_version: String?
     deeparg_model: String?
     deeparg_tool_version: String?
-    rgi_db: String?
     mmseqs_id_threshold: Float
     mmseqs_cov_threshold: Float
     protein_annotation_fasta_chunksize: Integer
@@ -96,6 +95,7 @@ workflow PROTEINS_PROCESSING {
     skip_phammseqs: Boolean
     skip_mmseqs: Boolean
     hmm_db: Path?     // directory with *.hmm.gz and *.tsv; null to skip HMMER annotation
+    rgi_db: Value<Path?>   // processed RGI/CARD database (PREPARE_RGI_DB); null when RGI is skipped
     opts: ProteinsParams
 
     main:
@@ -119,7 +119,7 @@ workflow PROTEINS_PROCESSING {
             opts.deeparg_db_version,
             opts.deeparg_model,
             opts.deeparg_tool_version,
-            opts.rgi_db,
+            rgi_db,
             skip_amrfinderplus,
             skip_deeparg,
             skip_rgi

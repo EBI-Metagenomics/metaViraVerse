@@ -1,0 +1,41 @@
+name: write_catalogue_manifest
+description: |
+  Write catalogue_manifest.json: accession range, deduplication and clustering settings,
+  software versions, and the publish path, size and SHA-256 of every file that a later
+  catalogue update reads
+keywords:
+  - manifest
+  - json
+  - catalogue
+  - update
+tools:
+  - python:
+      description: Python standard library only (bin/write_catalogue_manifest.py)
+      homepage: https://www.python.org/
+      licence: ["PSF-2.0"]
+input:
+  - files:
+      type: list
+      description: The published files listed in the manifest (unique file names)
+  - entries:
+      type: list
+      description: |
+        One "KIND KEY TARGET NAME" string per file: kind ('file' or 'list'), manifest key,
+        publish path relative to --outdir (ending in '/' = directory), and file name
+  - rename_accession:
+      type: string
+      description: Accession prefix of the catalogue (--rename_accession)
+  - viral_clustering:
+      type: string
+      description: Viral clustering method (--viral_clustering)
+output:
+  - catalogue_manifest:
+      type: file
+      description: The manifest
+      pattern: "catalogue_manifest.json"
+      ontologies:
+        - edam: http://edamontology.org/format_3464 # JSON
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

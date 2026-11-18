@@ -120,12 +120,12 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
 <summary>Output files</summary>
 
 - `viruses/`
-  - `prophages.fna.gz`, `prophages.faa.gz`, `prophages.gff.gz`: nucleotide sequences, proteins and GFF annotation of all prophages.
-  - `viral_sequences.fna.gz`, `viral_sequences.faa.gz`, `viral_sequences.gff.gz`: nucleotide sequences, proteins and GFF annotation of all viral sequences.
+  - `prophages.fna.gz`, `prophages.faa.gz`, `prophages.gff.gz`: nucleotide sequences, proteins and GFF annotation of all prophages (with `--mode update`, of the whole catalogue: the existing catalogue's, then the new ones).
+  - `viral_sequences.fna.gz`, `viral_sequences.faa.gz`, `viral_sequences.gff.gz`: nucleotide sequences, proteins and GFF annotation of all viral sequences (with `--mode update`, of the whole catalogue).
   - `viruses_source_sankey.html`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in.
   - `viruses-all-metadata.tsv.gz`: one row per **input** viral sequence or prophage (before clustering), combining source, quality and taxonomy information.
   - `viruses-cluster-stats.tsv.gz`: one row per viral **cluster representative**, with per-cluster statistics (cluster size, mean gene and viral-gene counts, biomes and source types in the cluster, completeness and contamination ranges).
-  - `clustering/`: only produced by the alternative clustering methods: the CheckV pairwise ANI and ANI clusters tables (`--cluster_vclust false`), or the [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) membership table `vjdb1_merged_reps.csv` (`--viral_clustering vjdb`; one row per sequence with its cluster representative in `cluster_rep`).
+  - `clustering/`: `viruses_clusters.tsv`, the clusters of all viral sequences (vclust format: `object`, `cluster` = representative; or, with `--cluster_vclust false`, one row per cluster: representative and comma-separated members). With the alternative clustering methods also the CheckV pairwise ANI and ANI clusters tables (`--cluster_vclust false`), or the [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) tables (`--viral_clustering vjdb`): the membership table `viruses_vjdb_clusters.csv` (one row per sequence with `vjdb_id`, `copy_of`, `seq_gc`, `seq_len`, `seq_hash` and its cluster representative in `cluster_rep`) and the representative sequences `viruses_vjdb_reps.fna.gz`. A later catalogue update starts from these two files. Identical sequences are removed before clustering, so `copy_of` always equals `vjdb_id`; the run stops if vjdb-clustering finds a copy.
   - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage (or with vjdb-clustering, see `--viral_clustering`).
     - `viruses_reps.fasta.gz`, `viruses_reps.faa.gz`: nucleotide and protein sequences of one representative per viral cluster.
     - `viruses_reps_annotated.gff.gz`: GFF of the representatives, enriched with lifestyle (BACPHLIP), HMMER (e.g. PVOG, TIGRFAM) and AMR annotations.
@@ -198,6 +198,7 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 <summary>Output files</summary>
 
 - `catalogue.json`: summary counts for the whole run.
+- `catalogue_manifest.json`: what a later catalogue update needs to know about this catalogue (see below).
 
 </details>
 
@@ -221,6 +222,48 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 }
 ```
 
+`catalogue_manifest.json` describes the catalogue for a later update:
+
+```text
+{
+  "manifest_version":   version of this file format
+  "catalogue":          creation time (UTC), mode ("generate" or "update"), pipeline version, run name,
+                        commit, and with --mode update the "parent": the SHA-256 of the existing
+                        catalogue's manifest and its "catalogue" fields
+  "accessions":         accession prefix (--rename_accession), first and last accession number used
+                        and how many, and the width of zero-padded IDs (null if not padded).
+                        Every input sequence gets a number, including excluded ones, so an update
+                        continues after "last"
+  "deduplication":      how identical sequences were found: sha256 of the upper-cased, stripped
+                        sequence (column sequence_sha256 of the metadata tables)
+  "viral_clustering":   --viral_clustering, and whether the catalogue can be updated ("update_ready":
+                        the manifest lists the clusters and every viral sequence, and with vjdb the
+                        vjdb tables) with the reason if not
+  "software_versions":  tool versions per process (as in pipeline_info/)
+  "files":              files an update reads, by key (e.g. "rename_map", "viruses.vjdb_clusters_csv"):
+                        path relative to --outdir, size in bytes and sha256. Keys of steps that were
+                        skipped are missing; "viruses.hmmer_tables" is a list
+}
+```
+
+## Catalogue update
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `update/` (`--mode update` only)
+  - `existing_catalogue_check.json`: result of checking the existing catalogue (`--existing_catalogue`) against its `catalogue_manifest.json`: status, SHA-256 of the manifest, the existing catalogue's `catalogue` and `accessions` fields, and the number of files checked.
+- `viruses/clustering/` (`--mode update`): `viruses_clusters.tsv` and, with `--viral_clustering vjdb`, `viruses_vjdb_clusters.csv` and `viruses_vjdb_reps.fna.gz` cover the whole updated catalogue (existing and new sequences).
+- `viruses/clustering/update/` (`--mode update` only)
+  - `viruses_new_sequences_clusters.csv` (`--viral_clustering vjdb`): every new viral sequence with its vjdb status (`new_unique` for every sequence, since identical sequences were removed before) and the cluster it joined (`cluster_rep`).
+  - `viruses_cluster_events.tsv`: one row per cluster the update changed: `cluster_rep`, `event`, `old_cluster_reps` (`;`-separated existing representatives whose members are in the cluster), `n_existing` and `n_new` (members). Events: `new` (a new representative, only new sequences), `grown` (an existing cluster with new members), `merged` (existing clusters joined; `cluster_rep` is the representative kept). When the whole catalogue is clustered again (`--viral_clustering default`) also `new_rep` (a new representative of a cluster with existing members: the representative changed, or existing members moved to it) and `split` (an existing representative kept, some of its members moved to other clusters). Clusters with the event `new` or `new_rep` are the ones annotated in the run.
+
+With `--mode update`, only the representatives of new clusters are annotated, and their files are merged with the existing catalogue's: each per-representative file (representative FASTA/FAA/GFF, annotated GFF, BACPHLIP, geNomad, VITAP, ViPhOGs, iPHoP, SpacePHARER, AMR tables and HMMER tables) holds the existing rows, without the existing representatives that no longer are (and their proteins), followed by the new rows. The merged files keep the names and indexes of a new catalogue, so the result can be updated again. `viruses-all-metadata.tsv.gz` and `viruses-cluster-stats.tsv.gz` cover the whole catalogue.
+
+Not recomputed in update mode, and therefore not published: viral taxonomy counts and Krona/Sankey/iTOL plots, host Sankey plots, the HMMER function summaries, PhaMMseqs and MMseqs2 protein clusters, and the intermediate ViPhOGs tables. Plasmids are not clustered with the existing plasmids yet: the plasmid outputs cover only the new plasmids. `catalogue.json` mixes both: viral cluster counts cover the whole catalogue, the other counts only this run's input.
+
+</details>
+
 ## Additional data
 
 Intermediate files produced while the inputs (from the samplesheet and, optionally, `--third_party_input`) are combined, quality-checked and split by sequence type. Files marked [`--save_intermediates`] are only published when the pipeline is run with `--save_intermediates`; all others are always published.
@@ -230,8 +273,10 @@ Intermediate files produced while the inputs (from the samplesheet and, optional
 
 - `additional_data/`
   - `rename_mapfile.tsv`: mapping between the original sequence names and the identifiers assigned by the pipeline.
-  - `catalogue_filtered_metadata.tsv`: metadata for all sequences that passed QC filtering.
-  - `catalogue_excluded_records_metadata.tsv`: records excluded for low quality, with the reason for exclusion.
+  - `catalogue_filtered_metadata.tsv`: metadata for every unique sequence (including those excluded by the quality filter, without duplicates).
+  - `catalogue_excluded_records_metadata.tsv`: excluded records with the reason (`filter_reason`): the quality filters, `duplicate` (another copy was kept) or, with `--mode update`, `in_existing_catalogue` (the existing catalogue already has the sequence, which keeps its ID).
+
+  With `--mode update` these three tables cover the whole catalogue: the existing catalogue's rows (with biomes of new copies added), then this run's rows.
   - `rename_contigs/`: input FASTA and GFF files combined across all samples, with unique catalogue-wide identifiers (`combined.fna`, `combined.gff`), and the mapping back to the original sequence names, biomes and types (`combined.tsv`).
   - `rename/` [`--save_intermediates`]: renamed `*.fna`, `*.faa` and `*.gff` files.
   - `viruses_checkv_report.tsv` [`--save_intermediates`]: [CheckV](https://bitbucket.org/berkeleylab/checkv) quality assessment for each sequence: completeness, contamination, provirus status and quality tier.

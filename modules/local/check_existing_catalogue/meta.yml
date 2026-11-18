@@ -1,0 +1,41 @@
+name: check_existing_catalogue
+description: |
+  --mode update: check that every file listed in the catalogue_manifest.json of the
+  existing catalogue is present with the recorded size and SHA-256, that the catalogue
+  can be updated, and that it uses the accession prefix of this run
+keywords:
+  - manifest
+  - checksum
+  - catalogue
+  - update
+tools:
+  - python:
+      description: Python standard library only (bin/check_existing_catalogue.py)
+      homepage: https://www.python.org/
+      licence: ["PSF-2.0"]
+input:
+  - manifest:
+      type: file
+      description: catalogue_manifest.json of the existing catalogue
+      pattern: "catalogue_manifest.json"
+      ontologies:
+        - edam: http://edamontology.org/format_3464 # JSON
+  - files:
+      type: list
+      description: Every file the manifest lists, staged under its published name
+  - rename_accession:
+      type: string
+      description: Accession prefix of this run (--rename_accession)
+output:
+  - report:
+      type: file
+      description: |
+        Check report: status, SHA-256 of the manifest (recorded as the parent of the
+        new catalogue), the parent's catalogue fields and accession range, files checked
+      pattern: "existing_catalogue_check.json"
+      ontologies:
+        - edam: http://edamontology.org/format_3464 # JSON
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

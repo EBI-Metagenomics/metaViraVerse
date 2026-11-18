@@ -1,0 +1,109 @@
+nextflow_process {
+
+    name "Test Process VJDB_CLUSTERS_TSV"
+    script "../main.nf"
+    process "VJDB_CLUSTERS_TSV"
+
+    tag "modules"
+    tag "vjdb_clusters_tsv"
+
+    test("initial clustering - every cluster annotated") {
+
+        when {
+            process {
+                """
+                def data = "${moduleDir}/tests/data"
+                input[0] = [id: 'viruses']
+                input[1] = file("\${data}/initial_merged_reps.csv", checkIfExists: true)
+                input[2] = file("\${data}/merged_reps.fna.gz", checkIfExists: true)
+                input[3] = null
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            def all = ['object\tcluster', 'V1\tV1', 'V2\tV1', 'V3\tV3', 'V4\tV4']
+            assertAll(
+                { assert process.success },
+                { assert path(out.clusters_tsv).readLines() == all },
+                { assert path(out.annotate_tsv).readLines() == all },
+                { assert path(out.dropped_reps).readLines() == [] },
+                { assert file(out.clusters_csv).name == 'initial_merged_reps.csv' }
+            )
+        }
+    }
+
+    test("update - only new clusters annotated, merged representatives dropped") {
+
+        when {
+            process {
+                """
+                def data = "${moduleDir}/tests/data"
+                input[0] = [id: 'viruses']
+                input[1] = file("\${data}/update_merged_reps.csv", checkIfExists: true)
+                input[2] = file("\${data}/merged_reps.fna.gz", checkIfExists: true)
+                input[3] = file("\${data}/update_cluster_events.tsv", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            assertAll(
+                { assert process.success },
+                { assert path(out.clusters_tsv).readLines().size() == 9 },   // header + whole catalogue
+                { assert path(out.annotate_tsv).readLines() == ['object\tcluster', 'V7\tV7', 'V8\tV7'] },
+                { assert path(out.dropped_reps).readLines() == ['V4'] }
+            )
+        }
+    }
+
+    test("copies found by vjdb - fails") {
+
+        when {
+            process {
+                """
+                def data = "${moduleDir}/tests/data"
+                input[0] = [id: 'viruses']
+                input[1] = file("\${data}/copies_merged_reps.csv", checkIfExists: true)
+                input[2] = file("\${data}/merged_reps.fna.gz", checkIfExists: true)
+                input[3] = null
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.failed },
+                { assert process.trace.failed().size() == 1 },   // errorStrategy 'terminate': no retries
+                { assert process.stdout.any { line -> line.contains('identical sequence') } }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                def data = "${moduleDir}/tests/data"
+                input[0] = [id: 'viruses']
+                input[1] = file("\${data}/update_merged_reps.csv", checkIfExists: true)
+                input[2] = file("\${data}/merged_reps.fna.gz", checkIfExists: true)
+                input[3] = file("\${data}/update_cluster_events.tsv", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            def out = process.out[0][0]
+            assertAll(
+                { assert process.success },
+                { assert path(out.annotate_tsv).readLines() == ['object\tcluster'] }
+            )
+        }
+    }
+}
