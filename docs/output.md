@@ -242,21 +242,6 @@ Intermediate files produced while the inputs (from the samplesheet and, optional
 
 Each input sequence is given a stable catalogue identifier (`MGYV*` by default; configurable with `--start_accession`/`--end_accession`), so that downstream steps and file names do not depend on the original sample naming; `rename_mapfile.tsv` maps these back to the original names. CheckV and barrnap are run on the renamed sequences. The quality filter then removes low-quality sequences (for example, sequences with no detected viral genes), listed in `catalogue_excluded_records_metadata.tsv`, and splits the remaining sequences into the virus/prophage and plasmid sets used by the [Viruses](#viruses) and [Plasmids](#plasmids) steps above.
 
-## MultiQC
-
-<details markdown="1">
-<summary>Output files</summary>
-
-- `multiqc/`
-  - `multiqc_report.html`: a standalone HTML report that can be viewed in a web browser.
-  - `multiqc_data/`: parsed statistics from the different tools used in the pipeline.
-  - `multiqc_plots/`: static images from the report in various formats.
-
-</details>
-
-[MultiQC](http://multiqc.info) generates a single HTML report summarising the whole run. Most of the pipeline QC results are shown in the report, and further statistics are available in the report data directory.
-
-The report collates QC results from supported tools such as CheckV, and also lists the software versions used, for traceability. For more information about MultiQC reports, see <http://multiqc.info>.
 
 ## Pipeline information
 
