@@ -1,0 +1,109 @@
+nextflow_process {
+
+    name "Test Process GENERATE_README"
+    script "../main.nf"
+    process "GENERATE_README"
+
+    tag "modules"
+    tag "generate_readme"
+
+    test("README with title params and skipped steps") {
+
+        when {
+            process {
+                """
+                def data = "${projectDir}/modules/local/generate_readme/tests/data"
+                input[0] = channel.of(record(
+                    catalogue_json: file("\${data}/catalogue.json", checkIfExists: true),
+                    viruses_metadata: file("\${data}/viruses-all-metadata.tsv", checkIfExists: true),
+                    plasmids_metadata: file("\${data}/plasmids-all-metadata.tsv", checkIfExists: true),
+                    versions_yml: file("\${data}/versions.yml", checkIfExists: true)
+                ))
+                input[1] = '{"skip_iphop": true, "skip_vitap": true, "third_party_input": false}'
+                input[2] = "Marine sediment viral and plasmid catalogue"
+                input[3] = "v1.0"
+                input[4] = "https://www.ebi.ac.uk/metagenomics/genome-catalogues/marine-sediment-v1-0"
+                input[5] = "https://example.org/catalogue-a, https://example.org/catalogue-b"
+                """
+            }
+        }
+
+        then {
+            def readme = path(process.out[0][0].readme).text
+            assertAll(
+                { assert process.success },
+                { assert readme.startsWith("# Marine sediment viral and plasmid catalogue v1.0") },
+                { assert readme.contains("50 viral clusters") },
+                { assert readme.contains("Sequences come from genomes of 2 studies.") },
+                { assert readme.contains("2 biome(s): marine, marine_sediment") },
+                { assert readme.contains("https://example.org/catalogue-a, https://example.org/catalogue-b") },
+                { assert readme.contains("metaViraVerse pipeline v1.0.0: https://github.com/EBI-Metagenomics/metaViraVerse/releases/tag/v1.0.0") },
+                { assert readme.contains("[geNomad](https://github.com/apcamargo/genomad) v1.8.0") },
+                { assert !readme.contains("iPHoP") && !readme.contains("VITAP") },
+                { assert readme.contains("https://github.com/EBI-Metagenomics/metaViraVerse/blob/v1.0.0/docs/output.md") }
+            )
+        }
+    }
+
+    test("README without title params") {
+
+        when {
+            process {
+                """
+                def data = "${projectDir}/modules/local/generate_readme/tests/data"
+                input[0] = channel.of(record(
+                    catalogue_json: file("\${data}/catalogue.json", checkIfExists: true),
+                    viruses_metadata: file("\${data}/viruses-all-metadata.tsv", checkIfExists: true),
+                    plasmids_metadata: file("\${data}/plasmids-all-metadata.tsv", checkIfExists: true),
+                    versions_yml: file("\${data}/versions.yml", checkIfExists: true)
+                ))
+                input[1] = '{}'
+                input[2] = null
+                input[3] = null
+                input[4] = null
+                input[5] = null
+                """
+            }
+        }
+
+        then {
+            def readme = path(process.out[0][0].readme).text
+            assertAll(
+                { assert process.success },
+                { assert readme.startsWith("# MGnify viral and plasmid catalogue\n") },
+                { assert readme.contains("[iPHoP](https://bitbucket.org/srouxjgi/iphop)") }
+            )
+        }
+    }
+
+    test("stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                def data = "${projectDir}/modules/local/generate_readme/tests/data"
+                input[0] = channel.of(record(
+                    catalogue_json: file("\${data}/catalogue.json", checkIfExists: true),
+                    viruses_metadata: file("\${data}/viruses-all-metadata.tsv", checkIfExists: true),
+                    plasmids_metadata: file("\${data}/plasmids-all-metadata.tsv", checkIfExists: true),
+                    versions_yml: file("\${data}/versions.yml", checkIfExists: true)
+                ))
+                input[1] = '{}'
+                input[2] = null
+                input[3] = null
+                input[4] = null
+                input[5] = null
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert path(process.out[0][0].readme).text == "# stub\n" }
+            )
+        }
+    }
+}

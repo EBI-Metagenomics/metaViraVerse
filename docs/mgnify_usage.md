@@ -11,41 +11,22 @@ Viruses and plasmids for the viral catalogue are detected using [emg-viral-pipel
 
 VIRify+MAP use pre-defined names for viruses (**viral_sequence**), prophages (**prophage**) and plasmids (**plasmid**). Those names are used in 2 places:
 
-- Fetch [script](../scripts/collect_data_from_catalogues.py) to grep sequences of interest from MAG's GFF file.
+- Fetch scripts to grep sequences of interest from GFF files: [catalogues](../scripts/collect_data_from_catalogues.py) (MAG GFF) and [assembly analyses](../scripts/collect_data_from_analyses.py) (MAP GFF).
 - pipeline [separate_sequences](../bin/separate_sequences.py) step to split sequences into groups.
 
 Make sure those names haven't changed (check MAP). Pipeline execution can regulate those names via `--viral_sequence_identifier`, `--prophage_identifier` and `--plasmid_identifier`.
 
-> [!NOTE]
-> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far.
-
 ### Fetch data from MGnify genomes
 
-**Mandatory step:**
+#### Summary 
 
 - Collect data from existing catalogues (this also fetches each catalogue's metadata and generates the pipeline input samplesheet)
-
-**Optional step:**
-
+- Collect data from assembly analyses (this also generates the pipeline input samplesheet)
 - Collect CRISPR spacers
 
 #### Collect data from existing catalogues
 
-Make sure the catalogues you use included both VIRify and MAP in their generation. List of catalogues available as of 21/07/2026:
-
-- Barley rhizosphere
-- Maize rhizosphere
-- Tomato rhizosphere
-- Soil
-- Marine
-- Marine sediment
-- Human skin
-- Human vaginal
-- Chicken gut
-- Non-model fish gut
-- Mouse gut
-- Honey bee gut
-- Sheep rumen
+Make sure the catalogues you use included both VIRify and MAP in their generation.
 
 Choose the catalogues you want to use and find their locations on `/nfs/public/`. The last two components of each path (catalogue name and version, e.g. `human-vaginal/v1.0`) must match the corresponding catalogue location on the [MGnify genomes FTP](https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes/), since that's where metadata is fetched from.
 
@@ -128,7 +109,110 @@ python3 collect_data_from_catalogues.py \
 
 </details>
 
-#### Collect CRISPR spacers (optional)
+#### Collect data from assembly analyses
+
+Assembly analyses are run with the [assembly analysis pipeline](https://github.com/EBI-Metagenomics/assembly-analysis-pipeline) (ASA). Its MAP results contain `mobilome-annotation/gff/<ERZ>_user_mobilome_full.gff.gz`, where viruses, prophages and plasmids are recorded. Data are collected in 2 steps, both on a node with access to the results directories.
+
+**1. Choose analyses with MAP results**
+
+Export the analyses you want to use (for example, all analyses of a biome) from the MGnify database as a CSV. The script needs 2 of its columns:
+
+- `results_dir` — the analysis results directory (`.../<ERZ>/V6/assembly`);
+- `downloads` — JSON list of the analysis files, with paths relative to `results_dir`.
+
+Then run [`collect_mobilome_from_analyses.py`](../scripts/collect_mobilome_from_analyses.py):
+
+```commandline
+usage: collect_mobilome_from_analyses.py [-h] -i INPUT -o OUTPUT [--check-exists] [--external-dir]
+
+Builds a TSV (id, map_gff, cds_faa, contigs_fasta) from an analyses CSV export, for the analyses
+whose downloads list a mobilome_full.gff.gz
+
+options:
+  -h, --help           show this help message and exit
+  -i, --input INPUT    Analyses CSV (with a results_dir column)
+  -o, --output OUTPUT  Output TSV
+  --check-exists       Skip analyses whose mobilome GFF is not on disk and warn about missing
+                       CDS/contigs files
+  --external-dir       Base path to external location (usually FTP)
+```
+
+Example:
+
+```bash
+python3 collect_mobilome_from_analyses.py \
+  -i marine_analyses.csv \
+  -o marine_mobilome.tsv \
+  --check-exists \
+  --external-dir "nfs_path_to_results"
+```
+
+An analysis is kept when its `downloads` list a `mobilome_full.gff.gz`. Analyses without `results_dir` are skipped, as paths can't be built without it, and an ERZ accession that appears more than once is written once. The output TSV has one row per analysis:
+
+| Column          | Description                                                             |
+| --------------- | ----------------------------------------------------------------------- |
+| `id`            | ERZ accession (from `results_dir`)                                      |
+| `map_gff`       | `<results_dir>/mobilome-annotation/gff/<ERZ>_user_mobilome_full.gff.gz` |
+| `cds_faa`       | `<results_dir>/cds/<ERZ>_predicted_cds.faa.gz`                          |
+| `contigs_fasta` | `<results_dir>/qc/<ERZ>_filtered_contigs.fasta.gz`                      |
+
+Script also collects `analyses_metadata.tsv` containing study and sample accessions. That file should be passed to pipeline using `--analyses_metadata`.
+
+**2. Collect sequences**
+
+Run [`collect_data_from_analyses.py`](../scripts/collect_data_from_analyses.py) on the TSV from step 1:
+
+```commandline
+usage: collect_data_from_analyses.py [-h] -i INPUT -o OUTPUT_PATH [--biome BIOME]
+                                     [--source {genome,metagenome}]
+
+Script searches for viral records in analyses mobilome GFFs and greps corresponding nucleotide and protein sequences.
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input INPUT     TSV with columns id, map_gff, cds_faa, contigs_fasta
+  -o, --output-path OUTPUT_PATH
+                        Path to save results (filtered gff, fna, faa, samplesheet, report)
+  --biome BIOME         Biome written to the samplesheet for every analysis
+  --source {genome,metagenome}
+                        Source written to the samplesheet for every analysis
+```
+
+Example:
+
+```bash
+python3 collect_data_from_analyses.py \
+  -i marine_mobilome.tsv \
+  -o results_analyses \
+  --biome marine
+```
+
+For each analysis the script:
+
+1. Takes every `viral_sequence`, `prophage` and `plasmid` record from the MAP GFF, and the CDS records on the same contig that lie within the record's coordinates. A prophage therefore gets only its own proteins, not every protein of the contig.
+2. Cuts the record's region out of its contig in `contigs_fasta`. Contigs are matched by the first word of the FASTA header.
+3. Takes the proteins of those CDS from `cds_faa`, matched by the first word of the FASTA header (the CDS `ID=` in the GFF).
+
+<details>
+<summary>Outputs description</summary>
+
+- `<ERZ>_viral.fna` — region of each record. The header is the record's GFF ID, which the pipeline uses to match the FASTA to the GFF and to tell viruses, prophages and plasmids apart:
+
+  ```
+  >ERZ12300306_1|viral_sequence-1:26299
+  ```
+
+- `<ERZ>_viral.faa` — proteins of the selected CDS, with only the protein ID in the header (`>ERZ12300306_1_9`).
+
+- `<ERZ>_viral.gff` — each record followed by its CDS records.
+
+- `samplesheet.csv` — pipeline input samplesheet with one row per analysis, `source` `metagenome` and the `--biome` value for every row. Analyses without any record are left out. Biomes of different analyses can be edited in the file before running the pipeline.
+
+- `report.tsv` — counts per analysis: `viral_sequence`, `plasmid`, `prophage` (records in the GFF), `gff_cds` (CDS records), `fna_sequences` and `faa_proteins` (sequences written). A warning is printed when a sequence or protein in the GFF is not found in the FASTA.
+
+</details>
+
+#### Collect CRISPR spacers 
 
 One of the pipeline's steps is viral host detection. To find a possible host among MGnify genomes, you need to collect all spacers predicted by CRISPRCasFinder. This can be done with the [`collect_crispr_spacers_from_catalogues.py`](../scripts/collect_crispr_spacers_from_catalogues.py) script (make sure you're in the correct queue to access NFS):
 
@@ -242,11 +326,12 @@ Notes:
 
 ## Input samplesheet
 
-The "Collect data from existing catalogues" step generates `samplesheet.csv` in the output directory automatically — no manual step needed. It contains one row per catalogue, following [`assets/schema_input.json`](../assets/schema_input.json):
+The "Collect data from existing catalogues" and "Collect data from assembly analyses" steps generate `samplesheet.csv` in their output directories automatically — no manual step needed. They contain one row per catalogue or analysis, following [`assets/schema_input.json`](../assets/schema_input.json). To use both, concatenate them, keeping a single header:
 
 ```csv
-id,gff,fna,faa,source,biome
-human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
+id,fna,gff,faa,source,biome
+human-vaginal_v1.0,/path/to/results/human-vaginal_v1.0_viral.fna,/path/to/results/human-vaginal_v1.0_viral.gff,/path/to/results/human-vaginal_v1.0_viral.faa,genome,human-vaginal
+ERZ12300306,/path/to/results_analyses/ERZ12300306_viral.fna,/path/to/results_analyses/ERZ12300306_viral.gff,/path/to/results_analyses/ERZ12300306_viral.faa,metagenome,marine
 ```
 
 | Column   | Required | Description                                                                                                  |
@@ -268,6 +353,7 @@ nextflow run main.nf \
     --outdir <OUTDIRNAME> \
     --input samplesheet.csv \
     --catalogues_metadata genomes-all_metadata.tsv \
+    --analyses_metadata analyses_metadata.tsv <if the input includes MGnify analyses (ERZ accessions) [optional]> \
     --rename_accession MGYV \
     --start_accession <first identifier number, e.g. 30, used when renaming into MGYV space, e.g. MGYV0000030> \
     --end_accession <last identifier number, e.g. 40, used when renaming into MGYV space, e.g. MGYV0000040> \

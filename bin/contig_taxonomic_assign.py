@@ -1,15 +1,29 @@
 #!/usr/bin/env python3
+"""Taxonomic assignment of viral contigs from their ViPhOG annotations.
+
+Input: the annotation table of viral_contigs_annotation.py (one row per protein: Contig,
+CDS_ID, ..., Best_hit ('No hit' without a ViPhOG hit), ..., Label = taxon of the hit).
+
+For each contig, the labels of its proteins are resolved to lineages at the ViPhOG ranks
+(genus, subfamily, family, order) in the NCBI taxonomy (ete3 database). From genus upwards,
+the first rank where a taxon reaches the threshold (--taxthres x its factor) and the contig
+is not larger than the taxon's mean + 2 SD CDS count gives the contig's lineage. Below the
+threshold, the taxon closest to it is kept for that rank (a tie leaves the rank empty).
+
+Each label is looked up in the NCBI database once, and the table is read in one pass, so
+the run time grows linearly with the number of proteins.
+"""
 
 import argparse
 import csv
+import gzip
 import logging
+import math
 import os
 import re
-import math
+import sys
 from collections import Counter
-
-import pandas as pd
-from ete3 import NCBITaxa
+from functools import lru_cache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,7 +33,7 @@ logging.basicConfig(
 
 
 # Some taxa are discontinued, we should exclude them (https://github.com/EBI-Metagenomics/emg-viral-pipeline/issues/113):
-EXCLUDE_TAXA = [
+EXCLUDE_TAXA = {
     "Allolevivirus",
     "Autographivirinae",
     "Buttersvirus",
@@ -45,293 +59,211 @@ EXCLUDE_TAXA = [
     "Avulavirus",
     "Catovirus",
     "Nucleorhabdovirus",
-    "Viunavirus",
     "Gammalipothrixvirus",
     "Peduovirinae",
     "Sedoreovirinae",
+}
+
+# superkingdom;kingdom;phylum;subphylum;class;order;suborder;family;subfamily;genus
+TAXA_ORDER = [
+    "superkingdom",
+    "kingdom",
+    "phylum",
+    "subphylum",
+    "class",
+    "order",
+    "suborder",
+    "family",
+    "subfamily",
+    "genus",
 ]
+VIPHOG_RANKS = {"genus", "subfamily", "family", "order"}
+
+# values pandas.read_csv read as missing (the earlier version of this script used it)
+MISSING_VALUES = {"", "NA", "N/A", "n/a", "NaN", "nan", "-nan", "-NaN", "null", "NULL", "None", "<NA>", "#N/A", "#NA"}
 
 
-def main(args):
-    """Generate tabular file with taxonomic assignment of viral contigs based on ViPhOG annotations"""
-    input_df = pd.read_csv(args.input_file, sep="\t")
+def open_text(path):
+    with open(path, "rb") as fh:
+        is_gzip = fh.read(2) == b"\x1f\x8b"
+    return gzip.open(path, "rt", newline="") if is_gzip else open(path, newline="")
 
-    factor_file = args.factor
 
-    with open(factor_file, newline="") as infile:
-        csv_reader = csv.reader(infile)
-        next(csv_reader)
-        factor_dict = {
-            name: {
-                "avg_cds": float(avg_cds),
-                "std_cds": float(std_cds),
-                "factor": float(mult_factor),
-            }
-            for name, *_, avg_cds, std_cds, _, mult_factor in csv_reader
+def read_factors(path):
+    """taxon -> {avg_cds, std_cds, factor} (CSV with a header; name first, the last four
+    columns avg_cds, std_cds, -, factor)."""
+    with open_text(path) as infile:
+        reader = csv.reader(infile)
+        next(reader)
+        return {
+            name: {"avg_cds": float(avg_cds), "std_cds": float(std_cds), "factor": float(mult_factor)}
+            for name, *_, avg_cds, std_cds, _, mult_factor in reader
         }
 
-    file_header = [
-        "contig_ID",
-        "taxonomy"
-    ]  # superkingdom;kingdom;phylum;subphylum;class;order;suborder;family;subfamily;genus
 
-    taxa_order = [
-        "superkingdom",
-        "kingdom",
-        "phylum",
-        "subphylum",
-        "class",
-        "order",
-        "suborder",
-        "family",
-        "subfamily",
-        "genus"
-    ]
+def read_annotations(path):
+    """contig -> (number of proteins, number of proteins with a hit, labels of the hits), in file order."""
+    contigs = {}
+    with open_text(path) as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        missing = {"Contig", "Best_hit", "Label"} - set(reader.fieldnames or [])
+        if missing:
+            sys.exit(f"Error: {path} has no column(s) {', '.join(sorted(missing))}")
+        for row in reader:
+            entry = contigs.setdefault(row["Contig"], [0, 0, []])
+            entry[0] += 1
+            if row["Best_hit"] != "No hit":
+                entry[1] += 1
+            label = (row["Label"] or "").strip()
+            if label not in MISSING_VALUES:
+                entry[2].append(label)
+    return contigs
 
-    exclude_deprecated_taxa = False
-    if args.version4:
-        exclude_deprecated_taxa = True
 
-    output_gen = contig_tax(
-        input_df,
-        args.ncbi_db,
-        args.tax_thres,
-        factor_dict,
-        taxa_order,
-        exclude_deprecated_taxa,
+class Lineages:
+    """NCBI lineages of taxon names, each name looked up once."""
+
+    def __init__(self, ncbi, exclude):
+        self.ncbi = ncbi
+        self.exclude = exclude
+        self.viphog_lineage = lru_cache(maxsize=None)(self._viphog_lineage)
+        self.output_lineage = lru_cache(maxsize=None)(self._output_lineage)
+
+    def _ranks_and_names(self, taxid):
+        lineage = self.ncbi.get_lineage(taxid)
+        return self.ncbi.get_rank(lineage), self.ncbi.get_taxid_translator(lineage)
+
+    def _viphog_lineage(self, label):
+        """{rank: name} at the ViPhOG ranks, without excluded taxa; None for an unknown label."""
+        translated = self.ncbi.get_name_translator([label])
+        if not translated:
+            logging.warning(f"Taxon label '{label}' not found in NCBI db")
+            return None
+        taxid = translated[label][0]
+        try:
+            ranks, names = self._ranks_and_names(taxid)
+        except ValueError:
+            logging.warning(f"Cannot retrieve lineage for taxid {taxid} ({label})")
+            return {}
+        return {
+            rank: names[t]
+            for t, rank in ranks.items()
+            if rank in VIPHOG_RANKS and names[t] not in self.exclude
+        }
+
+    def _output_lineage(self, taxon):
+        """The names at the output ranks (TAXA_ORDER) of a taxon's lineage."""
+        taxid = self.ncbi.get_name_translator([taxon])[taxon][0]
+        ranks, names = self._ranks_and_names(taxid)
+        by_rank = {rank: names[t] for t, rank in ranks.items()}
+        return tuple(by_rank.get(rank, "") for rank in TAXA_ORDER)
+
+
+def assign_rank(taxa, total_prot, tax_thres, factors):
+    """Decision at one rank: ('lineage', taxon) to assign the contig the taxon's lineage,
+    ('rank', taxon) to keep the taxon (or '') for this rank only, or None when every
+    taxon over the threshold fails the CDS-size filter."""
+    total_hits = len(taxa)
+    under_thres = []
+    over_thres = []
+    for taxon, count in Counter(taxa).items():
+        prop_hits = count / total_hits
+        effective_thres = tax_thres * (factors[taxon]["factor"] if taxon in factors else 1)
+        if prop_hits < effective_thres:
+            under_thres.append((taxon, math.ceil(effective_thres * total_hits) - count))
+        else:
+            over_thres.append((taxon, prop_hits))
+
+    if not over_thres:
+        # All candidates fall below the threshold: keep the one closest to it (smallest
+        # number of missing hits). A tie is ambiguous: leave the rank unassigned rather
+        # than pick a winner by file order.
+        under_thres.sort(key=lambda x: x[1])
+        best_diff = under_thres[0][1]
+        tied = [t for t in under_thres if t[1] == best_diff]
+        return ("rank", "" if len(tied) > 1 else under_thres[0][0])
+
+    for taxon, _ in sorted(over_thres, key=lambda x: x[1], reverse=True):
+        f = factors.get(taxon)
+        if f and total_prot <= f["avg_cds"] + 2 * f["std_cds"]:
+            return ("lineage", taxon)
+    return None
+
+
+def contig_tax(contigs, lineages, tax_thres, factors):
+    """Yield [contig, lineage] (';'-separated TAXA_ORDER names, '' where unassigned)."""
+    logging.info(f"Assigning taxonomy for {len(contigs)} contigs")
+    assigned = unassigned_no_hits = unassigned_below_thres = 0
+
+    for contig, (total_prot, annot_prot, labels) in contigs.items():
+        if annot_prot == 0:
+            unassigned_no_hits += 1
+            yield [contig, ";".join([""] * len(TAXA_ORDER))]
+            continue
+
+        hit_lineages = [lin for lin in map(lineages.viphog_lineage, labels) if lin]
+        contig_lineage = []
+        contig_assigned = False
+        for rank in TAXA_ORDER[::-1]:
+            taxa = [lin[rank] for lin in hit_lineages if rank in lin]
+            if not taxa:
+                contig_lineage.append("")
+                continue
+            decision = assign_rank(taxa, total_prot, tax_thres, factors)
+            if decision is None:
+                contig_lineage.append("")
+            elif decision[0] == "rank":
+                contig_lineage.append(decision[1])
+            else:
+                contig_lineage = list(lineages.output_lineage(decision[1]))
+                contig_assigned = True
+                break
+
+        if contig_assigned:
+            assigned += 1
+        else:
+            unassigned_below_thres += 1
+        yield [contig, ";".join(contig_lineage)]
+
+    logging.info(
+        f"Summary: {assigned}/{len(contigs)} contigs assigned | {unassigned_no_hits} no ViPhOG hits | "
+        f"{unassigned_below_thres} hits but unassigned"
     )
+
+
+def main(argv=None, ncbi=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("-d", "--db", dest="ncbi_db", help="path to the ete3 processed NCBI taxonomy db.")
+    parser.add_argument("-i", "--input", dest="input_file", required=True,
+                        help="Annotation table generated with viral_contigs_annotation.py (plain or gzip)")
+    parser.add_argument("-f", "--factor", dest="factor", required=True,
+                        help="File with the ViPhOG-specific multiplication factors and CDS counts per taxon "
+                             "(viphogs_cds_per_taxon_cummulative.csv)")
+    parser.add_argument("--taxthres", dest="tax_thres", type=float, default=0.6,
+                        help="Minimum proportion of annotated genes required for taxonomic assignment (default: 0.6)")
+    parser.add_argument("-o", "--outdir", dest="outdir", default=".",
+                        help="Directory for the output file (default: cwd)")
+    parser.add_argument("--version4", dest="version4", action="store_true",
+                        help="Exclude the taxa that are deprecated in ViPhOGs version 4.")
+    args = parser.parse_args(argv)
 
     logging.info(f"Processing input file: {args.input_file}")
-    logging.info(
-        f"Settings: tax_thres={args.tax_thres:.2f}, version4={args.version4}, exclude_deprecated={exclude_deprecated_taxa}"
-    )
+    logging.info(f"Settings: tax_thres={args.tax_thres:.2f}, version4={args.version4}")
+
+    if ncbi is None:
+        from ete3 import NCBITaxa
+        ncbi = NCBITaxa(dbfile=args.ncbi_db)
+    lineages = Lineages(ncbi, EXCLUDE_TAXA if args.version4 else set())
+    factors = read_factors(args.factor)
+    contigs = read_annotations(args.input_file)
 
     out_file = re.split(r"\.[a-z]+$", os.path.basename(args.input_file))[0]
-
-    if not os.path.exists(args.outdir):
-        os.mkdir(args.outdir)
-    with open(
-        os.path.join(args.outdir, out_file + "_taxonomy.tsv"), "w", newline=""
-    ) as output_file:
-        tsv_writer = csv.writer(output_file, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
-        tsv_writer.writerow(file_header)
-        for item in output_gen:
-            tsv_writer.writerow(item)
-
-
-def contig_tax(
-    annot_df,
-    ncbi_db,
-    tax_thres,
-    taxon_factor_dict,
-    output_taxa_order,
-    exclude_deprecated_taxa=False,
-):
-    """This function takes the annotation table generated by viral_contig_maps.py and generates a table that
-    provides the taxonomic lineage of each viral contig, based on the corresponding ViPhOG annotations"""
-
-    ncbi = NCBITaxa(dbfile=ncbi_db)
-    viphog_rank = ["genus", "subfamily", "family", "order"]
-    contig_set = set(annot_df["Contig"])
-
-    logging.info(f"Assigning taxonomy for {len(contig_set)} contigs")
-
-    assigned = 0
-    unassigned_no_hits = 0
-    unassigned_below_thres = 0
-
-    for contig in contig_set:
-        contig_lineage = []
-        contig_df = annot_df[annot_df["Contig"] == contig]
-        total_prot = len(contig_df)
-        annot_prot = sum(contig_df["Best_hit"] != "No hit")
-        if annot_prot == 0:
-            logging.debug(f"Contig {contig}: no ViPhOG hits ({total_prot} proteins) - skipping")
-            unassigned_no_hits += 1
-            contig_lineage.extend([""] * len(output_taxa_order))
-        else:
-            logging.debug(f"Contig {contig}: {annot_prot}/{total_prot} proteins with ViPhOG hits")
-            contig_hits = contig_df[pd.notnull(contig_df["Label"])]["Label"].values
-            taxid_list = []
-            for item in contig_hits:
-                if len(ncbi.get_name_translator([item])):
-                    taxid_list.append(ncbi.get_name_translator([item])[item][0])
-                else:
-                    logging.warning(f"Taxon label '{item}' not found in NCBI db (contig {contig})")
-
-            hit_lineages = []
-            for item in taxid_list:
-                lineage_dict = {}
-                try:
-                    for x, y in ncbi.get_rank(ncbi.get_lineage(item)).items():
-                        if y in viphog_rank:
-                            taxa_to_check = ncbi.get_taxid_translator([x])[x]
-                            # Check is some taxa should be excluded
-                            if exclude_deprecated_taxa:
-                                if taxa_to_check in EXCLUDE_TAXA:
-                                    logging.info(f"Taxon '{taxa_to_check}' is deprecated and excluded (contig {contig})")
-                                else:
-                                    lineage_dict[y] = taxa_to_check
-                            else:
-                                lineage_dict[y] = taxa_to_check
-                    if lineage_dict:
-                        hit_lineages.append(lineage_dict)
-                except ValueError:
-                    logging.warning(f"Cannot retrieve lineage for taxid {item} (contig {contig})")
-                    pass
-
-            if not hit_lineages:
-                logging.debug(f"Contig {contig}: no valid lineages resolved from {len(taxid_list)} hits")
-
-            contig_assigned = False
-            for rank in output_taxa_order[::-1]:
-                taxon_list = [item.get(rank) for item in hit_lineages]
-                total_hits = sum(pd.notnull(taxon_list))
-                if total_hits == 0:
-                    contig_lineage.append("")
-                    continue
-                else:
-                    count_hits = Counter(
-                        [item for item in taxon_list if pd.notnull(item)]
-                    )
-                    under_thres = []
-                    over_thres = []
-                    for hit_taxon, hit_count in count_hits.items():
-                        prop_hits = hit_count / total_hits
-                        taxon_factor = (
-                            taxon_factor_dict[hit_taxon]["factor"]
-                            if hit_taxon in taxon_factor_dict.keys()
-                            else 1
-                        )
-                        effective_thres = tax_thres * taxon_factor
-                        logging.debug(
-                            f"Contig {contig} | rank={rank} | taxon={hit_taxon} | prop={prop_hits:.2f} | thres={effective_thres:.2f} (factor={taxon_factor:.2f})"
-                        )
-                        if prop_hits < effective_thres:
-                            hit_bound = math.ceil(effective_thres * total_hits)
-                            hit_diff = hit_bound - hit_count
-                            under_thres.append((hit_taxon, hit_diff))
-                        else:
-                            over_thres.append((hit_taxon, prop_hits))
-
-                    if len(over_thres) == 0:
-                        # All candidates fall below the threshold. Pick the one
-                        # closest to the threshold (smallest hit_diff). If multiple
-                        # candidates share the same hit_diff the signal is ambiguous
-                        # leave the rank unassigned rather than picking
-                        # a winner based on file-order
-                        sorted_under = sorted(under_thres, key=lambda x: x[1])
-                        best_diff = sorted_under[0][1]
-                        tied_candidates = [t for t in sorted_under if t[1] == best_diff]
-                        if len(tied_candidates) > 1:
-                            logging.debug(
-                                f"Contig {contig} | rank={rank}: {len(tied_candidates)}-way tie among "
-                                f"{[t[0] for t in tied_candidates]}, leaving unassigned"
-                            )
-                            contig_lineage.append("")
-                        else:
-                            best_under = sorted_under[0]
-                            logging.debug(
-                                f"Contig {contig} | rank={rank}: all below threshold, best candidate is '{best_under[0]}'"
-                            )
-                            contig_lineage.append(best_under[0])
-                    else:
-                        sorted_over_thres = [
-                            x
-                            for x, y in sorted(
-                                over_thres, key=lambda x: x[1], reverse=True
-                            )
-                        ]
-                        for taxon in sorted_over_thres:
-                            if (
-                                taxon in taxon_factor_dict.keys()
-                                and total_prot
-                                <= taxon_factor_dict[taxon].get("avg_cds")
-                                + 2 * taxon_factor_dict[taxon].get("std_cds")
-                            ):
-                                taxon_taxid = ncbi.get_name_translator([taxon])[taxon][
-                                    0
-                                ]
-                                taxon_lineage = ncbi.get_lineage(taxon_taxid)
-                                taxon_lineage_dict = {
-                                    y: ncbi.get_taxid_translator([x])[x]
-                                    for x, y in ncbi.get_rank(taxon_lineage).items()
-                                }
-                                taxon_lineage_list = [
-                                    taxon_lineage_dict.get(item, "")
-                                    for item in output_taxa_order
-                                ]
-                                logging.info(f"Contig {contig} assigned at rank '{rank}' via taxon '{taxon}'")
-                                contig_assigned = True
-                                break
-                        else:
-                            logging.debug(
-                                f"Contig {contig} | rank={rank}: candidates {sorted_over_thres} all failed CDS size filter"
-                            )
-                            contig_lineage.append("")
-                            continue
-                        contig_lineage = taxon_lineage_list
-                        break
-
-            if annot_prot > 0:
-                if contig_assigned:
-                    assigned += 1
-                else:
-                    logging.debug(f"Contig {contig}: had hits but could not be assigned (below threshold or no valid lineage)")
-                    unassigned_below_thres += 1
-
-        contig_lineage = [contig] + [';'.join(contig_lineage)]
-        yield contig_lineage
-
-    total = len(contig_set)
-    logging.info(
-        f"Summary: {assigned}/{total} contigs assigned | {unassigned_no_hits} no ViPhOG hits | {unassigned_below_thres} hits but unassigned"
-    )
+    os.makedirs(args.outdir, exist_ok=True)
+    with open(os.path.join(args.outdir, out_file + "_taxonomy.tsv"), "w", newline="") as output_file:
+        writer = csv.writer(output_file, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(["contig_ID", "taxonomy"])
+        writer.writerows(contig_tax(contigs, lineages, args.tax_thres, factors))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate tabular file with taxonomic assignment of viral contigs based on ViPhOG annotations"
-    )
-    parser.add_argument(
-        "-d",
-        "--db",
-        dest="ncbi_db",
-        help="path to the ete3 processed NCBI taxonomy db.",
-    )
-    parser.add_argument(
-        "-i",
-        "--input",
-        dest="input_file",
-        help="Annotation table generated with script viral_contig_maps.py",
-        required=True,
-    )
-    parser.add_argument(
-        "-f",
-        "--factor",
-        dest="factor",
-        help="File containing viphog-specific multiplication factors.",
-    )
-    parser.add_argument(
-        "--taxthres",
-        dest="tax_thres",
-        type=float,
-        help="Minimum proportion of annotated genes required for taxonomic assignment (default: 0.6)",
-        default=0.6,
-    )
-    parser.add_argument(
-        "-o",
-        "--outdir",
-        dest="outdir",
-        help="Relative path to directory where you want the output file to be stored (default: cwd)",
-        default=".",
-    )
-    parser.add_argument(
-        "--version4",
-        dest="version4",
-        help="Flag for whether to use version 4 or not. This has implications for taxa that are ignored in version 4.",
-        action="store_true",
-    )
-    args = parser.parse_args()
-
-    main(args)
+    main()

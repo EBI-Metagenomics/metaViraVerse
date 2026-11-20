@@ -36,6 +36,7 @@ params {
     input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
     catalogues_metadata: Path
+    analyses_metadata: Path?                        // metadata of MGnify analyses (ERZ...): accession, study_id, sample_id, biome_id
     outdir: String
 
     // Pre-processing
@@ -110,6 +111,12 @@ params {
     incsearch_db: Path?
     mobsearch_db: Path?
     mobsuite_db: Path?
+
+    // README.md of the catalogue (title section)
+    catalogue_name: String?
+    catalogue_version: String?
+    catalogue_website_url: String?
+    source_catalogues: String?      // comma-separated URLs of the source MAG catalogues
 
     // MultiQC
     multiqc_config: Path?
@@ -491,6 +498,7 @@ output {
             r.plasmids_metadata >> "plasmids/"
             r.viruses_source_sankey >> "${r.viral_meta.id}/"
             r.plasmids_source_sankey >> "${r.plasmid_meta.id}/"
+            r.readme >> "README.md"
         }
     }
 
