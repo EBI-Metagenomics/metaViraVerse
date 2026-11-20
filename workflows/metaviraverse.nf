@@ -19,6 +19,7 @@ include { THIRD_PARTY_DATA                      } from '../subworkflows/local/th
 
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
+include { GENERATE_README                       } from '../modules/local/generate_readme'
 include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
 include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
 
@@ -34,6 +35,11 @@ record MetaviraverseParams {
     analyses_metadata: Path?   // fills source study/sample of sequences named <ERZ accession>|...
     multiqc_config: Path?
     multiqc_logo: String?
+    // title section of README.md
+    catalogue_name: String?
+    catalogue_version: String?
+    catalogue_website_url: String?
+    source_catalogues: String?  // comma-separated URLs
 }
 
 record Sample {
@@ -64,6 +70,7 @@ record CatalogueSummary {
     plasmids_metadata: Path
     viruses_source_sankey: Path?    // taxonomy of the source genomes
     plasmids_source_sankey: Path?
+    readme: Path?                   // README.md of the catalogue
 }
 
 workflow METAVIRAVERSE {
@@ -192,7 +199,7 @@ workflow METAVIRAVERSE {
     )
 
     // one record for the whole catalogue (each channel has a single item)
-    summary = final_metadata
+    catalogue_summary = final_metadata
         .combine(catalogue_stats)
         .map { m, s ->
             record(
@@ -227,6 +234,58 @@ workflow METAVIRAVERSE {
             sort: true,
             newLine: true
         )
+
+    //
+    // MODULE: README.md of the catalogue
+    //
+    // Options that decide which tools ran, for the tool list and methods text of the README
+    run_options = third_party_input.count().map { n ->
+        groovy.json.JsonOutput.toJson([
+            third_party_input: n > 0,
+            skip_rrna_detection: preprocessing_opts.skip_rrna_detection,
+            skip_checkv: preprocessing_opts.skip_checkv,
+            rename_accession: preprocessing_opts.rename_accession,
+            viral_clustering: viral_opts.viral_clustering,
+            cluster_vclust: viral_opts.cluster_vclust,
+            skip_vitap: viral_opts.skip_vitap,
+            skip_genomad: viral_opts.skip_genomad,
+            skip_viphogs: viral_opts.skip_viphogs,
+            skip_iphop: viral_opts.skip_iphop,
+            predict_host_from_custom_spacers: viral_opts.predict_host_from_custom_spacers,
+            skip_phammseqs: viral_opts.skip_phammseqs,
+            skip_amrfinderplus_for_viruses: viral_opts.skip_amrfinderplus_for_viruses,
+            skip_deeparg_for_viruses: viral_opts.skip_deeparg_for_viruses,
+            skip_rgi_for_viruses: viral_opts.skip_rgi_for_viruses,
+            skip_mmseqs: plasmid_opts.skip_mmseqs,
+            mmseqs_id_threshold: plasmid_opts.mmseqs_id_threshold,
+            mmseqs_cov_threshold: plasmid_opts.mmseqs_cov_threshold,
+            skip_amrfinderplus_for_plasmids: plasmid_opts.skip_amrfinderplus_for_plasmids,
+            skip_deeparg_for_plasmids: plasmid_opts.skip_deeparg_for_plasmids,
+            skip_rgi_for_plasmids: plasmid_opts.skip_rgi_for_plasmids
+        ])
+    }
+
+    readme = GENERATE_README (
+        catalogue_summary
+            .combine(collated_versions)
+            .map { r, versions ->
+                record(
+                    catalogue_json: r.catalogue_json,
+                    viruses_metadata: r.viruses_metadata,
+                    plasmids_metadata: r.plasmids_metadata,
+                    versions_yml: versions
+                )
+            },
+        run_options,
+        opts.catalogue_name,
+        opts.catalogue_version,
+        opts.catalogue_website_url,
+        opts.source_catalogues
+    )
+
+    summary = catalogue_summary
+        .combine(readme)
+        .map { r, m -> r + record(readme: m.readme) }
 
     //
     // MODULE: MultiQC

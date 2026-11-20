@@ -13,10 +13,11 @@ The README contains:
 Which tools are listed follows the run's options (--skip_*, --viral_clustering,
 --predict_host_from_custom_spacers, ...), read from pipeline_info/params_*.json.
 
-Run it outside the pipeline, after a run has finished. The easiest way is to
-point it at the results directory:
+The pipeline runs it at the end of every run (GENERATE_README, published as
+README.md in --outdir). It can also be run on a finished results directory,
+e.g. to change the title or links at release time:
 
-    python scripts/generate_catalogue_readme.py \\
+    python bin/generate_catalogue_readme.py \\
         --results-dir results/ \\
         --catalogue-name "Marine sediment" --catalogue-version v1.0 \\
         --source-catalogue https://www.ebi.ac.uk/metagenomics/genome-catalogues/marine-sediment-v1-0 \\
@@ -161,16 +162,25 @@ def normalise_version(version):
     return version if version.startswith("v") else f"v{version}"
 
 
+def release_tag(version):
+    """Release tag of a version, or None for development versions.
+
+    nf-core appends the commit to the version of a run from git ('v1.0.0-gabc1234');
+    that is still the v1.0.0 release.
+    """
+    match = re.fullmatch(r"(v\d+(?:\.\d+)*)(?:-g[0-9a-f]{7,40})?", version)
+    return match.group(1) if match else None
+
+
 def release_url(version):
-    """Release URL for a version; None for development or commit-suffixed versions."""
-    if re.fullmatch(r"v\d+(\.\d+)*", version):
-        return f"{PIPELINE_URL}/releases/tag/{version}"
-    return None
+    """Release URL for a version; None for development versions."""
+    tag = release_tag(version)
+    return f"{PIPELINE_URL}/releases/tag/{tag}" if tag else None
 
 
 def docs_url(version, page="output.md"):
     """Link to a page of docs/ in the pipeline repo: at the release tag, or on dev for other versions."""
-    ref = version if release_url(version) else "dev"
+    ref = release_tag(version) or "dev"
     return f"{PIPELINE_URL}/blob/{ref}/docs/{page}"
 
 
@@ -498,8 +508,7 @@ def render_readme(args, version, stats, metadata_values, params, tool_versions):
         "",
         "---",
         "",
-        f"Generated on {datetime.date.today().isoformat()} by `scripts/generate_catalogue_readme.py` "
-        f"({PIPELINE_URL}).",
+        f"Generated on {datetime.date.today().isoformat()} by metaViraVerse {version} ({PIPELINE_URL}).",
     ]
     return "\n".join(lines) + "\n"
 
@@ -532,7 +541,7 @@ def parse_args(argv=None):
     parser.add_argument("--website-url", help="Web page of the catalogue.")
     parser.add_argument("--release-date", help="Release date to print (free text).")
     parser.add_argument("--source-catalogue", nargs="+", default=[],
-                        help="URL(s) of the source MAG catalogue(s).")
+                        help="URL(s) of the source MAG catalogue(s); separate with spaces or commas.")
     parser.add_argument("-o", "--output", default="README.md", help="Output file (default: README.md).")
     return parser.parse_args(argv)
 
@@ -585,6 +594,7 @@ def resolve_version(args, tool_versions):
 
 def main(argv=None):
     args = parse_args(argv)
+    args.source_catalogue = [u.strip() for value in args.source_catalogue for u in value.split(",") if u.strip()]
     resolve_inputs(args)
     tool_versions = read_versions_yml(args.versions_yml) if args.versions_yml else {}
     version = resolve_version(args, tool_versions)

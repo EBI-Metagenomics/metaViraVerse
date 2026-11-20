@@ -35,7 +35,8 @@ def parse_args():
                         help="Concatenated catalogue metadata tables with header")
     parser.add_argument("--analyses_metadata", required=False, default=None,
                         help="Metadata of MGnify analyses (columns: accession, study_id, sample_id, biome_id), "
-                             "joined on the original name up to the first '|' (e.g. ERZ2772503). Optional")
+                             "joined on the original name up to the first '|' (e.g. ERZ2772503), or up to the "
+                             "first '_' (ERZ2772590_19 -> ERZ2772590). Optional")
     parser.add_argument("--viruses_vitap", required=False, default=None,
                         help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...). Optional")
     parser.add_argument("--viphogs_taxonomy", required=False, default=None,
@@ -250,13 +251,23 @@ def load_map(path):
     return desc_to_mgyv, mgyv_to_desc
 
 
-def load_combined_meta(path):
-    """Return dict: description -> full row dict."""
+def load_combined_meta(path, mgyv_to_desc=None):
+    """Return dict: description -> full row dict.
+
+    Rows are keyed by the rename map's description of their catalogue ID
+    (`sequence_id`), so that they match the keys of load_map exactly. The
+    `description` column of choose_sequences.py is only a fallback: it replaces
+    every '|' by '-', which is right for MGnify catalogue names
+    ('MGYG..._N viral_sequence|1:100' -> 'MGYG..._N|viral_sequence-1:100') but
+    not for names without a space, such as MGnify analyses
+    ('ERZ2772590_19|viral_sequence-1:100' -> 'ERZ2772590_19-viral_sequence-1:100').
+    """
+    mgyv_to_desc = mgyv_to_desc or {}
     rows = {}
     with open(path) as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for row in reader:
-            desc = row.get("description", "").strip()
+            desc = mgyv_to_desc.get(row.get("sequence_id", "").strip()) or row.get("description", "").strip()
             if desc:
                 rows[desc] = row
     return rows
@@ -272,9 +283,11 @@ def genome_key(description):
 def source_meta(description, all_meta, analyses_meta):
     """Source metadata of a sequence: the genome catalogue's (joined on the genome ID), with the
     missing fields filled from the analyses metadata (joined on the name up to the first '|',
-    e.g. 'ERZ2772503|viral_sequence-1:...' -> 'ERZ2772503')."""
+    e.g. 'ERZ2772503|viral_sequence-1:...' -> 'ERZ2772503'), or up to the first '_' when the
+    name has a contig number ('ERZ2772590_19|viral_sequence-1:...' -> 'ERZ2772590')."""
     meta = dict(all_meta.get(genome_key(description), {}))
-    analysis = analyses_meta.get(description.split("|")[0].strip())
+    name = description.split("|")[0].strip()
+    analysis = analyses_meta.get(name) or analyses_meta.get(name.split("_")[0])
     if analysis:
         for key, val in analysis.items():
             if meta.get(key, MISSING) in (MISSING, "", "NA"):
@@ -548,7 +561,7 @@ def main():
     desc_to_mgyv, mgyv_to_desc = load_map(args.map)
 
     print("Loading combined metadata (with checkV fields)...")
-    all_rows = load_combined_meta(args.combined_meta)
+    all_rows = load_combined_meta(args.combined_meta, mgyv_to_desc)
 
     print("Splitting combined metadata into viruses and plasmids...")
     virus_rows = {}

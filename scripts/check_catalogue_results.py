@@ -15,6 +15,18 @@ Checks
    that docs/output.md documents as never missing, but have missing values,
    are reported as failures; fully empty columns are reported as warnings.
 3. Row counts of the metadata tables against catalogue.json.
+4. Sequence identifiers and protein counts, for every set of sequence files
+   (all viral sequences, prophages, plasmids, and the cluster representatives):
+   * FASTA (nucleotide) headers and GFF column 1 are renamed catalogue
+     accessions (<prefix><digits>, e.g. MGYV0000000001);
+   * the ID= attribute of non-CDS GFF records (the sequence-level record) is a
+     renamed accession too. CDS records keep their original protein IDs, so
+     their ID= is not checked;
+   * the number of CDS records in the GFF equals the number of proteins in the
+     FAA, and their IDs match;
+   * sequence and protein counts against catalogue.json where it has them.
+   The prefix is --accession-prefix, else rename_accession from the params
+   JSON, else MGYV.
 
 Usage
 -----
@@ -77,6 +89,7 @@ def amr_any(p, kind):
 EXPECTED_FILES = [
     # Summary and metadata
     ("Summary", "catalogue.json", None),
+    ("Summary", "README.md", None),
     ("Summary", "viruses/viruses-all-metadata.tsv.gz", None),
     ("Summary", "viruses/viruses-cluster-stats.tsv.gz", None),
     ("Summary", "plasmids/plasmids-all-metadata.tsv.gz", None),
@@ -347,6 +360,193 @@ def check_row_counts(results_dir, metadata_reports):
     return stats, checks
 
 
+# Sets of sequence files to check identifiers in: (name, fna patterns, gff, faa,
+# catalogue.json keys summed for the sequence count, ... for the protein count).
+# The annotated GFFs of the representatives only get the column 1 check.
+SEQUENCE_SETS = [
+    ("Viral sequences", ("viruses/viral_sequences.fna.gz",), "viruses/viral_sequences.gff.gz",
+     "viruses/viral_sequences.faa.gz", ("viral_sequences",), ()),
+    ("Prophages", ("viruses/prophages.fna.gz",), "viruses/prophages.gff.gz",
+     "viruses/prophages.faa.gz", ("prophages",), ()),
+    ("Plasmids", ("plasmids/plasmids.fna.gz",), "plasmids/plasmids.gff.gz",
+     "plasmids/plasmids.faa.gz", ("plasmids",), ("total_proteins_plasmids",)),
+    ("Viral cluster representatives", (f"{VR}/viruses_reps.fasta.gz", f"{VR}/viruses_reps.fna.gz"),
+     f"{VR}/viruses_reps.gff.gz", f"{VR}/viruses_reps.faa.gz", ("viral_clusters",),
+     ("total_proteins_viruses_reps",)),
+    ("Plasmid cluster representatives", (f"{PR}/plasmids_reps.fasta.gz", f"{PR}/plasmids_reps.fna.gz"),
+     f"{PR}/plasmids_reps.gff.gz", f"{PR}/plasmids_reps.faa.gz", ("plasmid_clusters",),
+     ("total_proteins_plasmids_reps",)),
+]
+ANNOTATED_GFFS = [f"{VR}/viruses_reps_annotated.gff.gz", f"{PR}/plasmids_annotated.gff.gz"]
+MAX_EXAMPLES = 5
+
+
+def accession_prefix(cli_prefix, params_path):
+    if cli_prefix:
+        return cli_prefix
+    if params_path:
+        with open(params_path) as f:
+            prefix = json.load(f).get("rename_accession")
+        if prefix:
+            return prefix
+    return "MGYV"
+
+
+class BadIds:
+    """Count identifiers that are not renamed accessions, keeping a few examples."""
+
+    def __init__(self):
+        self.count = 0
+        self.examples = []
+
+    def add(self, value):
+        self.count += 1
+        if len(self.examples) < MAX_EXAMPLES:
+            self.examples.append(value)
+
+
+def fasta_ids(path):
+    """Yield the first word of every FASTA header."""
+    with open_text(path) as f:
+        for line in f:
+            if line.startswith(">"):
+                yield line[1:].split(None, 1)[0] if line[1:].strip() else ""
+
+
+def gff_attribute(attributes, key):
+    for field in attributes.split(";"):
+        if field.startswith(f"{key}="):
+            return field[len(key) + 1:]
+    return None
+
+
+def scan_gff(path, accession_re, check_ids=True):
+    """Return seqids, bad column-1 values, bad non-CDS IDs and the CDS IDs of a GFF."""
+    seqids, bad_seqid, bad_id, cds_ids = set(), BadIds(), BadIds(), []
+    with open_text(path) as f:
+        for line in f:
+            if line.startswith("#"):
+                if line.startswith("##FASTA"):
+                    break
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 9:
+                continue
+            seqid, ftype, attributes = parts[0], parts[2], parts[8]
+            if seqid not in seqids:
+                seqids.add(seqid)
+                if not accession_re.fullmatch(seqid):
+                    bad_seqid.add(seqid)
+            if not check_ids:
+                continue
+            feature_id = gff_attribute(attributes, "ID")
+            if ftype == "CDS":
+                cds_ids.append(feature_id)
+            elif feature_id is not None and not accession_re.fullmatch(feature_id):
+                bad_id.add(feature_id)
+    return seqids, bad_seqid, bad_id, cds_ids
+
+
+def check_sequence_ids(results_dir, prefix, stats):
+    accession_re = re.compile(re.escape(prefix) + r"\d+")
+    results = []
+    for name, fna_patterns, gff_rel, faa_rel, seq_keys, prot_keys in SEQUENCE_SETS:
+        fna = next((p for p in fna_patterns if os.path.isfile(os.path.join(results_dir, p))), None)
+        gff = gff_rel if os.path.isfile(os.path.join(results_dir, gff_rel)) else None
+        faa = faa_rel if os.path.isfile(os.path.join(results_dir, faa_rel)) else None
+        r = dict(name=name, fna=fna or " or ".join(fna_patterns), gff=gff_rel, faa=faa_rel,
+                 problems=[], status=OK, n_seqs=None, n_gff_seqs=None, n_cds=None, n_prot=None,
+                 exp_seqs=None, exp_prot=None)
+
+        if fna:
+            bad_fna, n = BadIds(), 0
+            fna_ids = set()
+            for seq_id in fasta_ids(os.path.join(results_dir, fna)):
+                n += 1
+                fna_ids.add(seq_id)
+                if not accession_re.fullmatch(seq_id):
+                    bad_fna.add(seq_id)
+            r["n_seqs"] = n
+            if bad_fna.count:
+                r["problems"].append((FAIL, f"{bad_fna.count:,} FASTA header(s) are not `{prefix}` accessions",
+                                      bad_fna.examples))
+        else:
+            fna_ids = None
+            r["problems"].append((WARN, "nucleotide FASTA not found", []))
+
+        cds_ids = None
+        if gff:
+            seqids, bad_seqid, bad_id, cds_ids = scan_gff(os.path.join(results_dir, gff), accession_re)
+            r["n_gff_seqs"], r["n_cds"] = len(seqids), len(cds_ids)
+            if bad_seqid.count:
+                r["problems"].append((FAIL, f"{bad_seqid.count:,} GFF sequence name(s) (column 1) are not "
+                                            f"`{prefix}` accessions", bad_seqid.examples))
+            if bad_id.count:
+                r["problems"].append((FAIL, f"{bad_id.count:,} non-CDS GFF record ID(s) are not "
+                                            f"`{prefix}` accessions", bad_id.examples))
+            if fna_ids is not None:
+                not_in_fna = sorted(seqids - fna_ids)
+                if not_in_fna:
+                    r["problems"].append((FAIL, f"{len(not_in_fna):,} GFF sequence(s) not in the FASTA",
+                                          not_in_fna[:MAX_EXAMPLES]))
+        else:
+            r["problems"].append((WARN, "GFF not found", []))
+
+        if faa:
+            prot_ids = list(fasta_ids(os.path.join(results_dir, faa)))
+            r["n_prot"] = len(prot_ids)
+            if len(set(prot_ids)) != len(prot_ids):
+                r["problems"].append((WARN, f"{len(prot_ids) - len(set(prot_ids)):,} duplicated protein ID(s) "
+                                            "in the FAA", []))
+            if cds_ids is not None:
+                if len(cds_ids) != len(prot_ids):
+                    r["problems"].append((FAIL, f"{len(cds_ids):,} CDS records in the GFF but "
+                                                f"{len(prot_ids):,} proteins in the FAA", []))
+                cds_set, prot_set = set(cds_ids), set(prot_ids)
+                only_faa, only_gff = sorted(prot_set - cds_set), sorted(cds_set - prot_set - {None})
+                if only_faa:
+                    r["problems"].append((FAIL, f"{len(only_faa):,} FAA protein(s) without a CDS in the GFF",
+                                          only_faa[:MAX_EXAMPLES]))
+                if only_gff:
+                    r["problems"].append((FAIL, f"{len(only_gff):,} GFF CDS ID(s) without a protein in the FAA",
+                                          only_gff[:MAX_EXAMPLES]))
+        else:
+            r["problems"].append((WARN, "FAA not found", []))
+
+        # Counts against catalogue.json
+        if stats:
+            if seq_keys and all(isinstance(stats.get(k), int) for k in seq_keys):
+                r["exp_seqs"] = sum(stats[k] for k in seq_keys)
+                if r["n_seqs"] is not None and r["n_seqs"] != r["exp_seqs"]:
+                    r["problems"].append((FAIL, f"{r['n_seqs']:,} sequences in the FASTA, catalogue.json has "
+                                                f"{r['exp_seqs']:,} ({' + '.join(seq_keys)})", []))
+            if prot_keys and all(isinstance(stats.get(k), int) for k in prot_keys):
+                r["exp_prot"] = sum(stats[k] for k in prot_keys)
+                if r["n_prot"] is not None and r["n_prot"] != r["exp_prot"]:
+                    r["problems"].append((FAIL, f"{r['n_prot']:,} proteins in the FAA, catalogue.json has "
+                                                f"{r['exp_prot']:,} ({' + '.join(prot_keys)})", []))
+
+        statuses = [st for st, _, _ in r["problems"]]
+        r["status"] = FAIL if FAIL in statuses else WARN if WARN in statuses else OK
+        results.append(r)
+
+    for gff_rel in ANNOTATED_GFFS:
+        path = os.path.join(results_dir, gff_rel)
+        r = dict(name="Annotated GFF", gff=gff_rel, problems=[], annotated=True)
+        if not os.path.isfile(path):
+            r["problems"].append((WARN, "not found", []))
+        else:
+            seqids, bad_seqid, _, _ = scan_gff(path, accession_re, check_ids=False)
+            r["n_gff_seqs"] = len(seqids)
+            if bad_seqid.count:
+                r["problems"].append((FAIL, f"{bad_seqid.count:,} sequence name(s) (column 1) are not "
+                                            f"`{prefix}` accessions", bad_seqid.examples))
+        statuses = [st for st, _, _ in r["problems"]]
+        r["status"] = FAIL if FAIL in statuses else WARN if WARN in statuses else OK
+        results.append(r)
+    return results
+
+
 # --------------------------------------------------------------------------- #
 # Report
 # --------------------------------------------------------------------------- #
@@ -354,12 +554,14 @@ def pct(n, total):
     return f"{100 * n / total:.1f}%" if total else "-"
 
 
-def render_report(results_dir, params, params_path, file_rows, metadata_reports, stats, count_checks):
+def render_report(results_dir, params, params_path, file_rows, metadata_reports, stats, count_checks,
+                  id_checks=(), prefix="MGYV"):
     all_statuses = (
         [r["status"] for r in file_rows]
         + [c["status"] for m in metadata_reports if m.get("present") for c in m["columns"]]
         + [FAIL for m in metadata_reports if not m.get("present")]
         + [c["status"] for c in count_checks]
+        + [r["status"] for r in id_checks]
     )
     n_fail, n_warn = all_statuses.count(FAIL), all_statuses.count(WARN)
     overall = FAIL if n_fail else WARN if n_warn else OK
@@ -449,6 +651,39 @@ def render_report(results_dir, params, params_path, file_rows, metadata_reports,
                        f"| {exp} | {c['actual']:,} |")
         out.append("")
 
+    # 4. Identifiers and proteins
+    def n(value):
+        return f"{value:,}" if isinstance(value, int) else "-"
+
+    out += [
+        "## 4. Sequence identifiers and protein counts",
+        "",
+        f"FASTA headers, GFF column 1 and the `ID=` of non-CDS GFF records must be `{prefix}<digits>` accessions. "
+        "CDS records keep their original protein IDs, which must match the FAA headers.",
+        "",
+        "| Status | Set | Sequences (FASTA) | Expected | Sequences (GFF) | CDS (GFF) | Proteins (FAA) | Expected |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for r in id_checks:
+        if r.get("annotated"):
+            out.append(f"| {ICON[r['status']]} | `{r['gff']}` (column 1 only) | - | - | "
+                       f"{n(r.get('n_gff_seqs'))} | - | - | - |")
+        else:
+            out.append(f"| {ICON[r['status']]} | {r['name']} | {n(r['n_seqs'])} | {n(r['exp_seqs'])} | "
+                       f"{n(r['n_gff_seqs'])} | {n(r['n_cds'])} | {n(r['n_prot'])} | {n(r['exp_prot'])} |")
+    out.append("")
+    problems = [r for r in id_checks if r["problems"]]
+    if problems:
+        out += ["### Problems", ""]
+        for r in problems:
+            label = r["gff"] if r.get("annotated") else r["name"]
+            for status, message, examples in r["problems"]:
+                line = f"- {ICON[status]} **{label}**: {message}"
+                if examples:
+                    line += " (e.g. " + ", ".join(f"`{e}`" for e in examples) + ")"
+                out.append(line)
+        out.append("")
+
     return "\n".join(out).rstrip() + "\n", overall
 
 
@@ -463,6 +698,9 @@ def parse_args(argv=None):
                         help="params JSON of the run (default: latest <results-dir>/pipeline_info/params_*.json).")
     parser.add_argument("--output-docs", default=DEFAULT_OUTPUT_DOCS,
                         help="docs/output.md, for the documented columns (default: this repo's).")
+    parser.add_argument("--accession-prefix",
+                        help="Prefix of renamed accessions (default: rename_accession from the params JSON, "
+                             "else MGYV).")
     parser.add_argument("-o", "--output", default="sanity_report.md", help="Output Markdown report.")
     return parser.parse_args(argv)
 
@@ -476,8 +714,10 @@ def main(argv=None):
     file_rows = check_files(args.results_dir, params, params_known=params_path is not None)
     metadata_reports = check_metadata(args.results_dir, parse_documented_columns(args.output_docs))
     stats, count_checks = check_row_counts(args.results_dir, metadata_reports)
+    prefix = accession_prefix(args.accession_prefix, params_path)
+    id_checks = check_sequence_ids(args.results_dir, prefix, stats)
     report, overall = render_report(args.results_dir, params, params_path, file_rows,
-                                    metadata_reports, stats, count_checks)
+                                    metadata_reports, stats, count_checks, id_checks, prefix)
 
     with open(args.output, "w") as f:
         f.write(report)

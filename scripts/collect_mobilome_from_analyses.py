@@ -11,7 +11,8 @@ import sys
 MOBILOME_GFF = "mobilome_full.gff.gz"
 CDS_FAA = "predicted_cds.faa.gz"
 CONTIGS_FASTA = "filtered_contigs.fasta.gz"
-
+STUDY_COLUMN = "study_ena_accession"
+SAMPLE_COLUMN = "sample_ena_accession"
 
 def find_download(paths: list[str], suffix: str) -> str | None:
     """Path (relative to results_dir) of the first download ending with suffix"""
@@ -25,6 +26,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("-i", "--input", required=True, help="Analyses CSV (with a results_dir column)")
     parser.add_argument("-o", "--output", required=True, help="Output TSV")
+    parser.add_argument("-b", "--biome", required=False, help="Specify biome if it does not exist in input CSV")
     parser.add_argument(
         "--check-exists",
         action="store_true",
@@ -84,9 +86,10 @@ def main() -> None:
                     if not os.path.isfile(path):
                         print(f"WARNING: {acc}: {path} does not exist", file=sys.stderr)
             writer.writerow([acc, map_gff.replace('full', 'clean'), cds_faa, contigs_fasta])
-            study_accessions = row.get('ena_accessions', 'NA').replace('}', '').replace('{', '').split(',')
+            study_accessions = row.get(STUDY_COLUMN, 'NA').replace('}', '').replace('{', '').split(',')
             primary_study = next((x for x in study_accessions if x.startswith("PRJ")), study_accessions[0])
-            fmetadata.write('\t'.join([acc, primary_study, row.get('sample_id', 'NA'), row.get('biome_id', 'NA')]) + '\n')
+            biome = args.biome if args.biome else row.get('biome_id', 'NA')
+            fmetadata.write('\t'.join([acc, primary_study, row.get(SAMPLE_COLUMN, 'NA'), biome]) + '\n')
             seen.add(acc)
             kept += 1
 

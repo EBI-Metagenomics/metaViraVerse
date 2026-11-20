@@ -1,0 +1,57 @@
+name: generate_readme
+description: Write the README.md of the catalogue with summary numbers, the tools and annotations that were run, a description of how the catalogue was built and links to the pipeline documentation
+keywords:
+  - readme
+  - catalogue
+  - summary
+  - documentation
+tools:
+  - python:
+      description: |
+        bin/generate_catalogue_readme.py, a Python script that uses only the standard library
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ["PSF-2.0"]
+input:
+  - catalogue_json:
+      type: file
+      description: Catalogue statistics from COLLECT_CATALOGUE_STATS
+      pattern: "*.json"
+      ontologies:
+        - edam: http://edamontology.org/format_3464 # JSON
+  - viruses_metadata:
+      type: file
+      description: viruses-all-metadata.tsv.gz from COLLECT_METADATA (number of studies, biomes)
+      pattern: "*.tsv.gz"
+  - plasmids_metadata:
+      type: file
+      description: plasmids-all-metadata.tsv.gz from COLLECT_METADATA (number of studies, biomes)
+      pattern: "*.tsv.gz"
+  - versions_yml:
+      type: file
+      description: Collated software versions (pipeline and tool versions)
+      pattern: "*.yml"
+  - run_options:
+      type: string
+      description: JSON with the params that decide which tools ran (skip flags, clustering method, MMseqs2 thresholds, third-party input)
+  - catalogue_name:
+      type: string
+      description: Catalogue name for the README title (optional)
+  - catalogue_version:
+      type: string
+      description: Catalogue release, e.g. v1.0 (optional)
+  - catalogue_website_url:
+      type: string
+      description: Web page of the catalogue (optional)
+  - source_catalogues:
+      type: string
+      description: Comma-separated URLs of the source MAG catalogues (optional)
+output:
+  - readme:
+      type: file
+      description: README.md of the catalogue
+      pattern: "README.md"
+authors:
+  - "@KateSakharova"
+maintainers:
+  - "@KateSakharova"

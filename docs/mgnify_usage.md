@@ -16,37 +16,17 @@ VIRify+MAP use pre-defined names for viruses (**viral_sequence**), prophages (**
 
 Make sure those names haven't changed (check MAP). Pipeline execution can regulate those names via `--viral_sequence_identifier`, `--prophage_identifier` and `--plasmid_identifier`.
 
-> [!NOTE]
-> Viral catalogue generation pipeline has only been tested on data from MAG catalogues so far. Input from assembly analyses (see [Collect data from assembly analyses](#collect-data-from-assembly-analyses)) is new.
-
 ### Fetch data from MGnify genomes
 
-**Mandatory step (one or both):**
+#### Summary 
 
 - Collect data from existing catalogues (this also fetches each catalogue's metadata and generates the pipeline input samplesheet)
 - Collect data from assembly analyses (this also generates the pipeline input samplesheet)
-
-**Optional step:**
-
 - Collect CRISPR spacers
 
 #### Collect data from existing catalogues
 
-Make sure the catalogues you use included both VIRify and MAP in their generation. List of catalogues available as of 21/07/2026:
-
-- Barley rhizosphere
-- Maize rhizosphere
-- Tomato rhizosphere
-- Soil
-- Marine
-- Marine sediment
-- Human skin
-- Human vaginal
-- Chicken gut
-- Non-model fish gut
-- Mouse gut
-- Honey bee gut
-- Sheep rumen
+Make sure the catalogues you use included both VIRify and MAP in their generation.
 
 Choose the catalogues you want to use and find their locations on `/nfs/public/`. The last two components of each path (catalogue name and version, e.g. `human-vaginal/v1.0`) must match the corresponding catalogue location on the [MGnify genomes FTP](https://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes/), since that's where metadata is fetched from.
 
@@ -176,6 +156,8 @@ An analysis is kept when its `downloads` list a `mobilome_full.gff.gz`. Analyses
 | `cds_faa`       | `<results_dir>/cds/<ERZ>_predicted_cds.faa.gz`                          |
 | `contigs_fasta` | `<results_dir>/qc/<ERZ>_filtered_contigs.fasta.gz`                      |
 
+Script also collects `analyses_metadata.tsv` containing study and sample accessions. That file should be passed to pipeline using `--analyses_metadata`.
+
 **2. Collect sequences**
 
 Run [`collect_data_from_analyses.py`](../scripts/collect_data_from_analyses.py) on the TSV from step 1:
@@ -230,7 +212,7 @@ For each analysis the script:
 
 </details>
 
-#### Collect CRISPR spacers (optional)
+#### Collect CRISPR spacers 
 
 One of the pipeline's steps is viral host detection. To find a possible host among MGnify genomes, you need to collect all spacers predicted by CRISPRCasFinder. This can be done with the [`collect_crispr_spacers_from_catalogues.py`](../scripts/collect_crispr_spacers_from_catalogues.py) script (make sure you're in the correct queue to access NFS):
 

@@ -70,6 +70,35 @@
                 }
             ]
         },
+        "catalogue_readme_options": {
+            "title": "Catalogue README options",
+            "type": "object",
+            "fa_icon": "fas fa-book",
+            "description": "Title section of the README.md written for the catalogue.",
+            "help_text": "All optional. Without them the README gets a generic title. The rest of the README (numbers, tools, methods, documentation links) is always generated from the run.",
+            "properties": {
+                "catalogue_name": {
+                    "type": "string",
+                    "description": "Catalogue name used as the README title, e.g. 'Marine sediment viral and plasmid catalogue'.",
+                    "fa_icon": "fas fa-heading"
+                },
+                "catalogue_version": {
+                    "type": "string",
+                    "description": "Catalogue release shown in the README title, e.g. 'v1.0'.",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "catalogue_website_url": {
+                    "type": "string",
+                    "description": "Web page of the catalogue, shown in the README.",
+                    "fa_icon": "fas fa-globe"
+                },
+                "source_catalogues": {
+                    "type": "string",
+                    "description": "Comma-separated URLs of the source MAG catalogues, listed in the README summary.",
+                    "fa_icon": "fas fa-link"
+                }
+            }
+        },
         "protein_annotation_options": {
             "title": "Protein functional annotation",
             "type": "object",
@@ -605,6 +634,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/catalogue_readme_options"
         },
         {
             "$ref": "#/$defs/preprocessing_options"

@@ -13,7 +13,7 @@ The pipeline produces the following outputs:
 - [Metadata](#metadata) - combined metadata for the viral and plasmid catalogues
 - [Viruses](#viruses) - viral sequences and prophages, clustered and annotated with taxonomy, host, lifestyle and function
 - [Plasmids](#plasmids) - plasmid sequences, clustered and annotated with AMR genes and MOB typing
-- [Catalogue summary](#catalogue-summary) - top-level statistics of the catalogue
+- [Catalogue summary](#catalogue-summary) - top-level statistics and README of the catalogue
 - [Additional data](#additional-data) - intermediate files produced while preparing the input (renaming, quality control, rRNA detection, sequence splitting)
 - [MultiQC](#multiqc) - aggregate report describing results and QC from the whole pipeline
 - [Pipeline information](#pipeline-information) - reports and metrics generated during the workflow execution
@@ -198,8 +198,11 @@ Plasmid sequences are pooled and clustered, and one representative per cluster i
 <summary>Output files</summary>
 
 - `catalogue.json`: summary counts for the whole run.
+- `README.md`: description of the catalogue, ready to publish with it (see below).
 
 </details>
+
+`README.md` contains a summary of the catalogue (numbers from `catalogue.json`, the number of studies and the biomes the sequences came from, and the pipeline version), the tools and annotations that were run with their versions, a short description of how the catalogue was built, and links to the pipeline documentation (this page, [methods](methods.md), [databases](databases.md), [citations](citations.md) and [questions and answers](faq.md)). The tools listed follow the run options, so skipped steps are left out. The title section is set with `--catalogue_name`, `--catalogue_version`, `--catalogue_website_url` and `--source_catalogues` (comma-separated URLs); without them the README gets a generic title. To change the title after a run, run `bin/generate_catalogue_readme.py --results-dir <outdir>` with the new values.
 
 `catalogue.json` contains the following fields:
 
