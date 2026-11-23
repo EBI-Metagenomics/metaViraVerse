@@ -3,13 +3,17 @@
 Script searches for viral and plasmid records in MGnify assembly analyses (mobilome-annotation
 GFFs) and extracts corresponding nucleotide and protein sequences.
 
-Input: TSV written by collect_mobilome_from_analyses.py (id, map_gff, cds_faa, contigs_fasta)
+Input: TSV written by collect_mobilome_from_analyses.py (id, map_gff, cds_faa, contigs_fasta
+       and optional cat_taxonomy)
 Output: per analysis — filtered GFF, FNA (nucleotide), and FAA (protein) files
         containing only viral_sequence, plasmid, and prophage records;
+        if cat_taxonomy is given — a TSV with the CAT_pack taxonomy lines of the contigs in the FNA;
         samplesheet.csv for the pipeline and a report with counts per analysis.
+        With --only-taxonomy only the taxonomy TSVs are written.
 
 Usage:
     python collect_data_from_analyses.py -i marine_mobilome.tsv -o /output/dir --biome marine
+    python collect_data_from_analyses.py -i marine_mobilome.tsv -o /output/dir --only-taxonomy
 """
 import argparse
 import csv
@@ -37,15 +41,16 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
         Script takes as input the TSV from collect_mobilome_from_analyses.py and creates per analysis:
-        output: <id>_viral.gff, <id>_viral.fna and <id>_viral.faa
+        output: <id>_viral.gff, <id>_viral.fna, <id>_viral.faa and <id>_taxonomy.tsv (if cat_taxonomy given)
         plus samplesheet.csv and report.tsv
+        With --only-taxonomy: only <id>_taxonomy.tsv
         """
     )
     parser.add_argument(
         "-i",
         "--input",
         required=True,
-        help="TSV with columns id, map_gff, cds_faa, contigs_fasta"
+        help="TSV with columns id, map_gff, cds_faa, contigs_fasta and optional cat_taxonomy"
     )
     parser.add_argument(
         "-o",
@@ -64,6 +69,12 @@ def parse_arguments() -> argparse.Namespace:
         help="Source written to the samplesheet for every analysis",
         choices=['genome', 'metagenome'],
         default='metagenome'
+    )
+    parser.add_argument(
+        "--only-taxonomy",
+        action='store_true',
+        help="Only write <id>_taxonomy.tsv files (no GFF, FNA, FAA, samplesheet or report). "
+             "Contigs are taken from an existing <id>_viral.fna in --output-path, otherwise from the GFF"
     )
     return parser.parse_args()
 
@@ -192,6 +203,76 @@ def grep_proteins(protein_ids: set[str], fasta_file: str) -> list[SeqRecord]:
     return chosen_records
 
 
+def get_fna_contigs(fasta_file: str) -> set[str]:
+    """Return contig IDs of the FNA headers: the part of the ID before the first '|'.
+
+    Example: >ERZ12300306_1|viral_sequence-1:26299 -> ERZ12300306_1
+    """
+    with open_file(fasta_file) as handle:
+        return {line[1:].split()[0].split('|')[0] for line in handle if line.startswith('>') and line[1:].strip()}
+
+
+def write_taxonomy(contigs: set[str], taxonomy_file: str, output_file: str) -> int:
+    """Write the header and the lines of contigs from a CAT_pack contig taxonomy TSV.
+
+    The first line of the taxonomy file is treated as the header, a line matches when its
+    first column is one of contigs.
+
+    Args:
+        contigs: contig IDs to keep.
+        taxonomy_file: CAT_pack contigs taxonomy TSV (plain or gzip).
+        output_file: output TSV.
+
+    Returns:
+        Number of lines written (without header).
+    """
+    count = 0
+    with open_file(taxonomy_file) as file_in, open(output_file, 'w') as file_out:
+        for line_number, line in enumerate(file_in):
+            if line_number == 0:
+                file_out.write(line)
+                continue
+            if line.split('\t', 1)[0].strip() in contigs:
+                file_out.write(line)
+                count += 1
+    return count
+
+
+def process_taxonomy(row: dict, output_path: str, regions: Optional[list[dict]] = None) -> Optional[int]:
+    """Write {id}_taxonomy.tsv with CAT_pack taxonomy of the contigs in {id}_viral.fna.
+
+    Contigs are taken from the FNA headers if the FNA exists in output_path, otherwise from
+    the GFF records (regions, or parsed from map_gff if not given).
+
+    Returns:
+        Number of taxonomy lines written, or None if there is no taxonomy file.
+    """
+    analysis_id = row['id']
+    taxonomy_file = (row.get('cat_taxonomy') or '').strip()
+    if not taxonomy_file:
+        print(f'Warning: {analysis_id}: no cat_taxonomy given')
+        return None
+    if not check_path_exists(taxonomy_file):
+        return None
+
+    final_fna = os.path.join(output_path, f'{analysis_id}_viral.fna')
+    if os.path.exists(final_fna):
+        contigs = get_fna_contigs(final_fna)
+    else:
+        if regions is None:
+            if not check_path_exists(row['map_gff']):
+                return None
+            regions, _ = parse_gff(row['map_gff'])
+        contigs = {region['contig'] for region in regions}
+
+    final_taxonomy = os.path.join(output_path, f'{analysis_id}_taxonomy.tsv')
+    count = write_taxonomy(contigs, taxonomy_file, final_taxonomy)
+    if count != len(contigs):
+        print(f'Warning: {analysis_id}: {len(contigs)} contigs, {count} taxonomy lines found in {taxonomy_file}')
+    print(f'Taxonomy: {count} lines written to {final_taxonomy}')
+    return count
+
+
 def check_path_exists(path_str: str) -> bool:
     """Warn if a file does not exist."""
     if not os.path.exists(path_str):
@@ -207,6 +288,7 @@ def process_analysis(row: dict, output_path: str) -> Optional[dict]:
         {id}_viral.gff  — record lines, each followed by its CDS lines
         {id}_viral.fna  — nucleotide sequences (sliced to record coordinates)
         {id}_viral.faa  — protein sequences for CDS within records
+        {id}_taxonomy.tsv — CAT_pack taxonomy of the FNA contigs (if cat_taxonomy is given)
 
     Args:
         row: input TSV row with id, map_gff, cds_faa, contigs_fasta.
@@ -245,6 +327,8 @@ def process_analysis(row: dict, output_path: str) -> Optional[dict]:
     if len(faa_records) != len(protein_ids):
         print(f'Warning: {analysis_id}: {len(protein_ids)} CDS in GFF, {len(faa_records)} proteins found in {row["cds_faa"]}')
 
+    process_taxonomy(row, output_path, regions)
+
     stats_str = ', '.join(f'{vtype}: {count}' for vtype, count in stats_counts.items())
     print(f'Stats: {len(regions)} records with {stats_str}; {len(faa_records)} proteins')
     return {
@@ -263,6 +347,12 @@ def main() -> None:
 
     with open(args.input, newline='') as handle:
         rows = list(csv.DictReader(handle, delimiter='\t'))
+
+    if args.only_taxonomy:
+        for row in rows:
+            print(f"Processing analysis: {row['id']}")
+            process_taxonomy(row, args.output_path)
+        return
 
     samplesheet_path = os.path.join(args.output_path, 'samplesheet.csv')
     report_path = os.path.join(args.output_path, 'report.tsv')

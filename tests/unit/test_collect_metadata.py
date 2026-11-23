@@ -32,7 +32,7 @@ def read_gz_tsv(path):
         return {row["ID"] if "ID" in row else row["Rep_ID"]: row for row in csv.DictReader(f, delimiter="\t")}
 
 
-def run(tmp_path, monkeypatch):
+def run(tmp_path, monkeypatch, extra_args=()):
     combined = write_tsv(tmp_path / "combined.tsv", META_HEADER, [
         [mgyv, orig, desc, "metagenome", "geNomad", "marine", "100", "No", f"sha{mgyv}", "High-quality",
          "plasmid" if "plasmid" in orig else "virus"]
@@ -58,7 +58,7 @@ def run(tmp_path, monkeypatch):
         "--plasmids_cluster", plasmids_cluster, "--additional_metadata", genomes,
         "--analyses_metadata", analyses, "--genomad", genomad, "--map", rename_map,
         "--output_viruses", "viruses.tsv", "--output_plasmids", "plasmids.tsv",
-        "--output_reps", "reps.tsv", "--compress",
+        "--output_reps", "reps.tsv", "--compress", *extra_args,
     ])
     collect_metadata.main()
     return (read_gz_tsv(tmp_path / "viruses.tsv.gz"), read_gz_tsv(tmp_path / "plasmids.tsv.gz"),
@@ -96,3 +96,61 @@ def test_cluster_stats_include_analysis_members(tmp_path, monkeypatch):
     assert reps["MGYV2"]["cluster_size"] == "2"
     assert reps["MGYV2"]["Rep_genomad_lineage"] == "Viruses;B"
     assert reps["MGYV2"]["Rep_source"] == "metagenome"
+
+
+def make_ncbi_db(path):
+    """A tiny ete3-like NCBI taxonomy sqlite (tables species and merged)."""
+    import sqlite3
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE species (taxid INT PRIMARY KEY, parent INT, spname VARCHAR(50), "
+                     "common VARCHAR(50), rank VARCHAR(50), track TEXT)")
+        conn.execute("CREATE TABLE merged (taxid_old INT, taxid_new INT)")
+        conn.executemany("INSERT INTO species (taxid, spname) VALUES (?, ?)", [
+            (1, "root"), (131567, "cellular organisms"), (2, "Bacteria"), (1224, "Pseudomonadota"),
+        ])
+        conn.execute("INSERT INTO merged VALUES (999, 1224)")
+    return str(path)
+
+
+def write_contigs_taxonomy(path, rows):
+    header = ["# contig", "classification", "reason", "lineage", "lineage scores"]
+    with gzip.open(path, "wt", newline="") as f:
+        writer = csv.writer(f, delimiter="\t", lineterminator="\n")
+        for chunk in rows:  # concatenated files: header repeated per file
+            writer.writerow(header)
+            writer.writerows(chunk)
+    return str(path)
+
+
+def test_contigs_taxonomy_names_and_repeated_headers(tmp_path):
+    tax = write_contigs_taxonomy(tmp_path / "tax.tsv.gz", [
+        [["c1", "taxid assigned", "r", "1;131567;2;1224*", "1;1;1;0.9"]],
+        [["c2", "taxid assigned", "r", "Bacteria;Bacillota", "1;1"],
+         ["c3", "no taxid assigned", "r", "", ""],
+         ["c4", "taxid assigned", "r", "1;2;999;12345", "1;1;1;1"]],
+    ])
+    contigs = collect_metadata.load_contigs_taxonomy(tax, make_ncbi_db(tmp_path / "ncbi.sqlite"))
+    assert contigs == {
+        "c1": "Bacteria;Pseudomonadota",
+        "c2": "Bacteria;Bacillota",
+        "c4": "Bacteria;Pseudomonadota;12345",  # merged taxid translated, unknown kept
+    }
+
+
+def test_contigs_taxonomy_without_db_keeps_taxids(tmp_path):
+    tax = write_contigs_taxonomy(tmp_path / "tax.tsv.gz", [[["c1", "taxid assigned", "r", "1;2", "1;1"]]])
+    assert collect_metadata.load_contigs_taxonomy(tax) == {"c1": "1;2"}
+
+
+def test_contigs_taxonomy_fills_source_lineage_of_analyses(tmp_path, monkeypatch):
+    tax = write_contigs_taxonomy(tmp_path / "tax.tsv.gz", [[
+        ["ERZ2772590_19", "taxid assigned", "r", "1;131567;2", "1;1;1"],
+        ["ERZ2772590_7", "taxid assigned", "r", "1;131567;2;1224", "1;1;1;1"],
+        ["MGYG000000001_9", "taxid assigned", "r", "1;131567;2;1224", "1;1;1;1"],
+    ]])
+    db = make_ncbi_db(tmp_path / "ncbi.sqlite")
+    viruses, plasmids, _ = run(tmp_path, monkeypatch, ["--contigs_taxonomy", tax, "--ncbi_db", db])
+    assert viruses["MGYV2"]["Source_lineage"] == "Bacteria"
+    assert plasmids["MGYV4"]["Source_lineage"] == "Bacteria;Pseudomonadota"
+    assert viruses["MGYV3"]["Source_lineage"] == "missing"       # contig not in the table
+    assert viruses["MGYV1"]["Source_lineage"] == "d__Bacteria"   # genome lineage is kept

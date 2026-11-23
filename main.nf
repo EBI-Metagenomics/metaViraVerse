@@ -37,6 +37,7 @@ params {
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
     catalogues_metadata: Path
     analyses_metadata: Path?                        // metadata of MGnify analyses (ERZ...): accession, study_id, sample_id, biome_id
+    contigs_taxonomy: Path?                         // concatenated CAT_pack contig taxonomy TSVs: '# contig', 'lineage'
     outdir: String
 
     // Pre-processing

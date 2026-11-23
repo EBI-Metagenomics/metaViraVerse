@@ -33,6 +33,8 @@ include { MULTIQC                               } from '../modules/nf-core/multi
 record MetaviraverseParams {
     catalogues_metadata: Path
     analyses_metadata: Path?   // fills source study/sample of sequences named <ERZ accession>|...
+    contigs_taxonomy: Path?    // CAT_pack contig taxonomy: fills Source_lineage of sequences named <contig>|...
+    ncbi_db: Path?             // translates taxid lineages of contigs_taxonomy into names
     multiqc_config: Path?
     multiqc_logo: String?
     // title section of README.md
@@ -187,7 +189,9 @@ workflow METAVIRAVERSE {
             )
         },
         opts.catalogues_metadata,
-        opts.analyses_metadata
+        opts.analyses_metadata,
+        opts.contigs_taxonomy,
+        opts.ncbi_db
     )
 
 

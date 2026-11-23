@@ -13,6 +13,8 @@ CDS_FAA = "predicted_cds.faa.gz"
 CONTIGS_FASTA = "filtered_contigs.fasta.gz"
 STUDY_COLUMN = "study_ena_accession"
 SAMPLE_COLUMN = "sample_ena_accession"
+OUTPUT_RESULT_COLUMNS = ["id", "map_gff", "cds_faa", "contigs_fasta", "cat_taxonomy"]
+OUTPUT_METADATA_COLUMNS = ['accession','study_id', 'sample_id', 'biome_id']
 
 def find_download(paths: list[str], suffix: str) -> str | None:
     """Path (relative to results_dir) of the first download ending with suffix"""
@@ -47,9 +49,9 @@ def main() -> None:
             open('no_mobilome.tsv', 'w', newline="") as fmob, \
             open('analyses_metadata.tsv', 'w', newline="") as fmetadata:
         fmob.write('id\tresults_dir\texternal_results_dir\n')
-        fmetadata.write('\t'.join(['accession','study_id', 'sample_id', 'biome_id']) + '\n')
+        fmetadata.write('\t'.join(OUTPUT_METADATA_COLUMNS) + '\n')
         writer = csv.writer(fout, delimiter="\t", lineterminator="\n")
-        writer.writerow(["id", "map_gff", "cds_faa", "contigs_fasta"])
+        writer.writerow(OUTPUT_RESULT_COLUMNS)
         for row in csv.DictReader(fin):
             paths = [d["path"] for d in json.loads(row["downloads"] or "[]")]
             files = [find_download(paths, suffix) for suffix in (MOBILOME_GFF, CDS_FAA, CONTIGS_FASTA)]
@@ -85,7 +87,8 @@ def main() -> None:
                 for path in (cds_faa, contigs_fasta):
                     if not os.path.isfile(path):
                         print(f"WARNING: {acc}: {path} does not exist", file=sys.stderr)
-            writer.writerow([acc, map_gff.replace('full', 'clean'), cds_faa, contigs_fasta])
+            taxonomy_catpack = os.path.join(base_dir, "taxonomy", f"{acc}_contigs_taxonomy.tsv.gz")
+            writer.writerow([acc, map_gff.replace('full', 'clean'), cds_faa, contigs_fasta, taxonomy_catpack])
             study_accessions = row.get(STUDY_COLUMN, 'NA').replace('}', '').replace('{', '').split(',')
             primary_study = next((x for x in study_accessions if x.startswith("PRJ")), study_accessions[0])
             biome = args.biome if args.biome else row.get('biome_id', 'NA')

@@ -164,18 +164,20 @@ Run [`collect_data_from_analyses.py`](../scripts/collect_data_from_analyses.py) 
 
 ```commandline
 usage: collect_data_from_analyses.py [-h] -i INPUT -o OUTPUT_PATH [--biome BIOME]
-                                     [--source {genome,metagenome}]
+                                     [--source {genome,metagenome}] [--only-taxonomy]
 
 Script searches for viral records in analyses mobilome GFFs and greps corresponding nucleotide and protein sequences.
 
 options:
   -h, --help            show this help message and exit
-  -i, --input INPUT     TSV with columns id, map_gff, cds_faa, contigs_fasta
+  -i, --input INPUT     TSV with columns id, map_gff, cds_faa, contigs_fasta and optional cat_taxonomy
   -o, --output-path OUTPUT_PATH
                         Path to save results (filtered gff, fna, faa, samplesheet, report)
   --biome BIOME         Biome written to the samplesheet for every analysis
   --source {genome,metagenome}
                         Source written to the samplesheet for every analysis
+  --only-taxonomy       Only write <id>_taxonomy.tsv files (no GFF, FNA, FAA, samplesheet or report).
+                        Contigs are taken from an existing <id>_viral.fna in --output-path, otherwise from the GFF
 ```
 
 Example:
@@ -192,6 +194,11 @@ For each analysis the script:
 1. Takes every `viral_sequence`, `prophage` and `plasmid` record from the MAP GFF, and the CDS records on the same contig that lie within the record's coordinates. A prophage therefore gets only its own proteins, not every protein of the contig.
 2. Cuts the record's region out of its contig in `contigs_fasta`. Contigs are matched by the first word of the FASTA header.
 3. Takes the proteins of those CDS from `cds_faa`, matched by the first word of the FASTA header (the CDS `ID=` in the GFF).
+4. If `cat_taxonomy` is given, writes `<ERZ>_taxonomy.tsv`: the header and the lines of the CAT_pack contig taxonomy whose contig is in the FNA (the FNA header up to the first `|`). Concatenate these files and pass them to the pipeline with `--contigs_taxonomy` (together with `--ncbi_db`, to translate lineages written as taxids into names):
+
+   ```bash
+   (head -n1 -q results_analyses/*_taxonomy.tsv | head -n1; tail -q -n +2 results_analyses/*_taxonomy.tsv) > contigs_taxonomy.tsv
+   ```
 
 <details>
 <summary>Outputs description</summary>
@@ -354,6 +361,7 @@ nextflow run main.nf \
     --input samplesheet.csv \
     --catalogues_metadata genomes-all_metadata.tsv \
     --analyses_metadata analyses_metadata.tsv <if the input includes MGnify analyses (ERZ accessions) [optional]> \
+    --contigs_taxonomy contigs_taxonomy.tsv <concatenated <ERZ>_taxonomy.tsv files, fills Source_lineage of analyses sequences [optional]> \
     --rename_accession MGYV \
     --start_accession <first identifier number, e.g. 30, used when renaming into MGYV space, e.g. MGYV0000030> \
     --end_accession <last identifier number, e.g. 40, used when renaming into MGYV space, e.g. MGYV0000040> \

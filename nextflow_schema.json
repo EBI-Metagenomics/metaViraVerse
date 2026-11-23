@@ -49,6 +49,14 @@
                     "help_text": "analyses_metadata.tsv written by scripts/collect_mobilome_from_analyses.py (plain or gzip). Sequences whose original name starts with an analysis accession (e.g. ERZ2772503|viral_sequence-1:500) get Source_accession, Source_sample and Source_project from it in the final metadata tables, and Biome when the samplesheet gave none.",
                     "fa_icon": "fas fa-file-alt"
                 },
+                "contigs_taxonomy": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Concatenated CAT_pack contig taxonomy TSVs (columns '# contig' and 'lineage')",
+                    "help_text": "The <id>_taxonomy.tsv files written by scripts/collect_data_from_analyses.py, concatenated (plain or gzip; repeated header lines are skipped). Sequences whose original name starts with a contig of this table (e.g. ERZ12300306_1|viral_sequence-1:26299) get its lineage as Source_lineage in the final metadata tables, when the genome metadata gives none. Lineages of NCBI taxids are translated into names with --ncbi_db.",
+                    "fa_icon": "fas fa-file-alt"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
