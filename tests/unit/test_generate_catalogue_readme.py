@@ -132,24 +132,20 @@ def test_metadata_stats(tmp_path):
     assert v["categories"]["Source"] == {"metagenome": 1, "genome": 1, "NA": 1}
     assert v["categories"]["checkv_quality"]["Not-determined"] == 1
     assert v["numeric"]["completeness"] == {"n": 2, "min": 10.0, "max": 100.0, "median": 55.0, "mean": 55.0}
-    assert v["missing"]["completeness"] == {"NA": 1}
-    assert v["missing"]["Source_project"] == {"missing": 1}
     assert "checkv_quality" not in p["categories"] and p["numeric"] == {}
-    assert p["missing"] == {"Source_lineage": {"missing": 1, "": 1}}
 
     text = "\n".join(gcr.render_metadata_stats(st))
     assert "### Viruses" in text and "### Plasmids" in text
     assert "| geNomad | 2 | 66.7% |" in text
     assert "| `completeness` | 2 | 10.00 | 100.00 | 55.00 | 55.00 |" in text
-    assert "| `Source_lineage` | 1 | 1 | 2 | 100.0% |" in text
+    assert "Missing values per column" not in text
 
 
 def test_readme_has_metadata_stats_section(tmp_path):
     text = run(tmp_path)
     section = text.split("## Metadata statistics")[1].split("## Files")[0]
     assert "### Viruses" in section and "2 records." in section
-    assert "| `Source_project` | 1 | 0 | 1 | 50.0% |" in section
-    assert "| `Biome` | 0 | 1 | 1 | 50.0% |" in section
+    assert "Missing values per column" not in section
 
 
 def test_summary_has_duplicate_and_qc_counts(tmp_path):

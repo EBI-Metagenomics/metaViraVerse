@@ -30,7 +30,7 @@ With --results-dir the script finds, when present:
   * viruses/viruses-all-metadata.tsv.gz, plasmids/plasmids-all-metadata.tsv.gz
     (number of studies and biomes, and the "Metadata statistics" section:
     counts by Source_of_prediction, Source and checkv_quality, completeness and
-    contamination ranges, and the number of missing values per column)
+    contamination ranges)
 Each of these can also be given explicitly (--catalogue-json, --versions-yml,
 --params, --metadata). Without a params file the pipeline defaults are assumed.
 The pipeline version is taken from, in order: --pipeline-version, the versions
@@ -249,10 +249,9 @@ def metadata_table_stats(path):
                  (missing values counted under their marker)
       numeric    {column: {"n", "min", "max", "median", "mean"}} for NUMERIC_COLUMNS present
                  (values that are missing or not numbers are left out; None when no value)
-      missing    {column: {marker: count}} for every column with at least one missing value
     """
     rows = 0
-    categories, numbers, missing = {}, {}, {}
+    categories, numbers = {}, {}
     with open_text(path) as f:
         reader = csv.DictReader(f, delimiter="\t")
         columns = reader.fieldnames or []
@@ -262,12 +261,9 @@ def metadata_table_stats(path):
             if row.get(columns[0]) == columns[0]:  # repeated header
                 continue
             rows += 1
-            for col in columns:
+            for col in list(categories) + list(numbers):
                 value = (row.get(col) or "").strip()
                 marker = missing_marker(value)
-                if marker is not None:
-                    counts = missing.setdefault(col, {})
-                    counts[marker] = counts.get(marker, 0) + 1
                 if col in categories:
                     key = value if marker is None else (marker or "empty")
                     categories[col][key] = categories[col].get(key, 0) + 1
@@ -285,7 +281,7 @@ def metadata_table_stats(path):
             "median": statistics.median(values) if values else None,
             "mean": statistics.fmean(values) if values else None,
         }
-    return {"rows": rows, "categories": categories, "numeric": numeric, "missing": missing}
+    return {"rows": rows, "categories": categories, "numeric": numeric}
 
 
 def collect_metadata_stats(paths):
@@ -320,19 +316,6 @@ def render_metadata_stats(metadata_stats):
                     f"| {v['median']:.2f} | {v['mean']:.2f} |"
                 )
             lines.append("")
-        if st["missing"]:
-            markers = [m for m in MISSING_MARKERS if any(m in c for c in st["missing"].values())]
-            header = " | ".join(f"`{m}`" if m else "empty" for m in markers)
-            lines += ["Missing values per column:", "",
-                      f"| Column | {header} | Total | % |",
-                      "| --- |" + " ---: |" * (len(markers) + 2)]
-            for col, counts in st["missing"].items():
-                n = sum(counts.values())
-                cells = " | ".join(f"{counts.get(m, 0):,}" for m in markers)
-                lines.append(f"| `{col}` | {cells} | {n:,} | {pct_of(n, total)} |")
-            lines.append("")
-        else:
-            lines += ["No missing values.", ""]
     return lines
 
 
