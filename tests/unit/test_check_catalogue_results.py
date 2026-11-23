@@ -39,9 +39,14 @@ def make_results(tmp_path, params=None):
 
     write(res / "pipeline_info" / "params_2026-01-01_00-00-00.json", json.dumps(params))
     write(res / "catalogue.json", json.dumps({
+        "total_sequences": 6, "duplicate_sequences": 1, "deduplicated_sequences": 5,
+        "rrna_excluded_sequences": 1, "not_determined_excluded_sequences": 0, "qc_excluded_sequences": 1,
+        "unique_sequences": 4,
         "viral_sequences": 2, "prophages": 1, "viral_clusters": 2, "plasmids": 1,
-        "unique_sequences": 4, "qc_excluded_sequences": 0,
     }))
+    write(res / "additional_data" / "rename_mapfile.tsv",
+          "original\ttemporary\tshort\tbiome\ttype\tdefinition\n"
+          + "".join(f"s{i}\tMGYV{i}\ts{i}\tsoil\tmetagenome\tvirus\n" for i in range(1, 7)))
     write(res / "viruses" / "viruses-all-metadata.tsv.gz", tsv(VIRUS_HEADER, [
         ["MGYV1", "a|viral_sequence", "MGYV1", "Caudoviricetes", "100"],
         ["MGYV2", "b|prophage", "MGYV1", "missing", "200"],
@@ -52,9 +57,11 @@ def make_results(tmp_path, params=None):
     write(res / "plasmids" / "plasmids-all-metadata.tsv.gz",
           tsv(["ID", "Biome"], [["MGYV4", "marine"]]), gz=True)
     header = ["sequence_id", "biome"]
+    # every unique sequence (5), and the excluded ones: 1 duplicate (not in the table above) and 1 rRNA
     write(res / "additional_data" / "catalogue_filtered_metadata.tsv",
-          tsv(header, [["MGYV1", "m"], ["MGYV2", "m"], ["MGYV3", "m"], ["MGYV4", "m"]]))
-    write(res / "additional_data" / "catalogue_excluded_records_metadata.tsv", tsv(header, []))
+          tsv(header, [["MGYV1", "m"], ["MGYV2", "m"], ["MGYV3", "m"], ["MGYV4", "m"], ["MGYV5", "m"]]))
+    write(res / "additional_data" / "catalogue_excluded_records_metadata.tsv",
+          tsv(["filter_reason"] + header, [["rrna", "MGYV5", "m"], ["duplicate", "MGYV6", "m"]]))
     write_sequence_set(res, "viruses/viral_sequences", ["MGYV1", "MGYV3"])
     write_sequence_set(res, "viruses/prophages", ["MGYV2"])
     write_sequence_set(res, "plasmids/plasmids", ["MGYV4"])
@@ -103,6 +110,25 @@ def test_missing_and_empty_files_fail(tmp_path):
     assert "empty" in rows["viruses/prophages.fna.gz"]["note"]
 
 
+def test_execution_reports_one_per_run(tmp_path):
+    res = make_results(tmp_path)
+    pattern = "pipeline_info/execution_report*.html"
+    for f in (res / "pipeline_info").glob("execution_report*.html"):
+        f.unlink()
+
+    def status():
+        rows = {r["pattern"]: r for r in ccr.check_files(str(res), ccr.DEFAULT_PARAMS, params_known=True)}
+        return rows[pattern]["status"], rows[pattern]["note"]
+
+    assert status() == (ccr.FAIL, "missing")
+    write(res / "pipeline_info" / "execution_report_2026-01-01_00-00-00.html", "")
+    assert status()[0] == ccr.FAIL  # only an empty report
+    write(res / "pipeline_info" / "execution_report_2026-01-02_00-00-00.html", "<html></html>")
+    write(res / "pipeline_info" / "execution_report_2026-01-03_00-00-00.html", "<html></html>")
+    st, note = status()
+    assert st == ccr.OK and note.startswith("3 file(s)") and "1 empty" in note
+
+
 def test_skipped_steps_are_not_expected(tmp_path):
     res = make_results(tmp_path, {"skip_iphop": True})
     rows = {r["pattern"]: r for r in ccr.check_files(str(res), {**ccr.DEFAULT_PARAMS, "skip_iphop": True},
@@ -120,6 +146,32 @@ def test_missing_values_report(tmp_path):
     # row counts against catalogue.json
     assert "| ✅ | `viruses/viruses-all-metadata.tsv.gz` | `viral_sequences` + `prophages` | 3 | 3 |" in text
     assert "| ✅ | `additional_data/catalogue_excluded_records_metadata.tsv` |" in text
+
+
+def test_sequence_counts_add_up(tmp_path):
+    res = make_results(tmp_path)
+    code, text = run(tmp_path, res)
+    section = text.split("## 3.")[1].split("## 4.")[0]
+    assert "| ✅ | `additional_data/rename_mapfile.tsv` | `total_sequences` | 6 | 6 |" in section
+    assert ("| ✅ | `additional_data/catalogue_excluded_records_metadata.tsv` | "
+            "`duplicate_sequences` + `qc_excluded_sequences` | 2 | 2 |") in section
+    assert ("| ✅ | `additional_data/catalogue_excluded_records_metadata.tsv` filter_reason `rrna` | "
+            "`rrna_excluded_sequences` | 1 | 1 |") in section
+    assert "| ✅ | `additional_data/catalogue_filtered_metadata.tsv` | `deduplicated_sequences` | 5 | 5 |" in section
+    assert "| ✅ | `total_sequences` | 6 | `duplicate_sequences` + `deduplicated_sequences` | 6 |" in section
+    assert "| ✅ | `unique_sequences` | 4 | `viral_sequences` + `prophages` + `plasmids` | 4 |" in section
+
+    # one input sequence too many in the rename map
+    with open(res / "additional_data" / "rename_mapfile.tsv", "a") as f:
+        f.write("s7\tMGYV7\ts7\tsoil\tmetagenome\tvirus\n")
+    stats = json.loads((res / "catalogue.json").read_text())
+    stats["qc_excluded_sequences"] = 5
+    write(res / "catalogue.json", json.dumps(stats))
+    code, text = run(tmp_path, res)
+    section = text.split("## 3.")[1].split("## 4.")[0]
+    assert code == 1
+    assert "| ❌ | `additional_data/rename_mapfile.tsv` | `total_sequences` | 6 | 7 |" in section
+    assert "| ❌ | `qc_excluded_sequences` | 5 | `rrna_excluded_sequences` + `not_determined_excluded_sequences` | 1 |" in section
 
 
 def test_row_count_mismatch_fails(tmp_path):

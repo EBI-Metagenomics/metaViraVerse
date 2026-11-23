@@ -13,6 +13,7 @@ process COLLECT_CATALOGUE_STATS {
     input:
     record(
         json: Path,
+        map_file: Path,             // rename map: one row per input sequence
         metadata: Path,
         clusters_viruses: Path,
         clusters_plasmids: Path,
@@ -35,6 +36,7 @@ process COLLECT_CATALOGUE_STATS {
     """
     collect_catalogue_stats.py \\
       --initial-json ${json} \\
+      --map-file ${map_file} \\
       --metadata ${metadata} \\
       --clusters-viruses ${clusters_viruses} \\
       --clusters-plasmids ${clusters_plasmids} \\

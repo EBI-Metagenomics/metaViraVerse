@@ -393,6 +393,19 @@ class TestMainIntegration(unittest.TestCase):
         # -> 11 unique sequences + 1 header
         self.assertEqual(len(rows), 12)
 
+    def test_stats_json_has_exclusion_counts(self):
+        self._run()
+        import json
+        with open(self.prefix + "_stats.json") as f:
+            stats = json.load(f)
+        # 13 input records: 2 duplicates -> 11 unique; barley1 excluded by rRNA -> 10 kept
+        self.assertEqual(stats["number_of_unique_sequences"], 11)
+        self.assertEqual(stats["number_of_duplicate_excluded"], 2)
+        self.assertEqual(stats["number_of_rrna_excluded"], 1)
+        self.assertEqual(stats["number_of_not_determined_excluded"], 0)
+        kept = sum(stats[k] for k in ("number_of_viral_sequences", "number_of_prophages", "number_of_plasmids"))
+        self.assertEqual(kept, 10)
+
     def test_combined_filtered_fna_excludes_rrna_and_duplicates(self):
         self._run()
         with open(self.prefix + "_filtered.fna") as f:

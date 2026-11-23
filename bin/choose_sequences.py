@@ -243,6 +243,10 @@ def read_quality(quality_files: list[str]) -> dict[str, dict[str, str]]:
     return quality
 
 
+# Values of the filter_reason column of the excluded table
+EXCLUSION_REASONS = ('duplicate', 'rrna', 'not_determined')
+
+
 def filter_reason(entry: dict) -> str | None:
     """Return the exclusion reason for an entry, or None if it passes.
 
@@ -444,7 +448,9 @@ def write_final_files(
     ``number_of_viral_sequence_proteins``, and the equivalent
     ``number_of_prophages``/``number_of_prophage_proteins`` and
     ``number_of_plasmids``/``number_of_plasmid_proteins`` pairs -- see
-    CATEGORY_NOUN). Each count is tallied while writing the corresponding
+    CATEGORY_NOUN), plus ``number_of_unique_sequences`` (after deduplication, before
+    QC) and one ``number_of_<reason>_excluded`` key per EXCLUSION_REASONS
+    (``duplicate``, ``rrna``, ``not_determined``). Each count is tallied while writing the corresponding
     category FNA/FAA record above, not by re-reading those files afterward.
 
     Args:
@@ -470,6 +476,7 @@ def write_final_files(
     gff_found = 0
     category_seq_counts = {c: 0 for c in CATEGORIES}
     category_protein_counts = {c: 0 for c in CATEGORIES}
+    excluded_counts = {reason: 0 for reason in EXCLUSION_REASONS}
 
     category_fna_handles = {c: open(f"{output_prefix}_{c}_filtered.fna", 'w') for c in CATEGORIES}
     category_gff_handles = {c: open(f"{output_prefix}_{c}_filtered.gff", 'w') for c in CATEGORIES}
@@ -564,12 +571,14 @@ def write_final_files(
             else:
                 out_excl.write(f"{reason}\t{tsv_row}")
                 records_excluded += 1
+                excluded_counts[reason] += 1
 
         # Every record that lost a hash collision is reported too, so a duplicate
         # never just silently disappears from the audit trail.
         for entry in duplicates:
             out_excl.write(f"duplicate\t{format_tsv_row(entry)}")
             records_excluded += 1
+            excluded_counts['duplicate'] += 1
 
     for fh in (*category_fna_handles.values(), *category_gff_handles.values(), *category_faa_handles.values()):
         fh.close()
@@ -579,6 +588,9 @@ def write_final_files(
         noun = CATEGORY_NOUN[c]
         stats[f"number_of_{noun}s"] = category_seq_counts[c]
         stats[f"number_of_{noun}_proteins"] = category_protein_counts[c]
+    stats["number_of_unique_sequences"] = records_total
+    for reason, count in excluded_counts.items():
+        stats[f"number_of_{reason}_excluded"] = count
     stats_json = f"{output_prefix}_stats.json"
     with open(stats_json, 'w') as f:
         json.dump(stats, f, indent=2)

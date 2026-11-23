@@ -1,7 +1,11 @@
 {
-  "total_sequences": 120,
-  "unique_sequences": 100,
+  "total_sequences": 130,
+  "duplicate_sequences": 10,
+  "deduplicated_sequences": 120,
+  "rrna_excluded_sequences": 15,
+  "not_determined_excluded_sequences": 5,
   "qc_excluded_sequences": 20,
+  "unique_sequences": 100,
   "viral_sequences": 60,
   "plasmids": 30,
   "prophages": 10,

@@ -261,5 +261,43 @@ class TestReadGffTaxonomy(unittest.TestCase):
             os.unlink(gff_file)
 
 
+class TestSankeyLinksTable(unittest.TestCase):
+    """The table written with --output-table has the same links and counts as the plot."""
+
+    LEVELS = ['realm', 'kingdom', 'phylum']
+
+    def test_links_match_plot(self):
+        data = [(3, ['Duplodnaviria', 'Heunggongvirae']), (2, ['Duplodnaviria', 'Other_k']), (1, ['Riboviria'])]
+        rows = plot_taxonomy_sankey.sankey_links_table(data, self.LEVELS)
+        nodes, links = plot_taxonomy_sankey.build_sankey_data(data)
+        self.assertEqual(sorted(r['sequences'] for r in rows), sorted(l['value'] for l in links))
+        self.assertEqual(rows[0], {
+            'source_level': 'root', 'source': 'All sequences', 'target_level': 'realm',
+            'target': 'Duplodnaviria', 'target_lineage': 'Duplodnaviria', 'sequences': 5,
+        })
+        kingdom = [r for r in rows if r['target_level'] == 'kingdom']
+        self.assertEqual([r['target'] for r in kingdom], ['Heunggongvirae', 'Other_k'])
+        self.assertEqual(kingdom[0]['target_lineage'], 'Duplodnaviria;Heunggongvirae')
+        self.assertEqual(kingdom[0]['source'], 'Duplodnaviria')
+
+    def test_other_node(self):
+        data = plot_taxonomy_sankey.apply_top_hits([(3, ['A', 'x']), (1, ['B', 'y'])], 1)
+        rows = plot_taxonomy_sankey.sankey_links_table(data, self.LEVELS)
+        other = [r for r in rows if r['target'] == plot_taxonomy_sankey.OTHER_LABEL]
+        self.assertEqual(len(other), 1)
+        self.assertEqual(other[0]['sequences'], 1)
+        self.assertEqual(other[0]['target_lineage'], plot_taxonomy_sankey.OTHER_LABEL)
+
+    def test_write_table(self):
+        rows = plot_taxonomy_sankey.sankey_links_table([(2, ['A'])], self.LEVELS)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'x_sankey.tsv')
+            plot_taxonomy_sankey.write_links_table(rows, out)
+            with open(out) as f:
+                lines = f.read().splitlines()
+        self.assertEqual(lines[0], 'source_level\tsource\ttarget_level\ttarget\ttarget_lineage\tsequences')
+        self.assertEqual(lines[1], 'root\tAll sequences\trealm\tA\tA\t2')
+
+
 if __name__ == '__main__':
     unittest.main()

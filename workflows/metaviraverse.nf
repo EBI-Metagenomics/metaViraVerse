@@ -70,6 +70,8 @@ record CatalogueSummary {
     plasmids_metadata: Path
     viruses_source_sankey: Path?    // taxonomy of the source genomes
     plasmids_source_sankey: Path?
+    viruses_source_sankey_table: Path?    // links the source Sankey plots are drawn from
+    plasmids_source_sankey_table: Path?
     readme: Path?                   // README.md of the catalogue
 }
 
@@ -151,6 +153,7 @@ workflow METAVIRAVERSE {
         catalogues.map { r ->
             record(
                 json: r.preprocessed.stats,
+                map_file: r.preprocessed.map_file,
                 metadata: r.preprocessed.filtered_metadata,
                 clusters_viruses: r.viral.reps_list,
                 clusters_plasmids: r.plasmid.reps_list,
@@ -212,9 +215,9 @@ workflow METAVIRAVERSE {
             )
         }
         .combine(viruses_sankey)
-        .map { r, v -> r + record(viruses_source_sankey: v.sankey_html) }
+        .map { r, v -> r + record(viruses_source_sankey: v.sankey_html, viruses_source_sankey_table: v.sankey_tsv) }
         .combine(plasmids_sankey)
-        .map { r, p -> r + record(plasmids_source_sankey: p.sankey_html) }
+        .map { r, p -> r + record(plasmids_source_sankey: p.sankey_html, plasmids_source_sankey_table: p.sankey_tsv) }
 
     //
     // Collate and save software versions

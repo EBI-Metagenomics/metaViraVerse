@@ -15,7 +15,8 @@ process SANKEY_PLOT {
     output:
     record(
         meta: meta,
-        sankey_html: file("*sankey.html", optional: true)
+        sankey_html: file("*sankey.html", optional: true),
+        sankey_tsv: file("*sankey.tsv", optional: true)     // the links the plot is drawn from
     )
 
     topic:
@@ -30,12 +31,14 @@ process SANKEY_PLOT {
     plot_taxonomy_sankey.py \\
         ${args} \\
         --input ${table} \\
-        --output ${prefix}_sankey.html
+        --output ${prefix}_sankey.html \\
+        --output-table ${prefix}_sankey.tsv
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     echo stub > ${prefix}_sankey.html
+    printf "source_level\\tsource\\ttarget_level\\ttarget\\ttarget_lineage\\tsequences\\n" > ${prefix}_sankey.tsv
     """
 }

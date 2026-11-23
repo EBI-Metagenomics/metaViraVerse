@@ -210,6 +210,65 @@ def build_sankey_data(taxonomy_list_with_counts):
     return node_labels, links
 
 
+def sankey_links_table(taxonomy_list_with_counts, levels):
+    """
+    Rows of the table behind the Sankey plot: one row per link (flow between two nodes),
+    with the same nodes and counts as build_sankey_data.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples, as passed to build_sankey_data
+        levels: Ordered list of taxonomic level names
+
+    Returns:
+        List of dicts with source_level, source, target_level, target, target_lineage and
+        sequences (number of sequences flowing through the link), ordered by level, then by
+        decreasing count
+    """
+    edge_counts = defaultdict(int)
+    edge_info = {}
+    for count, taxonomy_path in taxonomy_list_with_counts:
+        prev_key, prev_label, prev_level = "root", "All sequences", "root"
+        for depth, taxon in enumerate(taxonomy_path):
+            level = levels[depth] if depth < len(levels) else f"level_{depth + 1}"
+            if taxon == OTHER_KEY:
+                key, label, lineage = OTHER_KEY, OTHER_LABEL, OTHER_LABEL
+            else:
+                key = "|".join(taxonomy_path[:depth + 1])
+                label, lineage = taxon, ";".join(taxonomy_path[:depth + 1])
+            edge_counts[(prev_key, key)] += count
+            edge_info[(prev_key, key)] = (depth, prev_level, prev_label, level, label, lineage)
+            prev_key, prev_label, prev_level = key, label, level
+
+    rows = []
+    for edge, count in edge_counts.items():
+        depth, source_level, source, target_level, target, lineage = edge_info[edge]
+        rows.append({
+            "source_level": source_level,
+            "source": source,
+            "target_level": target_level,
+            "target": target,
+            "target_lineage": lineage,
+            "sequences": count,
+            "_depth": depth,
+        })
+    rows.sort(key=lambda r: (r["_depth"], -r["sequences"], r["target_lineage"]))
+    for row in rows:
+        del row["_depth"]
+    return rows
+
+
+TABLE_COLUMNS = ["source_level", "source", "target_level", "target", "target_lineage", "sequences"]
+
+
+def write_links_table(rows, output_file):
+    """Write the rows of sankey_links_table as a TSV with a header."""
+    with open(output_file, "w") as f:
+        f.write("\t".join(TABLE_COLUMNS) + "\n")
+        for row in rows:
+            f.write("\t".join(str(row[c]) for c in TABLE_COLUMNS) + "\n")
+    print(f"Sankey table saved to: {output_file}")
+
+
 def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey Diagram"):
     """
     Create Sankey diagram using plotly.
@@ -413,6 +472,14 @@ TSV/CSV Format Support (--input-format tsv or csv):
     )
 
     parser.add_argument(
+        '--output-table',
+        type=Path,
+        default=None,
+        help='Also write the table the plot is drawn from (one row per link: source and target node, '
+             'their levels, the target lineage and the number of sequences), as TSV'
+    )
+
+    parser.add_argument(
         '--input-format',
         choices=['tsv', 'csv', 'gff'],
         default='tsv',
@@ -524,6 +591,9 @@ TSV/CSV Format Support (--input-format tsv or csv):
     # Create plot
     print("Creating Sankey plot...")
     create_sankey_plotly(nodes, links, args.output, args.title)
+
+    if args.output_table is not None:
+        write_links_table(sankey_links_table(taxonomy_paths_with_counts, args.levels), args.output_table)
 
     print("Done!")
 

@@ -37,6 +37,20 @@ output:
           description: HTML file containing Sankey diagram
           pattern: "*sankey.html"
           ontologies: []
+  sankey_tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "*sankey.tsv":
+          type: file
+          description: |
+            Table the Sankey diagram is drawn from: one row per link, with the source and
+            target node, their taxonomic levels, the target lineage and the number of sequences
+          pattern: "*sankey.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
   versions:
     - versions.yml:
         type: file

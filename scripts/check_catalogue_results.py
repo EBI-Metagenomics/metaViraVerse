@@ -14,7 +14,10 @@ Checks
    share of values that are empty, `missing`, `NA` or `not-provided`. Columns
    that docs/output.md documents as never missing, but have missing values,
    are reported as failures; fully empty columns are reported as warnings.
-3. Row counts of the metadata tables against catalogue.json.
+3. Row counts against catalogue.json: the metadata tables, the rename map
+   (total_sequences), the excluded table per filter_reason (duplicate_sequences,
+   rrna_excluded_sequences, not_determined_excluded_sequences), and whether the
+   sequence counts in catalogue.json add up.
 4. Sequence identifiers and protein counts, for every set of sequence files
    (all viral sequences, prophages, plasmids, and the cluster representatives):
    * FASTA (nucleotide) headers and GFF column 1 are renamed catalogue
@@ -185,8 +188,25 @@ ROW_COUNT_CHECKS = [
     ("viruses/viruses-all-metadata.tsv.gz", ("viral_sequences", "prophages")),
     ("viruses/viruses-cluster-stats.tsv.gz", ("viral_clusters",)),
     ("plasmids/plasmids-all-metadata.tsv.gz", ("plasmids",)),
-    ("additional_data/catalogue_filtered_metadata.tsv", ("unique_sequences",)),
-    ("additional_data/catalogue_excluded_records_metadata.tsv", ("qc_excluded_sequences",)),
+    # every unique sequence, after deduplication and before QC
+    ("additional_data/catalogue_filtered_metadata.tsv", ("deduplicated_sequences",)),
+    ("additional_data/catalogue_excluded_records_metadata.tsv", ("duplicate_sequences", "qc_excluded_sequences")),
+]
+
+RENAME_MAP = "additional_data/rename_mapfile.tsv"
+EXCLUDED_TABLE = "additional_data/catalogue_excluded_records_metadata.tsv"
+# filter_reason value -> catalogue.json key with its number of rows
+EXCLUSION_KEYS = {
+    "duplicate": "duplicate_sequences",
+    "rrna": "rrna_excluded_sequences",
+    "not_determined": "not_determined_excluded_sequences",
+}
+# catalogue.json sequence counts that must add up: (key, keys summing to it)
+STATS_SUMS = [
+    ("total_sequences", ("duplicate_sequences", "deduplicated_sequences")),
+    ("deduplicated_sequences", ("qc_excluded_sequences", "unique_sequences")),
+    ("qc_excluded_sequences", ("rrna_excluded_sequences", "not_determined_excluded_sequences")),
+    ("unique_sequences", ("viral_sequences", "prophages", "plasmids")),
 ]
 
 
@@ -260,6 +280,11 @@ def parse_documented_columns(docs_path):
 # --------------------------------------------------------------------------- #
 # Checks
 # --------------------------------------------------------------------------- #
+# Patterns that may match one file per run (resumed runs write a new report with a timestamp,
+# and a run that was stopped leaves an empty one): one non-empty file is enough.
+ONE_PER_RUN = {"pipeline_info/execution_report*.html"}
+
+
 def check_files(results_dir, params, params_known):
     """Return a list of dicts: group, pattern, status, found, note."""
     rows = []
@@ -272,7 +297,10 @@ def check_files(results_dir, params, params_known):
             empty = [h for h in hits if is_empty(h)]
             size = sum(os.path.getsize(h) for h in hits)
             note = f"{len(hits)} file(s), {human_size(size)}"
-            if empty:
+            if empty and set(patterns) <= ONE_PER_RUN and len(empty) < len(hits):
+                status = OK
+                note += f"; {len(empty)} empty (runs that did not finish)"
+            elif empty:
                 status = FAIL
                 note += "; empty: " + ", ".join(os.path.relpath(h, results_dir) for h in empty)
             elif not expected:
@@ -338,26 +366,61 @@ def check_metadata(results_dir, documented):
     return reports
 
 
+def count_rows_by_first_column(path, header_first):
+    """{value of column 1: number of rows}, skipping header lines (column 1 == header_first)."""
+    counts = Counter()
+    with open_text(path) as f:
+        for line in f:
+            first = line.split("\t")[0].strip()
+            if first and first != header_first:
+                counts[first] += 1
+    return counts
+
+
+def count_check(label, keys, stats, actual):
+    """One row of section 3: actual count against the sum of catalogue.json keys."""
+    if not all(isinstance(stats.get(k), int) for k in keys):
+        return dict(path=label, keys=keys, expected=None, actual=actual, status=WARN,
+                    note="key(s) not in catalogue.json")
+    expected = sum(stats[k] for k in keys)
+    return dict(path=label, keys=keys, expected=expected, actual=actual,
+                status=OK if expected == actual else FAIL, note="")
+
+
 def check_row_counts(results_dir, metadata_reports):
+    """Return (stats, checks, sum_checks): row counts against catalogue.json, and its own sums."""
     path = os.path.join(results_dir, "catalogue.json")
     if not os.path.isfile(path):
-        return None, []
+        return None, [], []
     with open(path) as f:
         stats = json.load(f)
     rows_by_path = {r["path"]: r["rows"] for r in metadata_reports if r.get("present")}
-    checks = []
-    for rel_path, keys in ROW_COUNT_CHECKS:
-        if rel_path not in rows_by_path:
+    checks = [count_check(rel_path, keys, stats, rows_by_path[rel_path])
+              for rel_path, keys in ROW_COUNT_CHECKS if rel_path in rows_by_path]
+
+    map_path = os.path.join(results_dir, RENAME_MAP)
+    if os.path.isfile(map_path):
+        n = sum(count_rows_by_first_column(map_path, "original").values())
+        checks.append(count_check(RENAME_MAP, ("total_sequences",), stats, n))
+
+    excluded_path = os.path.join(results_dir, EXCLUDED_TABLE)
+    if os.path.isfile(excluded_path):
+        reasons = count_rows_by_first_column(excluded_path, "filter_reason")
+        for reason, key in EXCLUSION_KEYS.items():
+            checks.append(count_check(f"{EXCLUDED_TABLE}` filter_reason `{reason}", (key,), stats, reasons[reason]))
+        for reason in sorted(set(reasons) - set(EXCLUSION_KEYS)):
+            checks.append(dict(path=f"{EXCLUDED_TABLE}` filter_reason `{reason}", keys=(), expected=None,
+                               actual=reasons[reason], status=WARN, note="unknown filter_reason"))
+
+    sum_checks = []
+    for key, parts in STATS_SUMS:
+        if not all(isinstance(stats.get(k), int) for k in (key, *parts)):
+            sum_checks.append(dict(key=key, parts=parts, value=stats.get(key), total=None, status=WARN))
             continue
-        if not all(isinstance(stats.get(k), int) for k in keys):
-            checks.append(dict(path=rel_path, keys=keys, expected=None, actual=rows_by_path[rel_path],
-                               status=WARN, note="key(s) not in catalogue.json"))
-            continue
-        expected = sum(stats[k] for k in keys)
-        actual = rows_by_path[rel_path]
-        checks.append(dict(path=rel_path, keys=keys, expected=expected, actual=actual,
-                           status=OK if expected == actual else FAIL, note=""))
-    return stats, checks
+        total = sum(stats[k] for k in parts)
+        sum_checks.append(dict(key=key, parts=parts, value=stats[key], total=total,
+                               status=OK if total == stats[key] else FAIL))
+    return stats, checks, sum_checks
 
 
 # Sets of sequence files to check identifiers in: (name, fna patterns, gff, faa,
@@ -554,13 +617,14 @@ def pct(n, total):
     return f"{100 * n / total:.1f}%" if total else "-"
 
 
-def render_report(results_dir, params, params_path, file_rows, metadata_reports, stats, count_checks,
+def render_report(results_dir, params, params_path, file_rows, metadata_reports, stats, count_checks, sum_checks,
                   id_checks=(), prefix="MGYV"):
     all_statuses = (
         [r["status"] for r in file_rows]
         + [c["status"] for m in metadata_reports if m.get("present") for c in m["columns"]]
         + [FAIL for m in metadata_reports if not m.get("present")]
         + [c["status"] for c in count_checks]
+        + [c["status"] for c in sum_checks]
         + [r["status"] for r in id_checks]
     )
     n_fail, n_warn = all_statuses.count(FAIL), all_statuses.count(WARN)
@@ -650,6 +714,15 @@ def render_report(results_dir, params, params_path, file_rows, metadata_reports,
             out.append(f"| {ICON[c['status']]} | `{c['path']}` | {' + '.join(f'`{k}`' for k in c['keys'])} "
                        f"| {exp} | {c['actual']:,} |")
         out.append("")
+    if sum_checks:
+        out += ["Sequence counts in `catalogue.json` must add up:", "",
+                "| Status | Key | Value | Sum of | Sum |", "| --- | --- | ---: | --- | ---: |"]
+        for c in sum_checks:
+            value = f"{c['value']:,}" if isinstance(c["value"], int) else "missing"
+            total = f"{c['total']:,}" if c["total"] is not None else "key(s) missing"
+            out.append(f"| {ICON[c['status']]} | `{c['key']}` | {value} | "
+                       f"{' + '.join(f'`{k}`' for k in c['parts'])} | {total} |")
+        out.append("")
 
     # 4. Identifiers and proteins
     def n(value):
@@ -713,11 +786,11 @@ def main(argv=None):
     params, params_path = load_params(args.results_dir, args.params)
     file_rows = check_files(args.results_dir, params, params_known=params_path is not None)
     metadata_reports = check_metadata(args.results_dir, parse_documented_columns(args.output_docs))
-    stats, count_checks = check_row_counts(args.results_dir, metadata_reports)
+    stats, count_checks, sum_checks = check_row_counts(args.results_dir, metadata_reports)
     prefix = accession_prefix(args.accession_prefix, params_path)
     id_checks = check_sequence_ids(args.results_dir, prefix, stats)
     report, overall = render_report(args.results_dir, params, params_path, file_rows,
-                                    metadata_reports, stats, count_checks, id_checks, prefix)
+                                    metadata_reports, stats, count_checks, sum_checks, id_checks, prefix)
 
     with open(args.output, "w") as f:
         f.write(report)

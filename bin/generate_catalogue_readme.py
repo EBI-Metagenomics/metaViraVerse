@@ -28,7 +28,9 @@ With --results-dir the script finds, when present:
   * pipeline_info/*software_mqc_versions.yml  (pipeline and tool versions)
   * pipeline_info/params_*.json               (run options; latest file)
   * viruses/viruses-all-metadata.tsv.gz, plasmids/plasmids-all-metadata.tsv.gz
-    (number of studies and list of biomes the sequences came from)
+    (number of studies and biomes, and the "Metadata statistics" section:
+    counts by Source_of_prediction, Source and checkv_quality, completeness and
+    contamination ranges, and the number of missing values per column)
 Each of these can also be given explicitly (--catalogue-json, --versions-yml,
 --params, --metadata). Without a params file the pipeline defaults are assumed.
 The pipeline version is taken from, in order: --pipeline-version, the versions
@@ -45,6 +47,7 @@ import gzip
 import json
 import os
 import re
+import statistics
 import sys
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,6 +56,15 @@ PIPELINE_NAME = "EBI-Metagenomics/metaviraverse"
 PIPELINE_URL = "https://github.com/EBI-Metagenomics/metaViraVerse"
 
 MISSING_VALUES = {"", "missing", "na", "not-provided", "none"}
+
+# Markers of a missing value as written in the metadata tables (see docs/output.md#metadata);
+# "" is reported as "empty".
+MISSING_MARKERS = ["missing", "NA", "not-provided", ""]
+
+# Columns summarised as counts per value, and as min/max/median/mean, in "Metadata statistics".
+# Columns absent from a table (e.g. CheckV columns for plasmids) are skipped.
+CATEGORY_COLUMNS = ["Source_of_prediction", "Source", "checkv_quality"]
+NUMERIC_COLUMNS = ["completeness", "contamination"]
 
 # Defaults of the params that decide which tools run (main.nf params block).
 DEFAULT_PARAMS = {
@@ -213,6 +225,117 @@ def collect_metadata_values(paths, columns):
     return {col: sorted(vals) for col, vals in values.items()}
 
 
+def missing_marker(value):
+    """Return the missing marker of a value ('missing', 'NA', 'not-provided', ''), or None."""
+    value = (value or "").strip()
+    for marker in MISSING_MARKERS:
+        if value.lower() == marker.lower():
+            return marker
+    return None
+
+
+def table_label(path):
+    """viruses/viruses-all-metadata.tsv.gz -> 'viruses'."""
+    name = os.path.basename(path)
+    return name.split("-all-metadata")[0] if "-all-metadata" in name else name.split(".")[0]
+
+
+def metadata_table_stats(path):
+    """Read one metadata table and summarise it.
+
+    Returns a dict with:
+      rows       number of records
+      categories {column: {value: count}} for CATEGORY_COLUMNS present in the table
+                 (missing values counted under their marker)
+      numeric    {column: {"n", "min", "max", "median", "mean"}} for NUMERIC_COLUMNS present
+                 (values that are missing or not numbers are left out; None when no value)
+      missing    {column: {marker: count}} for every column with at least one missing value
+    """
+    rows = 0
+    categories, numbers, missing = {}, {}, {}
+    with open_text(path) as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        columns = reader.fieldnames or []
+        categories = {c: {} for c in CATEGORY_COLUMNS if c in columns}
+        numbers = {c: [] for c in NUMERIC_COLUMNS if c in columns}
+        for row in reader:
+            if row.get(columns[0]) == columns[0]:  # repeated header
+                continue
+            rows += 1
+            for col in columns:
+                value = (row.get(col) or "").strip()
+                marker = missing_marker(value)
+                if marker is not None:
+                    counts = missing.setdefault(col, {})
+                    counts[marker] = counts.get(marker, 0) + 1
+                if col in categories:
+                    key = value if marker is None else (marker or "empty")
+                    categories[col][key] = categories[col].get(key, 0) + 1
+                if col in numbers and marker is None:
+                    try:
+                        numbers[col].append(float(value))
+                    except ValueError:
+                        pass
+    numeric = {}
+    for col, values in numbers.items():
+        numeric[col] = {
+            "n": len(values),
+            "min": min(values) if values else None,
+            "max": max(values) if values else None,
+            "median": statistics.median(values) if values else None,
+            "mean": statistics.fmean(values) if values else None,
+        }
+    return {"rows": rows, "categories": categories, "numeric": numeric, "missing": missing}
+
+
+def collect_metadata_stats(paths):
+    """{table label: metadata_table_stats(path)} for each metadata table."""
+    return {table_label(path): metadata_table_stats(path) for path in paths}
+
+
+def pct_of(count, total):
+    return f"{100 * count / total:.1f}%" if total else "-"
+
+
+def render_metadata_stats(metadata_stats):
+    """Markdown lines of the "Metadata statistics" section."""
+    lines = []
+    for label, st in metadata_stats.items():
+        total = st["rows"]
+        lines += [f"### {label.capitalize()}", "", f"{total:,} records.", ""]
+        for col, counts in st["categories"].items():
+            if not counts:
+                continue
+            lines += [f"`{col}`:", "", "| Value | Records | % |", "| --- | ---: | ---: |"]
+            for value, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+                lines.append(f"| {value} | {count:,} | {pct_of(count, total)} |")
+            lines.append("")
+        numeric = {c: v for c, v in st["numeric"].items() if v["n"]}
+        if numeric:
+            lines += ["| Column | With a value | Min | Max | Median | Mean |",
+                      "| --- | ---: | ---: | ---: | ---: | ---: |"]
+            for col, v in numeric.items():
+                lines.append(
+                    f"| `{col}` | {v['n']:,} | {v['min']:.2f} | {v['max']:.2f} "
+                    f"| {v['median']:.2f} | {v['mean']:.2f} |"
+                )
+            lines.append("")
+        if st["missing"]:
+            markers = [m for m in MISSING_MARKERS if any(m in c for c in st["missing"].values())]
+            header = " | ".join(f"`{m}`" if m else "empty" for m in markers)
+            lines += ["Missing values per column:", "",
+                      f"| Column | {header} | Total | % |",
+                      "| --- |" + " ---: |" * (len(markers) + 2)]
+            for col, counts in st["missing"].items():
+                n = sum(counts.values())
+                cells = " | ".join(f"{counts.get(m, 0):,}" for m in markers)
+                lines.append(f"| `{col}` | {cells} | {n:,} | {pct_of(n, total)} |")
+            lines.append("")
+        else:
+            lines += ["No missing values.", ""]
+    return lines
+
+
 # --------------------------------------------------------------------------- #
 # What the pipeline ran
 # --------------------------------------------------------------------------- #
@@ -316,7 +439,23 @@ def summary_bullets(stats):
         return all(isinstance(stats.get(k), (int, float)) for k in keys)
 
     bullets = []
-    if has("total_sequences", "unique_sequences", "qc_excluded_sequences"):
+    if has("total_sequences", "duplicate_sequences", "deduplicated_sequences", "qc_excluded_sequences",
+           "unique_sequences"):
+        qc = []
+        if has("rrna_excluded_sequences") and stats["rrna_excluded_sequences"]:
+            qc.append(f"{fmt(stats['rrna_excluded_sequences'])} carrying rRNA genes")
+        if has("not_determined_excluded_sequences") and stats["not_determined_excluded_sequences"]:
+            qc.append(f"{fmt(stats['not_determined_excluded_sequences'])} with an undetermined CheckV quality "
+                      "and no viral genes")
+        bullets.append(
+            f"A total of {fmt(stats['total_sequences'])} viral sequences, prophages and plasmids were collected. "
+            f"{fmt(stats['duplicate_sequences'])} identical copies were merged, giving "
+            f"{fmt(stats['deduplicated_sequences'])} unique sequences; "
+            f"{fmt(stats['qc_excluded_sequences'])} of them were removed at the quality-control step"
+            + (f" ({join_and(qc)})" if qc else "")
+            + f", leaving {fmt(stats['unique_sequences'])} sequences in the catalogue."
+        )
+    elif has("total_sequences", "unique_sequences", "qc_excluded_sequences"):  # catalogue.json of older runs
         bullets.append(
             f"A total of {fmt(stats['total_sequences'])} viral sequences, prophages and plasmids were collected; "
             f"{fmt(stats['qc_excluded_sequences'])} were removed at the quality-control step, "
@@ -364,14 +503,16 @@ def methods_paragraphs(p, stats, tool_versions, has_source_catalogues):
         criteria.append("carrying rRNA genes")
     if not p["skip_checkv"]:
         criteria.append("with an undetermined CheckV quality, no viral genes and a high k-mer frequency")
-    exclusion = (f" Viral sequences and prophages {', or '.join(criteria)} were excluded "
+    exclusion = (f" Viral sequences and prophages {', or '.join(criteria)} were then excluded "
                  f"({num(stats, 'qc_excluded_sequences')} sequences in total)." if criteria else "")
+    merged = (f" ({fmt(stats['duplicate_sequences'])} copies)"
+              if isinstance(stats.get("duplicate_sequences"), int) else "")
     paragraphs.append(
         "**Collection and quality control.** Viral sequences, prophages and plasmids predicted in "
         f"{sources} (by [VIRify](https://github.com/EBI-Metagenomics/emg-viral-pipeline) and the "
         "[mobilome-annotation-pipeline](https://github.com/EBI-Metagenomics/mobilome-annotation-pipeline)) "
         f"were collected.{third_party} Every sequence received a catalogue identifier.{qc_sentence} "
-        "Identical sequences were merged by SHA-256 checksum, keeping one record per unique sequence and "
+        f"Identical sequences were merged by SHA-256 checksum{merged}, keeping one record per unique sequence and "
         f"merging the biomes of all copies.{exclusion}"
     )
 
@@ -440,7 +581,7 @@ def join_and(items):
     return ", ".join(items[:-1]) + " and " + items[-1]
 
 
-def render_readme(args, version, stats, metadata_values, params, tool_versions):
+def render_readme(args, version, stats, metadata_values, params, tool_versions, metadata_stats=None):
     title_parts = [args.catalogue_name or "MGnify viral and plasmid catalogue"]
     if args.catalogue_version:
         title_parts.append(args.catalogue_version)
@@ -495,6 +636,18 @@ def render_readme(args, version, stats, metadata_values, params, tool_versions):
         "",
     ]
 
+    # Metadata statistics
+    if metadata_stats:
+        lines += [
+            "## Metadata statistics",
+            "",
+            "Counts are over all records of the metadata tables. `missing`, `NA` and `not-provided` mark "
+            f"values that are not available; what they mean for each column is described in "
+            f"{docs_url(version, 'output.md')}#metadata",
+            "",
+        ]
+        lines += render_metadata_stats(metadata_stats)
+
     # Files
     lines += [
         "## Files",
@@ -533,7 +686,8 @@ def parse_args(argv=None):
     parser.add_argument("--pipeline-version",
                         help="Pipeline version to report (overrides --versions-yml).")
     parser.add_argument("--metadata", nargs="*", default=None,
-                        help="*-all-metadata.tsv(.gz) tables to count studies and list biomes from "
+                        help="*-all-metadata.tsv(.gz) tables to count studies, list biomes and summarise "
+                             "in the Metadata statistics section "
                              "(default: found in --results-dir; pass with no value to disable).")
     parser.add_argument("--catalogue-name",
                         help="Catalogue name for the title, e.g. 'Marine sediment viral and plasmid catalogue'.")
@@ -606,7 +760,8 @@ def main(argv=None):
     metadata_values = (
         collect_metadata_values(args.metadata, ["Source_project", "Biome"]) if args.metadata else {}
     )
-    readme = render_readme(args, version, stats, metadata_values, params, tool_versions)
+    metadata_stats = collect_metadata_stats(args.metadata) if args.metadata else {}
+    readme = render_readme(args, version, stats, metadata_values, params, tool_versions, metadata_stats)
     with open(args.output, "w") as f:
         f.write(readme)
     print(f"README written to {args.output}", file=sys.stderr)

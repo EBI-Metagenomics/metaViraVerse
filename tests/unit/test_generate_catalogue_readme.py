@@ -12,8 +12,12 @@ REPO_DOCS = os.path.join(os.path.dirname(__file__), "..", "..", "docs")
 
 STATS = {
     "total_sequences": 22572,
+    "duplicate_sequences": 1000,
+    "deduplicated_sequences": 21572,
+    "rrna_excluded_sequences": 1376,
+    "not_determined_excluded_sequences": 0,
+    "qc_excluded_sequences": 1376,
     "unique_sequences": 20196,
-    "qc_excluded_sequences": 2380,
     "viral_sequences": 5426,
     "plasmids": 13528,
     "prophages": 1242,
@@ -56,7 +60,7 @@ def test_readme_contains_version_stats_and_methods(tmp_path):
     assert "2 biome(s): marine, soil" in text
     assert "## How the catalogue was built" in text
     # output descriptions are not copied, only linked
-    assert "## Viruses" not in text and "Columns of" not in text
+    assert "\n## Viruses" not in text and "Columns of" not in text
     assert "https://github.com/EBI-Metagenomics/metaViraVerse/blob/v1.2.0/docs/output.md" in text
     for page in ("methods.md", "databases.md", "citations.md", "faq.md"):
         assert f"https://github.com/EBI-Metagenomics/metaViraVerse/blob/v1.2.0/docs/{page}" in text
@@ -106,3 +110,56 @@ def test_release_tag_ignores_commit_suffix():
     assert gcr.release_tag("v1.0.0dev-gabc1234") is None
     assert gcr.docs_url("v1.2.0-g0123456789abcdef") == (
         "https://github.com/EBI-Metagenomics/metaViraVerse/blob/v1.2.0/docs/output.md")
+
+
+def test_metadata_stats(tmp_path):
+    viruses = tmp_path / "viruses-all-metadata.tsv.gz"
+    with gzip.open(viruses, "wt") as f:
+        f.write(
+            "ID\tSource_of_prediction\tSource\tcheckv_quality\tcompleteness\tcontamination\tSource_project\n"
+            "MGYV1\tgeNomad\tmetagenome\tComplete\t100.0\t0.0\tERP1\n"
+            "MGYV2\tgeNomad\tgenome\tLow-quality\t10.0\t5.0\tmissing\n"
+            "ID\tSource_of_prediction\tSource\tcheckv_quality\tcompleteness\tcontamination\tSource_project\n"
+            "MGYV3\tthird_party\tNA\tNot-determined\tNA\tNA\tERP2\n"
+        )
+    plasmids = tmp_path / "plasmids-all-metadata.tsv"
+    plasmids.write_text("ID\tSource\tSource_lineage\nMGYV4\tgenome\tmissing\nMGYV5\tmetagenome\t\n")
+
+    st = gcr.collect_metadata_stats([str(viruses), str(plasmids)])
+    v, p = st["viruses"], st["plasmids"]
+    assert v["rows"] == 3
+    assert v["categories"]["Source_of_prediction"] == {"geNomad": 2, "third_party": 1}
+    assert v["categories"]["Source"] == {"metagenome": 1, "genome": 1, "NA": 1}
+    assert v["categories"]["checkv_quality"]["Not-determined"] == 1
+    assert v["numeric"]["completeness"] == {"n": 2, "min": 10.0, "max": 100.0, "median": 55.0, "mean": 55.0}
+    assert v["missing"]["completeness"] == {"NA": 1}
+    assert v["missing"]["Source_project"] == {"missing": 1}
+    assert "checkv_quality" not in p["categories"] and p["numeric"] == {}
+    assert p["missing"] == {"Source_lineage": {"missing": 1, "": 1}}
+
+    text = "\n".join(gcr.render_metadata_stats(st))
+    assert "### Viruses" in text and "### Plasmids" in text
+    assert "| geNomad | 2 | 66.7% |" in text
+    assert "| `completeness` | 2 | 10.00 | 100.00 | 55.00 | 55.00 |" in text
+    assert "| `Source_lineage` | 1 | 1 | 2 | 100.0% |" in text
+
+
+def test_readme_has_metadata_stats_section(tmp_path):
+    text = run(tmp_path)
+    section = text.split("## Metadata statistics")[1].split("## Files")[0]
+    assert "### Viruses" in section and "2 records." in section
+    assert "| `Source_project` | 1 | 0 | 1 | 50.0% |" in section
+    assert "| `Biome` | 0 | 1 | 1 | 50.0% |" in section
+
+
+def test_summary_has_duplicate_and_qc_counts(tmp_path):
+    text = run(tmp_path)
+    assert ("A total of 22,572 viral sequences, prophages and plasmids were collected. 1,000 identical copies "
+            "were merged, giving 21,572 unique sequences; 1,376 of them were removed at the quality-control step "
+            "(1,376 carrying rRNA genes), leaving 20,196 sequences in the catalogue.") in text
+    assert "checksum (1,000 copies)" in text
+
+
+def test_summary_of_older_catalogue_json():
+    old = {"total_sequences": 10, "unique_sequences": 8, "qc_excluded_sequences": 2}
+    assert gcr.summary_bullets(old)[0].startswith("A total of 10 ")
