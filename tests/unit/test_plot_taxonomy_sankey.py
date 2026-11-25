@@ -229,6 +229,26 @@ class TestReadTsvTaxonomy(unittest.TestCase):
         finally:
             os.unlink(tsv_file)
 
+    def test_read_ignores_taxid_lineages(self):
+        """Lineages written as taxids (untranslated CAT_pack lineages) are ignored"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:
+            f.write("ID\tSource_lineage\n")
+            f.write("s1\tBacteria;Bacillota\n")
+            f.write("s2\t1;131567;2;1224*\n")
+            f.write("s3\t2157\n")
+            tsv_file = f.name
+
+        try:
+            result = plot_taxonomy_sankey.read_tsv_taxonomy(tsv_file, 'Source_lineage')
+            self.assertEqual(result, [(1, 'Bacteria;Bacillota')])
+        finally:
+            os.unlink(tsv_file)
+
+    def test_is_taxid_lineage(self):
+        self.assertTrue(plot_taxonomy_sankey.is_taxid_lineage("1;131567;2;1224*"))
+        self.assertFalse(plot_taxonomy_sankey.is_taxid_lineage("Bacteria;1224"))
+        self.assertFalse(plot_taxonomy_sankey.is_taxid_lineage(""))
+
     def test_read_krona_format_with_empty_taxonomy(self):
         """Test reading Krona format with empty taxonomy"""
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:

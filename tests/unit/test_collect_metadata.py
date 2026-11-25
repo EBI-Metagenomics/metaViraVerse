@@ -127,14 +127,26 @@ def test_contigs_taxonomy_names_and_repeated_headers(tmp_path):
         [["c1", "taxid assigned", "r", "1;131567;2;1224*", "1;1;1;0.9"]],
         [["c2", "taxid assigned", "r", "Bacteria;Bacillota", "1;1"],
          ["c3", "no taxid assigned", "r", "", ""],
-         ["c4", "taxid assigned", "r", "1;2;999;12345", "1;1;1;1"]],
+         ["c4", "taxid assigned", "r", "1;2;999", "1;1;1"],
+         ["c5", "taxid assigned", "r", "1;2;999;12345*", "1;1;1;1"],
+         ["c6", "taxid assigned", "r", "1;131567", "1;1"]],
     ])
     contigs = collect_metadata.load_contigs_taxonomy(tax, make_ncbi_db(tmp_path / "ncbi.sqlite"))
     assert contigs == {
         "c1": "Bacteria;Pseudomonadota",
         "c2": "Bacteria;Bacillota",
-        "c4": "Bacteria;Pseudomonadota;12345",  # merged taxid translated, unknown kept
+        "c4": "Bacteria;Pseudomonadota",   # merged taxid translated
+        "c5": "1;2;999;12345*",            # a taxid not in the db: original lineage kept
+        "c6": "1;131567",                  # nothing informative left: original lineage kept
     }
+
+
+def test_contigs_taxonomy_unreadable_db_keeps_taxids(tmp_path):
+    tax = write_contigs_taxonomy(tmp_path / "tax.tsv.gz", [[["c1", "taxid assigned", "r", "1;2", "1;1"]]])
+    assert collect_metadata.load_contigs_taxonomy(tax, str(tmp_path / "absent.sqlite")) == {"c1": "1;2"}
+    broken = tmp_path / "broken.sqlite"
+    broken.write_text("not a database")
+    assert collect_metadata.load_contigs_taxonomy(tax, str(broken)) == {"c1": "1;2"}
 
 
 def test_contigs_taxonomy_without_db_keeps_taxids(tmp_path):

@@ -84,6 +84,13 @@ def open_text(path):
     return open(path, 'r')
 
 
+def is_taxid_lineage(taxonomy_str):
+    """True for a lineage written as NCBI taxids ('1;131567;2;1224*'), e.g. a CAT_pack lineage that
+    could not be translated into names. Such lineages are ignored (CAT_pack marks taxa with '*')."""
+    parts = [p.strip().rstrip("*") for p in unquote(taxonomy_str or "").split(";") if p.strip()]
+    return bool(parts) and all(p.isdigit() for p in parts)
+
+
 OTHER_LABEL = "Other"
 OTHER_KEY = "__other__"
 
@@ -380,6 +387,7 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t',
             # Standard TSV format with header
             print(f"Detected standard {'CSV' if delimiter == ',' else 'TSV'} format with header")
             reader = csv.DictReader(f, delimiter=delimiter)
+            skipped_taxids = 0
 
             required = [taxonomy_column] + ([id_column, rep_column] if reps_only else [])
             for column in required:
@@ -392,8 +400,12 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t',
                 if reps_only and row.get(id_column) != row.get(rep_column):
                     continue
                 tax = row.get(taxonomy_column, '')
-                if tax and tax != 'NA':
+                if is_taxid_lineage(tax):
+                    skipped_taxids += 1
+                elif tax and tax != 'NA':
                     taxonomy_data.append((1, tax))
+            if skipped_taxids:
+                print(f"Ignored {skipped_taxids} lineages written as taxids")
 
     return taxonomy_data
 
@@ -427,7 +439,7 @@ def read_gff_taxonomy(gff_file):
                     attrs[key.strip().lower()] = val.strip()
 
             tax = attrs.get('taxonomy', '')
-            if tax and tax != 'NA':
+            if tax and tax != 'NA' and not is_taxid_lineage(tax):
                 taxonomy_data.append((1, tax))
 
     return taxonomy_data

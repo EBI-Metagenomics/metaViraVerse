@@ -31,6 +31,13 @@ STANDARD_LEVELS_FORWARD = [
 RANK_ORDER_REVERSED = ["Realm", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
 
 
+def is_taxid_lineage(taxonomy_str):
+    """True for a lineage written as NCBI taxids ('1;131567;2;1224*'), e.g. a CAT_pack lineage that
+    could not be translated into names. Such lineages are ignored (CAT_pack marks taxa with '*')."""
+    parts = [p.strip().rstrip("*") for p in unquote(taxonomy_str or "").split(";") if p.strip()]
+    return bool(parts) and all(p.isdigit() for p in parts)
+
+
 # ── Forward (GFF-style) taxonomy ──────────────────────────────────────────────
 
 def parse_taxonomy_forward(taxonomy_str, standard_levels=None):
@@ -262,6 +269,7 @@ def main():
         columns = [c.strip() for c in args.columns.split(",")]
 
     paths = []
+    skipped_taxids = 0
     seq_tax = {}  # seq_id -> ";".join(path), built only when --meta is given
     with open(args.input) as f:
         reader = csv.DictReader(f, delimiter=args.sep)
@@ -277,6 +285,9 @@ def main():
             tax = row[args.taxonomy_col]
             if not tax or tax == "NA":
                 continue
+            if is_taxid_lineage(tax):
+                skipped_taxids += 1
+                continue
             path = parse_fn(tax)
             if path:
                 paths.append(tuple(path))
@@ -285,6 +296,8 @@ def main():
                     if seq_id:
                         seq_tax[seq_id] = ";".join(path)
 
+    if skipped_taxids:
+        print(f"Ignored {skipped_taxids} lineages written as taxids", file=sys.stderr)
     if not paths:
         print("Warning: no taxonomy paths found — output will be empty.", file=sys.stderr)
 

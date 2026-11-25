@@ -184,8 +184,10 @@ def load_contigs_taxonomy(path, ncbi_db=None):
 
     Columns '# contig' and 'lineage'; repeated header lines and empty lineages are skipped.
     Lineages made of taxids are translated into names with the NCBI taxonomy db
-    ('1;131567;2;1224' -> 'Bacteria;Pseudomonadota'), dropping root and cellular organisms;
-    a taxid absent from the db stays a number. Without ncbi_db they are kept as taxids.
+    ('1;131567;2;1224' -> 'Bacteria;Pseudomonadota'), dropping root and cellular organisms.
+    A lineage that cannot be translated is kept as it is in the file (taxids included): without
+    ncbi_db, when the db cannot be read, when one of its taxids is absent from the db, or when
+    nothing but root and cellular organisms is left. Only contigs without a lineage are missing.
     """
     contigs = {}
     with _open_text(path) as fh:
@@ -216,22 +218,28 @@ def load_contigs_taxonomy(path, ncbi_db=None):
         print(f"WARNING: {len(numeric)} lineages in {path} are taxids and no NCBI db was given; kept as taxids",
               file=sys.stderr)
         return contigs
-    if not os.path.isfile(ncbi_db):
-        sys.exit(f"Error: NCBI db {ncbi_db} does not exist")
-    names = load_taxid_names(ncbi_db, (t for taxids in numeric.values() for t in taxids))
-    unknown = set()
+    try:
+        if not os.path.isfile(ncbi_db):
+            raise FileNotFoundError(f"{ncbi_db} does not exist")
+        names = load_taxid_names(ncbi_db, (t for taxids in numeric.values() for t in taxids))
+    except (OSError, sqlite3.Error) as err:
+        print(f"WARNING: cannot read the NCBI db ({err}); {len(numeric)} lineages kept as taxids",
+              file=sys.stderr)
+        return contigs
+
+    unknown, kept = set(), 0
     for contig, taxids in numeric.items():
-        translated = []
-        for taxid in taxids:
-            if taxid in UNINFORMATIVE_TAXIDS:
-                continue
-            if taxid not in names:
-                unknown.add(taxid)
-            translated.append(names.get(taxid, taxid))
-        contigs[contig] = ";".join(translated) or MISSING
-    if unknown:
-        print(f"WARNING: {len(unknown)} taxids not found in {ncbi_db}, kept as numbers: "
-              f"{', '.join(sorted(unknown)[:10])}{' ...' if len(unknown) > 10 else ''}", file=sys.stderr)
+        missing_taxids = [t for t in taxids if t not in names and t not in UNINFORMATIVE_TAXIDS]
+        translated = [names[t] for t in taxids if t not in UNINFORMATIVE_TAXIDS and t in names]
+        if missing_taxids or not translated:
+            unknown.update(missing_taxids)
+            kept += 1    # the original lineage stays
+            continue
+        contigs[contig] = ";".join(translated)
+    if kept:
+        print(f"WARNING: {kept} lineages could not be translated with {ncbi_db} and were kept as taxids"
+              + (f"; taxids not in the db: {', '.join(sorted(unknown)[:10])}{' ...' if len(unknown) > 10 else ''}"
+                 if unknown else ""), file=sys.stderr)
     return contigs
 
 
