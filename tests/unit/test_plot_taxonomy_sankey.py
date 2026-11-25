@@ -199,6 +199,36 @@ class TestReadTsvTaxonomy(unittest.TestCase):
         finally:
             os.unlink(tsv_file)
 
+    def test_read_reps_only(self):
+        """Only rows whose ID equals Cluster_rep are kept with reps_only"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:
+            f.write("ID\tCluster_rep\tSource_lineage\n")
+            f.write("s1\ts1\tBacteria;Bacillota\n")
+            f.write("s2\ts1\tBacteria;Bacillota\n")
+            f.write("s3\ts3\tBacteria;Pseudomonadota\n")
+            tsv_file = f.name
+
+        try:
+            all_rows = plot_taxonomy_sankey.read_tsv_taxonomy(tsv_file, 'Source_lineage')
+            self.assertEqual(len(all_rows), 3)
+            reps = plot_taxonomy_sankey.read_tsv_taxonomy(tsv_file, 'Source_lineage', reps_only=True)
+            self.assertEqual([t for _, t in reps], ['Bacteria;Bacillota', 'Bacteria;Pseudomonadota'])
+        finally:
+            os.unlink(tsv_file)
+
+    def test_read_reps_only_missing_column(self):
+        """reps_only fails when the representative column is absent"""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:
+            f.write("ID\tSource_lineage\n")
+            f.write("s1\tBacteria\n")
+            tsv_file = f.name
+
+        try:
+            with self.assertRaises(SystemExit):
+                plot_taxonomy_sankey.read_tsv_taxonomy(tsv_file, 'Source_lineage', reps_only=True)
+        finally:
+            os.unlink(tsv_file)
+
     def test_read_krona_format_with_empty_taxonomy(self):
         """Test reading Krona format with empty taxonomy"""
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:

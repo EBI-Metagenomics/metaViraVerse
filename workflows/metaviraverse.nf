@@ -20,8 +20,8 @@ include { THIRD_PARTY_DATA                      } from '../subworkflows/local/th
 include { COLLECT_CATALOGUE_STATS               } from '../modules/local/collect_catalogue_stats'
 include { COLLECT_METADATA                      } from '../modules/local/collect_metadata'
 include { GENERATE_README                       } from '../modules/local/generate_readme'
-include { SANKEY_PLOT as SANKEY_PLASMIDS_HOST   } from '../modules/local/sankey_plot/main'
-include { SANKEY_PLOT as SANKEY_VIRUSES_HOST    } from '../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_PLASMIDS_REPS_HOST } from '../modules/local/sankey_plot/main'
+include { SANKEY_PLOT as SANKEY_VIRUSES_REPS_HOST  } from '../modules/local/sankey_plot/main'
 
 include { MULTIQC                               } from '../modules/nf-core/multiqc'
 /*
@@ -195,13 +195,13 @@ workflow METAVIRAVERSE {
     )
 
 
-    // Plot Sankey for hosts
-    plasmids_sankey = SANKEY_PLASMIDS_HOST (
+    // Sankey of the source genomes' taxonomy, cluster representatives only
+    plasmids_sankey = SANKEY_PLASMIDS_REPS_HOST (
         final_metadata.map { r -> record(meta: r.plasmid_meta, table: r.plasmids_final_metadata) }
     )
 
-    // Plot Sankey for hosts
-    viruses_sankey = SANKEY_VIRUSES_HOST (
+    // Sankey of the source genomes' taxonomy, cluster representatives only
+    viruses_sankey = SANKEY_VIRUSES_REPS_HOST (
         final_metadata.map { r -> record(meta: r.viral_meta, table: r.viruses_final_metadata) }
     )
 

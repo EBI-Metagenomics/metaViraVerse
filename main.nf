@@ -506,10 +506,10 @@ output {
             r.viruses_metadata >> "viruses/"
             r.viruses_cluster_stats >> "viruses/"
             r.plasmids_metadata >> "plasmids/"
-            r.viruses_source_sankey >> "${r.viral_meta.id}/"
-            r.plasmids_source_sankey >> "${r.plasmid_meta.id}/"
-            r.viruses_source_sankey_table >> "${r.viral_meta.id}/"
-            r.plasmids_source_sankey_table >> "${r.plasmid_meta.id}/"
+            r.viruses_source_sankey >> "${r.viral_meta.id}/cluster_representatives/"
+            r.plasmids_source_sankey >> "${r.plasmid_meta.id}/cluster_representatives/"
+            r.viruses_source_sankey_table >> "${r.viral_meta.id}/cluster_representatives/"
+            r.plasmids_source_sankey_table >> "${r.plasmid_meta.id}/cluster_representatives/"
             r.readme >> "README.md"
         }
     }

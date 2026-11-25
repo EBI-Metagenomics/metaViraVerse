@@ -309,7 +309,8 @@ def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey
     print(f"Sankey plot saved to: {output_file}")
 
 
-def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
+def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t',
+                      reps_only=False, id_column='ID', rep_column='Cluster_rep'):
     """
     Read taxonomy data from TSV (or CSV) file.
 
@@ -321,6 +322,10 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
         tsv_file: Path to TSV/CSV file
         taxonomy_column: Name of the taxonomy column (for standard TSV/CSV)
         delimiter: Field separator: '\t' for TSV, ',' for CSV
+        reps_only: Keep only cluster representatives: rows where id_column equals rep_column
+            (standard TSV/CSV only; ignored for Krona format)
+        id_column: Name of the sequence ID column (for reps_only)
+        rep_column: Name of the cluster representative column (for reps_only)
 
     Returns:
         List of (count, taxonomy_string) tuples
@@ -376,12 +381,16 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
             print(f"Detected standard {'CSV' if delimiter == ',' else 'TSV'} format with header")
             reader = csv.DictReader(f, delimiter=delimiter)
 
-            if taxonomy_column not in reader.fieldnames:
-                print(f"Error: Column '{taxonomy_column}' not found in input file.", file=sys.stderr)
-                print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
-                sys.exit(1)
+            required = [taxonomy_column] + ([id_column, rep_column] if reps_only else [])
+            for column in required:
+                if column not in reader.fieldnames:
+                    print(f"Error: Column '{column}' not found in input file.", file=sys.stderr)
+                    print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
+                    sys.exit(1)
 
             for row in reader:
+                if reps_only and row.get(id_column) != row.get(rep_column):
+                    continue
                 tax = row.get(taxonomy_column, '')
                 if tax and tax != 'NA':
                     taxonomy_data.append((1, tax))
@@ -513,6 +522,25 @@ TSV/CSV Format Support (--input-format tsv or csv):
     )
 
     parser.add_argument(
+        '--reps-only',
+        action='store_true',
+        help='Plot cluster representatives only: keep the rows where the --id-column value equals '
+             'the --rep-column value (TSV/CSV with header only)'
+    )
+
+    parser.add_argument(
+        '--id-column',
+        default='ID',
+        help='Name of the sequence ID column, used with --reps-only (default: ID)'
+    )
+
+    parser.add_argument(
+        '--rep-column',
+        default='Cluster_rep',
+        help='Name of the cluster representative column, used with --reps-only (default: Cluster_rep)'
+    )
+
+    parser.add_argument(
         '--title',
         default='Viral Taxonomy Sankey Diagram',
         help='Plot title'
@@ -543,9 +571,12 @@ TSV/CSV Format Support (--input-format tsv or csv):
     # Read taxonomy data
     print(f"Reading taxonomy data from {args.input}...")
     if args.input_format == 'tsv':
-        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column)
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, reps_only=args.reps_only,
+                                          id_column=args.id_column, rep_column=args.rep_column)
     elif args.input_format == 'csv':
-        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',')
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',',
+                                          reps_only=args.reps_only, id_column=args.id_column,
+                                          rep_column=args.rep_column)
     else:
         taxonomy_data = read_gff_taxonomy(args.input)
 

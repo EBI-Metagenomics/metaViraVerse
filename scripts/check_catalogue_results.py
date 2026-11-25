@@ -103,8 +103,8 @@ EXPECTED_FILES = [
     ("Summary", "viruses/viruses-all-metadata.tsv.gz", None),
     ("Summary", "viruses/viruses-cluster-stats.tsv.gz", None),
     ("Summary", "plasmids/plasmids-all-metadata.tsv.gz", None),
-    ("Summary", "viruses/viruses_source_sankey.html", None),
-    ("Summary", "plasmids/plasmids_source_sankey.html", None),
+    ("Summary", "viruses/cluster_representatives/viruses_reps_source_sankey.html", None),
+    ("Summary", "plasmids/cluster_representatives/plasmids_reps_source_sankey.html", None),
     # Additional data
     ("Additional data", "additional_data/rename_mapfile.tsv", None),
     ("Additional data", "additional_data/catalogue_filtered_metadata.tsv", None),

@@ -123,12 +123,12 @@ Viral sequences and prophages predicted upstream (for example by [VIRify](https:
 - `viruses/`
   - `prophages.fna.gz`, `prophages.faa.gz`, `prophages.gff.gz`: nucleotide sequences, proteins and GFF annotation of all prophages.
   - `viral_sequences.fna.gz`, `viral_sequences.faa.gz`, `viral_sequences.gff.gz`: nucleotide sequences, proteins and GFF annotation of all viral sequences.
-  - `viruses_source_sankey.html`, `viruses_source_sankey.tsv`: Sankey plot of the taxonomy of the source genomes (MAGs) the viruses were found in (class level, 20 most frequent taxa per level), and the table it is drawn from.
   - `viruses-all-metadata.tsv.gz`: one row per **input** viral sequence or prophage (before clustering), combining source, quality and taxonomy information.
   - `viruses-cluster-stats.tsv.gz`: one row per viral **cluster representative**, with per-cluster statistics (cluster size, mean gene and viral-gene counts, biomes and source types in the cluster, completeness and contamination ranges).
   - `clustering/`: only produced by the alternative clustering methods: the CheckV pairwise ANI and ANI clusters tables (`--cluster_vclust false`), or the [vjdb-clustering](https://github.com/maltesie/vjdb-clustering) membership table `vjdb1_merged_reps.csv` (`--viral_clustering vjdb`; one row per sequence with its cluster representative in `cluster_rep`).
   - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust) at 95% ANI and 85% coverage (or with vjdb-clustering, see `--viral_clustering`).
     - `viruses_reps.fasta.gz`, `viruses_reps.faa.gz`: nucleotide and protein sequences of one representative per viral cluster.
+    - `viruses_reps_source_sankey.html`, `viruses_reps_source_sankey.tsv`: Sankey plot of the taxonomy of the source genomes (MAGs) the cluster representatives were found in (one sequence per cluster; class level, 20 most frequent taxa per level), and the table it is drawn from.
     - `viruses_reps_annotated.gff.gz`: GFF of the representatives, enriched with lifestyle (BACPHLIP), HMMER (e.g. PVOG, TIGRFAM) and AMR annotations.
     - `functional_annotation/`
       - `amr/`
@@ -166,9 +166,9 @@ Viral sequences and prophages are pooled and clustered, and one representative p
 - `plasmids/`
   - `plasmids-all-metadata.tsv.gz`: one row per **input** plasmid sequence (before clustering).
   - `plasmids.fna.gz`, `plasmids.faa.gz`, `plasmids.gff.gz`: nucleotide sequences, proteins and GFF annotation of all plasmids (before clustering).
-  - `plasmids_source_sankey.html`, `plasmids_source_sankey.tsv`: Sankey plot of the taxonomy of the source genomes (MAGs) the plasmids were found in (class level, 20 most frequent taxa per level), and the table it is drawn from.
   - `cluster_representatives/`: results for the cluster representatives. Sequences are clustered with [vclust](https://github.com/refresh-bio/vclust): pairs with at least 70% ANI and 50% coverage are clustered with the Leiden algorithm at gANI 0.35.
     - `plasmids_reps.fasta.gz`, `plasmids_reps.faa.gz`, `plasmids_reps.gff.gz` (with `.fai`/`.gzi`/`.tbi` indices): nucleotide sequences, proteins and GFF of one representative per plasmid cluster.
+    - `plasmids_reps_source_sankey.html`, `plasmids_reps_source_sankey.tsv`: Sankey plot of the taxonomy of the source genomes (MAGs) the cluster representatives were found in (one sequence per cluster; class level, 20 most frequent taxa per level), and the table it is drawn from.
     - `plasmids_annotated.gff.gz`: GFF of the representatives, enriched with AMR, MOB-suite and plaSquid annotations.
     - `functional_annotation/`
       - `mobility_stats_final.json`: summary counts combining plaSquid evidence (proteins with RIP, MOB and Inc hits) and MOB-suite predicted mobility (conjugative, mobilizable, non-mobilizable).
