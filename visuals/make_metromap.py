@@ -11,7 +11,7 @@ nf-core brand guidelines: https://fonts.google.com/specimen/Maven+Pro
 
 Render the PNG with a headless browser, e.g.:
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \\
-        --screenshot=visuals/metaviraverse_metromap.png --window-size=4385,1240 \\
+        --screenshot=visuals/metaviraverse_metromap.png --window-size=2880,1580 \\
         --hide-scrollbars visuals/metaviraverse_metromap.svg
 
 Layout
@@ -21,13 +21,18 @@ through pre-processing (the trunk); third-party input joins them at renaming aft
 its own preparation. At separation viral sequences and prophages become one line
 (viral_sequences and prophages); after deduplication it takes the upper row and
 plasmids the lower row; all lines meet again for the catalogue summary.
+
+The map is folded into a U around the title and legend: stages 1-4 run left to right
+along the top, the lines turn down on the right, and stages 5-7 run right to left along
+the bottom (plasmids above viruses there, as the lines do not cross in the turn).
+Positions in stages 5-7 are given along the unfolded line and mirrored with fold().
 """
 
 import argparse
 import base64
 from pathlib import Path
 
-H = 1240
+H = 1580
 SHIFT_Y = 40      # extra space at the top: everything moves down, grey boxes grow upwards
 ICON_SCALE = 1.25 # size of the input/output file icons
 STATION_ICON_SCALE = 1.0  # size of the file icons of additional inputs next to a station
@@ -64,15 +69,34 @@ X_START = 150
 X_THIRD_JOIN0, X_THIRD_JOIN1 = 520, 600   # third-party row curves into the trunk
 X_SEPARATE = 860                          # viral sequences and prophages become one line here
 X_SPLIT0, X_SPLIT1 = 1420, 1500           # viruses up, plasmids down
-X_MERGE0, X_MERGE1 = 3695, 3775           # back into the trunk
-X_END = 4145
+X_MERGE0, X_MERGE1 = 3695, 3775           # back into the trunk (unfolded x)
+X_END = 4145                              # output terminus (unfolded x)
+
+# fold: stages 5-7 are mirrored into the bottom row, running right to left
+X_FOLD = 2650     # right edge of the top row (end of stage 4)
+FOLD_AXIS = X_FOLD + 2665   # unfolded x of stage 5 start maps to X_FOLD
+
+
+def fold(u):
+    """x in the bottom row for an unfolded x (stages 5-7)."""
+    return FOLD_AXIS - u
+
+
+# U-turn on the right: vertical x and corner radius per line (outer line = viruses)
+TURN = {"plasmid": (2740, 80), "viruses": (2800, 140)}
+
+# bottom row (stages 5-7)
+B2_TOP, B2_BOTTOM = 820, 1440
+PLASMID2_Y = 1030   # plasmids row
+VIRAL2_Y = 1300     # viruses row
+T2Y = {"plasmid": 1160, "viruses": 1160 + GAP}   # trunk of the catalogue summary
 
 # viral clustering fork: vclust or vjdb-clustering (--viral_clustering)
 FORK = (1515, 1570, 1710, 1765)   # out0, out1, in0, in1
 FORK_X = 1640
 FORK_DY = 52
 
-W = X_END + 240
+W = TURN["viruses"][0] + 80
 
 FONT = "'Maven Pro', 'Helvetica Neue', Arial, sans-serif"
 TOOL_WEIGHT = 900  # tool names (Maven Pro is a variable font: 400-900)
@@ -80,21 +104,26 @@ TOOL_WEIGHT = 900  # tool names (Maven Pro is a variable font: 400-900)
 # ---------------------------------------------------------------------------
 # Stages (grey boxes)
 # ---------------------------------------------------------------------------
-STAGES = [
-    (170, 560, ["1", "Input & third-party", "preparation"]),
-    (575, 1430, ["2", "Pre-processing"]),
-    (1445, 1800, ["3", "ANI-based", "clustering"]),
-    (1815, 2650, ["4", "Taxonomy, host & mobility"]),
-    (2665, 3290, ["5", "Protein annotation"]),
-    (3305, 3525, ["6", "Protein", "clustering"]),
-    (3540, 4133, ["7", "Catalogue & reporting"]),
-]
 BOX_TOP, BOX_BOTTOM = 60 - SHIFT_Y, 780
+# (x0, x1, title, y top, y bottom); stages 5-7 are given unfolded and mirrored
+STAGES = [
+    (170, 560, ["1", "Input & third-party", "preparation"], BOX_TOP, BOX_BOTTOM),
+    (575, 1430, ["2", "Pre-processing"], BOX_TOP, BOX_BOTTOM),
+    (1445, 1800, ["3", "ANI-based", "clustering"], BOX_TOP, BOX_BOTTOM),
+    (1815, X_FOLD, ["4", "Taxonomy, host & mobility"], BOX_TOP, BOX_BOTTOM),
+] + [
+    (fold(u1), fold(u0), title, B2_TOP, B2_BOTTOM) for u0, u1, title in [
+        (2665, 3290, ["5", "Protein annotation"]),
+        (3305, 3525, ["6", "Protein", "clustering"]),
+        (3540, 4133, ["7", "Catalogue & reporting"]),
+    ]
+]
 
 # ---------------------------------------------------------------------------
 # Stations: (x, lines, tool name, description lines, optional, row)
 #   tool name: a string, or a list of names stacked above the station (last one closest)
-#   row: "trunk" | "third" | "viruses" | "plasmid" | "fork_top" | "fork_bottom"
+#   row: "trunk" | "third" | "viruses" | "plasmid" | "fork_top" | "fork_bottom" (top row)
+#        "viruses2" | "plasmid2" | "trunk2" (bottom row, x given with fold())
 # ---------------------------------------------------------------------------
 AMR_TOOLS = ["AMRFinderPlus", "DeepARG", "RGI"]   # short name closest to the station
 
@@ -102,7 +131,7 @@ AMR_TOOLS = ["AMRFinderPlus", "DeepARG", "RGI"]   # short name closest to the st
 # (station tool name, x shift of the icon from the station, y of the icon top, icon label, caption lines, grey note)
 STATION_INPUTS = [
     ("SpacePHARER", 0, BOX_TOP + 72, "FASTA", ["Custom CRISPR", "spacers & metadata"], "(--custom_spacers_*)"),
-    ("metadata.py", -70, 278, "TSV", ["Metadata"], ["(--catalogues_metadata", "--analyses_metadata)"]),
+    ("metadata.py", -150, 965, "TSV", ["Metadata"], ["(--catalogues_metadata", "--analyses_metadata)"]),
 ]
 
 STATIONS = [
@@ -127,18 +156,18 @@ STATIONS = [
     (2060, ["plasmid"], "MOB-suite", ["Typing &", "mobility"], False, "plasmid"),
     (2340, ["plasmid"], "plaSquid", ["Replicons,", "Incompatibility", "& mobility"], False, "plasmid"),
     # 5. Protein annotation (cluster representatives)
-    (2760, VIRUSES, ["HMMER", "ViPhOGs"], ["Protein-based", "taxonomy", "assignment"], True, "viruses"),
-    (2960, VIRUSES, AMR_TOOLS, ["Antimicrobial", "resistance"], True, "viruses"),
-    (3160, VIRUSES, "HMMER", ["Functional", "annotation"], True, "viruses"),
-    (2960, ["plasmid"], AMR_TOOLS, ["Antimicrobial", "resistance"], True, "plasmid"),
+    (fold(2760), VIRUSES, ["HMMER", "ViPhOGs"], ["Protein-based", "taxonomy", "assignment"], True, "viruses2"),
+    (fold(2960), VIRUSES, AMR_TOOLS, ["Antimicrobial", "resistance"], True, "viruses2"),
+    (fold(3160), VIRUSES, "HMMER", ["Functional", "annotation"], True, "viruses2"),
+    (fold(2960), ["plasmid"], AMR_TOOLS, ["Antimicrobial", "resistance"], True, "plasmid2"),
     # 6. Protein clustering (cluster representatives)
-    (3415, VIRUSES, "PhaMMseqs", ["Protein", "phamilies"], True, "viruses"),
-    (3415, ["plasmid"], "MMseqs2", ["Protein", "clustering"], True, "plasmid"),
+    (fold(3415), VIRUSES, "PhaMMseqs", ["Protein", "phamilies"], True, "viruses2"),
+    (fold(3415), ["plasmid"], "MMseqs2", ["Protein", "clustering"], True, "plasmid2"),
     # 7. Catalogue & reporting
-    (3615, VIRUSES, ["Build", "final GFF"], ["Merge", "annotations"], False, "viruses"),
-    (3615, ["plasmid"], ["Build", "final GFF"], ["Merge", "annotations"], False, "plasmid"),
-    (3885, POOLED, "metadata.py", ["Statistics &", "metadata tables"], False, "trunk"),
-    (4055, POOLED, "report.py", ["README &", "reports"], False, "trunk"),
+    (fold(3615), VIRUSES, ["Build", "final GFF"], ["Merge", "annotations"], False, "viruses2"),
+    (fold(3615), ["plasmid"], ["Build", "final GFF"], ["Merge", "annotations"], False, "plasmid2"),
+    (fold(3885), POOLED, "metadata.py", ["Statistics &", "metadata tables"], False, "trunk2"),
+    (fold(4055), POOLED, "report.py", ["README &", "reports"], False, "trunk2"),
 ]
 
 
@@ -146,9 +175,11 @@ def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def path_through(points):
-    """Polyline through waypoints; y changes are drawn as smooth S-curves."""
-    d = f"M{points[0][0]},{points[0][1]}"
+def path_through(points, move=True):
+    """Polyline through waypoints; y changes are drawn as smooth S-curves.
+
+    With move=False the path continues from the current point (points[0])."""
+    d = f"M{points[0][0]},{points[0][1]}" if move else ""
     for (x0, y0), (x1, y1) in zip(points, points[1:]):
         if y0 == y1:
             d += f" L{x1},{y1}"
@@ -158,6 +189,20 @@ def path_through(points):
     return d
 
 
+def u_turn(k, y_top, y_bottom):
+    """From the end of the top row at y_top, round the right side down to y_bottom, heading left."""
+    x, r = TURN[k]
+    return (f" L{x - r},{y_top} A{r},{r} 0 0 1 {x},{y_top + r} L{x},{y_bottom - r}"
+            f" A{r},{r} 0 0 1 {x - r},{y_bottom}")
+
+
+def bottom_row(k, y):
+    """Bottom row from the U-turn, right to left, into the summary trunk and to the output terminus."""
+    x, r = TURN[k]
+    return path_through([(x - r, y), (fold(X_MERGE0), y), (fold(X_MERGE1), T2Y[k]),
+                         (fold(X_END), T2Y[k])], move=False)
+
+
 def line_paths():
     out = []
     # third-party: own row, then into the top trunk track; ends at renaming
@@ -165,8 +210,8 @@ def line_paths():
                                        (X_THIRD_JOIN1, TY["third"]), (680, TY["third"])])))
     # plasmids: trunk -> lower row -> trunk
     k = "plasmid"
-    out.append((k, path_through([(X_START, TY[k]), (X_SPLIT0, TY[k]), (X_SPLIT1, PLASMID_Y),
-                                 (X_MERGE0, PLASMID_Y), (X_MERGE1, TY[k]), (X_END, TY[k])])))
+    out.append((k, path_through([(X_START, TY[k]), (X_SPLIT0, TY[k]), (X_SPLIT1, PLASMID_Y)])
+                + u_turn(k, PLASMID_Y, PLASMID2_Y) + bottom_row(k, PLASMID2_Y)))
     # viral sequences and prophages: separate lines up to separation, where they end
     for k in ("viral", "prophage"):
         out.append((k, path_through([(X_START, TY[k]), (X_SEPARATE, TY[k])])))
@@ -177,8 +222,8 @@ def line_paths():
         head = [(X_SEPARATE, TY[k]), (X_SPLIT0, TY[k]), (X_SPLIT1, y), (f0, y)]
         up = [(f0, y), (f1, y - FORK_DY), (f2, y - FORK_DY), (f3, y)]
         down = [(f0, y), (f1, y + FORK_DY), (f2, y + FORK_DY), (f3, y)]
-        tail = [(f3, y), (X_MERGE0, y), (X_MERGE1, TY[k]), (X_END, TY[k])]
-        out.append((k, path_through(head + up[1:] + tail[1:])))
+        out.append((k, path_through(head + up[1:] + [(f3, y)])
+                    + u_turn(k, y, VIRAL2_Y) + bottom_row(k, VIRAL2_Y)))
         out.append((k, path_through(down)))
     return out
 
@@ -199,6 +244,12 @@ def station_y(lines, row):
         ys = [VY[k] + FORK_DY for k in lines]
     elif row == "third":
         ys = [THIRD_Y]
+    elif row == "trunk2":
+        ys = [T2Y[k] for k in lines]
+    elif row == "viruses2":
+        ys = [VIRAL2_Y]
+    elif row == "plasmid2":
+        ys = [PLASMID2_Y]
     else:
         ys = [PLASMID_Y]
     return min(ys), max(ys)
@@ -211,6 +262,8 @@ def label_anchors(lines, row):
         # the name sits above the station's own top track (the trunk above it has ended: third-party
         # after renaming); the description clears the whole trunk, as lower tracks may pass under it
         return y0 - 30, TY[TRUNK[-1]] + 44
+    if row == "trunk2":
+        return y0 - 30, max(T2Y.values()) + 44
     return y0 - 30, y1 + 44
 
 
@@ -277,12 +330,12 @@ def build(font_b64=None):
     o.append(f'<g transform="translate(0,{SHIFT_Y})">')
 
     # stage boxes
-    for x0, x1, (num, *title) in STAGES:
-        o.append(f'<rect x="{x0}" y="{BOX_TOP}" width="{x1 - x0}" height="{BOX_BOTTOM - BOX_TOP}" '
+    for x0, x1, (num, *title), y0, y1 in STAGES:
+        o.append(f'<rect x="{x0}" y="{y0}" width="{x1 - x0}" height="{y1 - y0}" '
                  f'rx="24" fill="#E9E9E9"/>')
         title = [f"{num}. {title[0]}", *title[1:]]
         for i, t in enumerate(title):
-            o.append(text(x0 + 24, BOX_TOP + 46 + i * 32, t, 28, 700, "start", "#8A8A8A"))
+            o.append(text(x0 + 24, y0 + 46 + i * 32, t, 28, 700, "start", "#8A8A8A"))
 
     # lines
     for k, d in line_paths():
@@ -294,10 +347,10 @@ def build(font_b64=None):
     # input termini (triangles) and output terminus (bar)
     ty0, ty1 = TY[MAIN[0]] - 12, TY[MAIN[-1]] + 12
     o.append(f'<path d="M{X_START},{ty0} L{X_START + 26},{(ty0 + ty1) / 2} L{X_START},{ty1} Z" fill="#000"/>')
-    ty0, ty1 = TY[POOLED[0]] - 12, TY[POOLED[-1]] + 12
     o.append(f'<path d="M{X_START},{THIRD_Y - 12} L{X_START + 26},{THIRD_Y} L{X_START},{THIRD_Y + 12} Z" '
              f'fill="#000"/>')
-    o.append(f'<rect x="{X_END}" y="{ty0}" width="11" height="{ty1 - ty0}" fill="#000"/>')
+    ty0, ty1 = min(T2Y.values()) - 12, max(T2Y.values()) + 12
+    o.append(f'<rect x="{fold(X_END) - 11}" y="{ty0}" width="11" height="{ty1 - ty0}" fill="#000"/>')
 
     # stations
     for st in STATIONS:
@@ -312,57 +365,52 @@ def build(font_b64=None):
     # inputs / outputs
     iw = 62 * ICON_SCALE
     lx = 75.8 - iw / 2                    # widest caption ("samplesheet") starts at the left edge
-    rx = W - 95 - iw / 2                  # widest caption ("catalogues") ends at the right edge
     o.append(file_icon(lx, 150, "CSV", ["Third-party", "samplesheet"], ICON_SCALE))
     o.append(file_icon(lx, 400, "CSV", ["MGnify", "samplesheet"], ICON_SCALE))
+    # outputs: 2 x 2 left of the output terminus, around the summary trunk
     ih = 80 * ICON_SCALE
-    gap = 30
-    y = 40
-    for label, caption in [("FASTA", ["Viral & plasmid", "catalogues"]), ("GFF", ["Annotations"]),
-                           ("TSV", ["Metadata"]), ("HTML", ["Reports"])]:
-        o.append(file_icon(rx, y, label, caption, ICON_SCALE))
-        y += ih + 40 + 30 * len(caption) + gap
+    outputs = [("FASTA", ["Viral & plasmid", "catalogues"]), ("GFF", ["Annotations"]),
+               ("TSV", ["Metadata"]), ("HTML", ["Reports"])]
+    col_x = [fold(X_END) - 345, fold(X_END) - 125]   # icon centres
+    row_y = [1110, 1315]                             # icon tops
+    for i, (label, caption) in enumerate(outputs):
+        o.append(file_icon(col_x[i % 2] - iw / 2, row_y[i // 2], label, caption, ICON_SCALE))
 
-    # ---------------- bottom: title + legend ----------------
-    lt = 820
-    o.append(text(STAGES[0][0], lt + 70, "ebi-metagenomics/", 46, 700, "start", "#555"))
-    o.append(text(STAGES[0][0], lt + 140, "metaViraVerse", 86, 800, "start", "#000"))
-    o.append(text(STAGES[0][0], lt + 190, "Viral and plasmid catalogues from MGnify and third-party predictions",
-                  28, 400, "start", "#444"))
+    # ---------------- bottom left, under the top row: title, legend under it ----------------
+    lx0 = STAGES[0][0]
+    lt = 800
+    o.append(text(lx0, lt + 70, "ebi-metagenomics/", 46, 700, "start", "#555"))
+    o.append(text(lx0, lt + 140, "metaViraVerse", 86, 800, "start", "#000"))
 
-    # line legend
-    bw = 1330
-    bx = STAGES[-1][1] - bw   # right edge aligned with the last stage box
-    o.append(f'<rect x="{bx}" y="{lt}" width="{bw}" height="350" rx="24" fill="#E9E9E9"/>')
-    o.append(text(bx + 30, lt + 50, "Legend", 34, 700, "start"))
-    for i, k in enumerate(LINES):
-        y = lt + 100 + i * 42
-        o.append(f'<line x1="{bx + 30}" y1="{y}" x2="{bx + 100}" y2="{y}" stroke="{LINES[k]["color"]}" '
-                 f'stroke-width="{LW + 3}"/>')
-        o.append(text(bx + 120, y + 8, LINES[k]["label"], 28, 400, "start"))
-
-    # station legend
-    sx = bx + 560
-    items = [
-        ("circle", "Mandatory"),
-        ("optional", "Optional (--skip_* / databases given)"),
-        ("in", "Input"),
-        ("out", "Output"),
-    ]
-    for i, (kind, lab) in enumerate(items):
-        y = lt + 100 + i * 42
-        cx = sx + 20
-        if kind == "circle":
+    # legend: lines, then station symbols, in one column
+    bx, by, bw, step = lx0, lt + 180, 540, 38
+    items = [("line", k) for k in LINES] + [("circle", None), ("optional", None), ("in", None), ("out", None)]
+    note_y = by + 95 + (len(items) - 1) * step + 12 + 50
+    o.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{note_y + 50 - by}" rx="24" fill="#E9E9E9"/>')
+    o.append(text(bx + 30, by + 50, "Legend", 34, 700, "start"))
+    labels = {"circle": ("Mandatory", None), "optional": ("Optional", "(--skip_* / databases given)"),
+              "in": ("Input", None), "out": ("Output", None)}
+    for i, (kind, k) in enumerate(items):
+        y = by + 95 + i * step + (12 if kind != "line" else 0)   # small gap between the two groups
+        cx = bx + 65
+        if kind == "line":
+            o.append(f'<line x1="{bx + 30}" y1="{y}" x2="{bx + 100}" y2="{y}" stroke="{LINES[k]["color"]}" '
+                     f'stroke-width="{LW + 3}"/>')
+            o.append(text(bx + 120, y + 8, LINES[k]["label"], 26, 400, "start"))
+            continue
+        if kind in ("circle", "optional"):
             o.append(f'<circle cx="{cx}" cy="{y}" r="{R}" fill="#fff" stroke="#000" stroke-width="4"/>')
-            o.append(f'<circle cx="{cx}" cy="{y}" r="5.5" fill="#000"/>')
-        elif kind == "optional":
-            o.append(f'<circle cx="{cx}" cy="{y}" r="{R}" fill="#fff" stroke="#000" stroke-width="4"/>')
+            if kind == "circle":
+                o.append(f'<circle cx="{cx}" cy="{y}" r="5.5" fill="#000"/>')
         elif kind == "in":
             o.append(f'<path d="M{cx - 10},{y - 14} L{cx + 12},{y} L{cx - 10},{y + 14} Z" fill="#000"/>')
         else:
             o.append(f'<rect x="{cx - 5}" y="{y - 15}" width="10" height="30" fill="#000"/>')
-        o.append(text(sx + 52, y + 9, lab, 28, 400, "start"))
-    o.append(text(bx + 30, lt + 325, "Stages 4-7 run on cluster representatives only.", 24, 400, "start", "#555"))
+        lab, note = labels[kind]
+        o.append(text(bx + 120, y + 8, lab, 26, 400, "start"))
+        if note:
+            o.append(text(bx + 230, y + 7, note, 20, 400, "start", "#555"))
+    o.append(text(bx + 30, note_y, "Stages 4-7 run on cluster representatives only.", 22, 400, "start", "#555"))
 
     o.append("</g>")
     o.append("</svg>")
