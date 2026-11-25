@@ -69,7 +69,7 @@ These values mean the information is not available, for one of these reasons:
 - **The step was skipped.** For example, rRNA is `not-provided` when rRNA detection was skipped, and the CheckV columns are `NA` when CheckV was skipped.
 - **The sequence is not a cluster representative.** Taxonomy and host columns are filled for representatives only (see [Which sequences are annotated?](#which-sequences-are-annotated)).
 - **The tool gave no result.** For example, a sequence without a known relative may have no taxonomic assignment, and iPHoP may find no host.
-- **The source has no such metadata.** For example, sequences from assemblies have no source genome lineage (see [Why is the source lineage missing for some sequences?](#why-is-the-source-lineage-missing-for-some-sequences)), and third-party sequences may come without a sample or study.
+- **The source has no such metadata.** For example, sequences from assemblies have no source genome lineage unless `--contigs_taxonomy` is given (see [How should I interpret `Source_lineage` in the metadata tables?](#how-should-i-interpret-source_lineage-in-the-metadata-tables)), and third-party sequences may come without a sample or study.
 
 `missing` is written by the final metadata step. `NA` and `not-provided` come from earlier steps that already had no value. For every column, [Output](output.md#metadata) says whether it can be missing and when.
 
@@ -94,12 +94,23 @@ They are predictions, and they are only as good as the reference data behind the
 
 A missing host means no prediction passed these criteria, not that the virus has no host. Genus-level predictions are generally more reliable than genome-level ones.
 
-### Why is the source lineage missing for some sequences?
+### How should I interpret `Source_lineage` in the metadata tables?
 
-`Source_lineage` is the taxonomy of the genome (MAG) the sequence was found in. Sequences found in assemblies come from a mix of organisms, not from a single genome, so they have no source lineage. The same applies to third-party sequences without source information. For viruses, the source lineage is the lineage of the genome carrying the sequence, which for a prophage is usually its host. It is not a host prediction for free viral sequences; use the host columns for that.
+`Source_lineage` describes where a sequence was found. How it is assigned depends on the source:
+
+- **MGnify genomes (MAGs and isolates; original name starting with `MGYG`).** The lineage of the genome from its MGnify Genomes catalogue, assigned to the whole genome with [GTDB-Tk](https://github.com/Ecogenomics/GTDBTk) and the [GTDB](https://gtdb.ecogenomic.org/) taxonomy (taken from `--catalogues_metadata`).
+- **MGnify assemblies (original name starting with `ERZ`).** Assemblies are a mix of organisms with no single source genome. The lineage is the [CAT_pack](https://github.com/MGXlab/CAT_pack) classification of the contig the sequence was found on, from the MGnify assembly analysis (given with `--contigs_taxonomy`). CAT_pack uses the NCBI taxonomy.
+- **Third-party sequences** have a source lineage only when their source information provides one; otherwise it is `missing`. It is also `missing` for assembly sequences when `--contigs_taxonomy` is not given or has no line for the contig.
+
+The CAT_pack lineage is less reliable than the MAG lineage. It is a contig-level assignment based on the proteins of one contig, so it is often resolved only to a high rank (domain or phylum) and can be wrong, especially for short contigs. For a free viral sequence the contig is mostly the virus itself, so the "source" lineage may be a viral lineage or a bacterial lineage from a few bacterial-like viral proteins, rather than a real host. For a prophage, the contig also carries host DNA, so its lineage is closer to the host.
+
+> [!WARNING]
+> Do not compare the two taxonomies with each other. Genome (MAG) lineages use GTDB and assembly lineages use the NCBI taxonomy: the same organism can have different names and different ranks in each (for example, GTDB splits groups that NCBI keeps together, such as `Bacillota_A` and `Bacillota_C` in GTDB versus `Bacillota` in NCBI). Each taxonomy also changes between its releases, and the release used depends on the version of the MGnify pipeline the catalogue or the assembly was analysed with (for example, the current [genomes catalogue pipeline](https://github.com/EBI-Metagenomics/genomes-catalogue-pipeline) uses GTDB r232, the [assembly analysis pipeline](https://github.com/EBI-Metagenomics/assembly-analysis-pipeline) v6 uses the CAT_pack NCBI database 2025_01; older catalogues and analyses used older releases). Counting or grouping sequences by `Source_lineage` across genomes and assemblies, or across catalogues of different versions, can therefore be misleading. Compare lineages only within one source type, or map them to one taxonomy first.
+
+For viruses, the source lineage is the lineage of the genome or contig carrying the sequence, which for a prophage is usually its host. It is not a host prediction for free viral sequences; use the host columns for that.
 
 ## Plasmids
 
 ### What is the host of a plasmid?
 
-The pipeline does not predict plasmid hosts. The genome (MAG) a plasmid was found in is treated as its host, so the host lineage is the `Source_lineage` column of `plasmids/plasmids-all-metadata.tsv.gz`. Plasmids found in assemblies have no source genome, so their host is `missing` (see [Why is the source lineage missing for some sequences?](#why-is-the-source-lineage-missing-for-some-sequences)). MOB-suite also predicts a likely host range from the plasmid's replicon and relaxase types. It is in `mobsuite-typer/plasmids_report.txt` and not in the metadata table.
+The pipeline does not predict plasmid hosts. The genome (MAG) a plasmid was found in is treated as its host, so the host lineage is the `Source_lineage` column of `plasmids/plasmids-all-metadata.tsv.gz`. Plasmids found in assemblies have no source genome: their `Source_lineage` is the CAT_pack lineage of their contig (NCBI taxonomy, contig-level and less reliable) when `--contigs_taxonomy` is given, and `missing` otherwise (see [How should I interpret `Source_lineage` in the metadata tables?](#how-should-i-interpret-source_lineage-in-the-metadata-tables)). MOB-suite also predicts a likely host range from the plasmid's replicon and relaxase types. It is in `mobsuite-typer/plasmids_report.txt` and not in the metadata table.
