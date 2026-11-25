@@ -11,7 +11,7 @@ nf-core brand guidelines: https://fonts.google.com/specimen/Maven+Pro
 
 Render the PNG with a headless browser, e.g.:
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \\
-        --screenshot=visuals/metaviraverse_metromap.png --window-size=4820,1240 \\
+        --screenshot=visuals/metaviraverse_metromap.png --window-size=4385,1240 \\
         --hide-scrollbars visuals/metaviraverse_metromap.svg
 
 Layout
@@ -64,12 +64,12 @@ X_START = 150
 X_THIRD_JOIN0, X_THIRD_JOIN1 = 520, 600   # third-party row curves into the trunk
 X_SEPARATE = 860                          # viral sequences and prophages become one line here
 X_SPLIT0, X_SPLIT1 = 1420, 1500           # viruses up, plasmids down
-X_MERGE0, X_MERGE1 = 4130, 4210           # back into the trunk
-X_END = 4580
+X_MERGE0, X_MERGE1 = 3695, 3775           # back into the trunk
+X_END = 4145
 
 # viral clustering fork: vclust or vjdb-clustering (--viral_clustering)
-FORK = (1560, 1620, 1820, 1880)   # out0, out1, in0, in1
-FORK_X = 1720
+FORK = (1515, 1570, 1710, 1765)   # out0, out1, in0, in1
+FORK_X = 1640
 FORK_DY = 52
 
 W = X_END + 240
@@ -83,11 +83,11 @@ TOOL_WEIGHT = 900  # tool names (Maven Pro is a variable font: 400-900)
 STAGES = [
     (170, 560, ["1", "Input & third-party", "preparation"]),
     (575, 1430, ["2", "Pre-processing"]),
-    (1445, 1910, ["3", "ANI-based clustering"]),
-    (1925, 3000, ["4", "Taxonomy, host & mobility"]),
-    (3015, 3640, ["5", "Protein annotation"]),
-    (3655, 3960, ["6", "Protein clustering"]),
-    (3975, 4568, ["7", "Catalogue & reporting"]),
+    (1445, 1800, ["3", "ANI-based", "clustering"]),
+    (1815, 2650, ["4", "Taxonomy, host & mobility"]),
+    (2665, 3290, ["5", "Protein annotation"]),
+    (3305, 3525, ["6", "Protein", "clustering"]),
+    (3540, 4133, ["7", "Catalogue & reporting"]),
 ]
 BOX_TOP, BOX_BOTTOM = 60 - SHIFT_Y, 780
 
@@ -120,26 +120,25 @@ STATIONS = [
     (FORK_X, VIRUSES, "vjdb-clustering", ["vclust + Leiden", "ANI 95%, cov 85%"], False, "fork_bottom"),
     (FORK_X, ["plasmid"], "vclust", ["Cluster into", "pOTUs", "ANI 70%, cov 50%"], False, "plasmid"),
     # 4. Taxonomy, host & mobility (cluster representatives)
-    (2020, VIRUSES, "geNomad", ["Taxonomy"], True, "viruses"),
-    (2210, VIRUSES, "VITAP", ["Taxonomy"], True, "viruses"),
-    (2400, VIRUSES, "iPHoP", ["Host", "prediction"], True, "viruses"),
-    (2600, VIRUSES, "SpacePHARER", ["Host prediction", "from database of", "CRISPR spacers"], True, "viruses"),
-    (2830, VIRUSES, "BACPHLIP", ["Lifestyle"], False, "viruses"),
-    (2160, ["plasmid"], "MOB-suite", ["Typing &", "mobility"], False, "plasmid"),
-    (2600, ["plasmid"], "plaSquid", ["Replicons,", "Incompatibility", "& mobility"], False, "plasmid"),
+    (1965, VIRUSES, "geNomad / VITAP", ["Taxonomy"], True, "viruses"),
+    (2160, VIRUSES, "iPHoP", ["Host", "prediction"], True, "viruses"),
+    (2340, VIRUSES, "SpacePHARER", ["Host prediction", "from database of", "CRISPR spacers"], True, "viruses"),
+    (2540, VIRUSES, "BACPHLIP", ["Lifestyle"], False, "viruses"),
+    (2060, ["plasmid"], "MOB-suite", ["Typing &", "mobility"], False, "plasmid"),
+    (2340, ["plasmid"], "plaSquid", ["Replicons,", "Incompatibility", "& mobility"], False, "plasmid"),
     # 5. Protein annotation (cluster representatives)
-    (3110, VIRUSES, ["HMMER", "ViPhOGs"], ["Protein-based", "taxonomy", "assignment"], True, "viruses"),
-    (3310, VIRUSES, AMR_TOOLS, ["Antimicrobial", "resistance"], True, "viruses"),
-    (3510, VIRUSES, "HMMER", ["Functional", "annotation"], True, "viruses"),
-    (3310, ["plasmid"], AMR_TOOLS, ["Antimicrobial", "resistance"], True, "plasmid"),
+    (2760, VIRUSES, ["HMMER", "ViPhOGs"], ["Protein-based", "taxonomy", "assignment"], True, "viruses"),
+    (2960, VIRUSES, AMR_TOOLS, ["Antimicrobial", "resistance"], True, "viruses"),
+    (3160, VIRUSES, "HMMER", ["Functional", "annotation"], True, "viruses"),
+    (2960, ["plasmid"], AMR_TOOLS, ["Antimicrobial", "resistance"], True, "plasmid"),
     # 6. Protein clustering (cluster representatives)
-    (3807, VIRUSES, "PhaMMseqs", ["Protein", "phamilies"], True, "viruses"),
-    (3807, ["plasmid"], "MMseqs2", ["Protein", "clustering"], True, "plasmid"),
+    (3415, VIRUSES, "PhaMMseqs", ["Protein", "phamilies"], True, "viruses"),
+    (3415, ["plasmid"], "MMseqs2", ["Protein", "clustering"], True, "plasmid"),
     # 7. Catalogue & reporting
-    (4050, VIRUSES, ["Build", "final GFF"], ["Merge", "annotations"], False, "viruses"),
-    (4050, ["plasmid"], ["Build", "final GFF"], ["Merge", "annotations"], False, "plasmid"),
-    (4320, POOLED, "metadata.py", ["Statistics &", "metadata tables"], False, "trunk"),
-    (4490, POOLED, "report.py", ["README &", "reports"], False, "trunk"),
+    (3615, VIRUSES, ["Build", "final GFF"], ["Merge", "annotations"], False, "viruses"),
+    (3615, ["plasmid"], ["Build", "final GFF"], ["Merge", "annotations"], False, "plasmid"),
+    (3885, POOLED, "metadata.py", ["Statistics &", "metadata tables"], False, "trunk"),
+    (4055, POOLED, "report.py", ["README &", "reports"], False, "trunk"),
 ]
 
 
@@ -290,7 +289,7 @@ def build(font_b64=None):
         o.append(f'<path d="{d}" fill="none" stroke="{LINES[k]["color"]}" stroke-width="{LW}" '
                  f'stroke-linejoin="round"/>')
     # parameter choosing between the alternative viral clusterings, between the two branches
-    o.append(text(FORK_X, (VY[VIRUSES[0]] + VY[VIRUSES[-1]]) / 2 + 9, "(--viral_clustering)", 22, 400, fill="#555"))
+    o.append(text(FORK_X, (VY[VIRUSES[0]] + VY[VIRUSES[-1]]) / 2 + 9, "(--viral_clustering)", 20, 400, fill="#555"))
 
     # input termini (triangles) and output terminus (bar)
     ty0, ty1 = TY[MAIN[0]] - 12, TY[MAIN[-1]] + 12
