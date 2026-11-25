@@ -40,6 +40,18 @@ Two steps remove sequences before clustering (see [Sequences deduplication](meth
 
 Every removed sequence is listed in `additional_data/catalogue_excluded_records_metadata.tsv`, with the reason in the `filter_reason` column (`duplicate`, `rrna` or `not_determined`) and its original name in `original_name`. Some of the sequences removed by quality control may still be novel viruses, so the table can be used to go back to the source genome or assembly and inspect them. The numbers are in `catalogue.json`: `total_sequences` (input), `duplicate_sequences`, `rrna_excluded_sequences`, `not_determined_excluded_sequences` and `unique_sequences` (kept). Deduplication runs on all categories pooled together, and the kept copy decides the category, so the drop within one category (e.g. plasmids, which are never removed by quality control) can come from duplicates alone.
 
+### Why are there sequences with CheckV quality `Not-determined` in the catalogue?
+
+CheckV quality `Not-determined` alone is not a reason to remove a sequence. CheckV reports it when it can't estimate completeness, which is common for short fragments and for novel viruses with no close reference. A viral sequence or prophage is removed as `not_determined` only when all three of these hold:
+
+1. `checkv_quality` is `Not-determined`;
+2. CheckV found no viral genes (`viral_genes` = 0);
+3. the k-mer frequency is 1.0 or higher (`kmer_freq` ≥ 1.0).
+
+No viral genes together with a high k-mer frequency is typical of host contamination. A `Not-determined` sequence that has at least one viral gene is kept as a real virus that CheckV could not assess. Plasmids are never filtered by CheckV quality.
+
+The final metadata table has `checkv_quality` and `kmer_freq`, but not `viral_genes`. To see why a sequence was kept, look up its `viral_genes` in the metadata table in `additional_data/choose_sequences/`, which keeps all CheckV columns. Kept `Not-determined` sequences usually have low or `NA` completeness, so filter on `completeness` or `miuvig_quality` if you need only well-characterised genomes.
+
 ### Which sequences are annotated?
 
 Only cluster representatives: one sequence per viral cluster and one per plasmid cluster. Viral sequences and prophages are clustered at 95% average nucleotide identity (ANI) and 85% coverage, roughly species level. Plasmids are clustered separately. Taxonomy, host, lifestyle and protein annotations are therefore filled in for representatives only. To get them for any other sequence, look up its `Cluster_rep` in the metadata table and use the values of that representative. When a catalogue is updated with new sequences, only the representatives of new clusters are annotated.
