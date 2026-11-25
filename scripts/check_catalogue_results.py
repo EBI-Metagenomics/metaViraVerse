@@ -28,12 +28,19 @@ Checks
    * the number of CDS records in the GFF equals the number of proteins in the
      FAA, and their IDs match;
    * sequence and protein counts against catalogue.json where it has them.
+   With --mismatches-dir, the full lists of missing or extra identifiers of each
+   set are written to <dir>/<set>.mismatches.tsv (columns issue, id):
+     in_gff_not_in_fasta / in_fasta_not_in_gff  sequences (contigs)
+     in_faa_not_in_gff / in_gff_not_in_faa      proteins (GFF CDS ID= vs FAA headers)
+     duplicated_in_fasta / duplicated_in_faa    identifiers seen more than once
+   Only sets with at least one such identifier get a file.
    The prefix is --accession-prefix, else rename_accession from the params
    JSON, else MGYV.
 
 Usage
 -----
     python scripts/check_catalogue_results.py -r results/ -o sanity_report.md
+    python scripts/check_catalogue_results.py -r results/ -o sanity_report.md --mismatches-dir mismatches/
 
 Exit status is 1 when any check fails (useful in automation), 0 otherwise.
 Only the Python standard library is used.
@@ -510,7 +517,36 @@ def scan_gff(path, accession_re, check_ids=True):
     return seqids, bad_seqid, bad_id, cds_ids
 
 
-def check_sequence_ids(results_dir, prefix, stats):
+# issues written to the mismatches files, in this order
+MISMATCH_ISSUES = ["in_gff_not_in_fasta", "in_fasta_not_in_gff", "in_faa_not_in_gff", "in_gff_not_in_faa",
+                   "duplicated_in_fasta", "duplicated_in_faa"]
+
+
+def duplicated(ids):
+    """Sorted identifiers seen more than once."""
+    return sorted(i for i, n in Counter(ids).items() if n > 1)
+
+
+def set_slug(name):
+    """'Viral cluster representatives' -> 'viral_cluster_representatives'."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def write_mismatches(mismatches_dir, name, mismatches):
+    """Write {issue: [ids]} to <dir>/<set>.mismatches.tsv; return its path, or None when there is nothing."""
+    if not any(mismatches.values()):
+        return None
+    os.makedirs(mismatches_dir, exist_ok=True)
+    path = os.path.join(mismatches_dir, f"{set_slug(name)}.mismatches.tsv")
+    with open(path, "w") as f:
+        f.write("issue\tid\n")
+        for issue in MISMATCH_ISSUES:
+            for identifier in mismatches.get(issue, []):
+                f.write(f"{issue}\t{identifier}\n")
+    return path
+
+
+def check_sequence_ids(results_dir, prefix, stats, mismatches_dir=None):
     accession_re = re.compile(re.escape(prefix) + r"\d+")
     results = []
     for name, fna_patterns, gff_rel, faa_rel, seq_keys, prot_keys in SEQUENCE_SETS:
@@ -519,17 +555,24 @@ def check_sequence_ids(results_dir, prefix, stats):
         faa = faa_rel if os.path.isfile(os.path.join(results_dir, faa_rel)) else None
         r = dict(name=name, fna=fna or " or ".join(fna_patterns), gff=gff_rel, faa=faa_rel,
                  problems=[], status=OK, n_seqs=None, n_gff_seqs=None, n_cds=None, n_prot=None,
-                 exp_seqs=None, exp_prot=None)
+                 exp_seqs=None, exp_prot=None, mismatch_file=None)
+        mismatches = {}
 
         if fna:
             bad_fna, n = BadIds(), 0
-            fna_ids = set()
+            fna_ids, fna_dups = set(), set()
             for seq_id in fasta_ids(os.path.join(results_dir, fna)):
                 n += 1
+                if seq_id in fna_ids:
+                    fna_dups.add(seq_id)
                 fna_ids.add(seq_id)
                 if not accession_re.fullmatch(seq_id):
                     bad_fna.add(seq_id)
             r["n_seqs"] = n
+            mismatches["duplicated_in_fasta"] = sorted(fna_dups)
+            if fna_dups:
+                r["problems"].append((WARN, f"{len(fna_dups):,} duplicated sequence ID(s) in the FASTA",
+                                      sorted(fna_dups)[:MAX_EXAMPLES]))
             if bad_fna.count:
                 r["problems"].append((FAIL, f"{bad_fna.count:,} FASTA header(s) are not `{prefix}` accessions",
                                       bad_fna.examples))
@@ -549,15 +592,22 @@ def check_sequence_ids(results_dir, prefix, stats):
                                             f"`{prefix}` accessions", bad_id.examples))
             if fna_ids is not None:
                 not_in_fna = sorted(seqids - fna_ids)
+                not_in_gff = sorted(fna_ids - seqids)
+                mismatches["in_gff_not_in_fasta"] = not_in_fna
+                mismatches["in_fasta_not_in_gff"] = not_in_gff
                 if not_in_fna:
                     r["problems"].append((FAIL, f"{len(not_in_fna):,} GFF sequence(s) not in the FASTA",
                                           not_in_fna[:MAX_EXAMPLES]))
+                if not_in_gff:
+                    r["problems"].append((WARN, f"{len(not_in_gff):,} FASTA sequence(s) not in the GFF",
+                                          not_in_gff[:MAX_EXAMPLES]))
         else:
             r["problems"].append((WARN, "GFF not found", []))
 
         if faa:
             prot_ids = list(fasta_ids(os.path.join(results_dir, faa)))
             r["n_prot"] = len(prot_ids)
+            mismatches["duplicated_in_faa"] = duplicated(prot_ids)
             if len(set(prot_ids)) != len(prot_ids):
                 r["problems"].append((WARN, f"{len(prot_ids) - len(set(prot_ids)):,} duplicated protein ID(s) "
                                             "in the FAA", []))
@@ -567,6 +617,7 @@ def check_sequence_ids(results_dir, prefix, stats):
                                                 f"{len(prot_ids):,} proteins in the FAA", []))
                 cds_set, prot_set = set(cds_ids), set(prot_ids)
                 only_faa, only_gff = sorted(prot_set - cds_set), sorted(cds_set - prot_set - {None})
+                mismatches["in_faa_not_in_gff"], mismatches["in_gff_not_in_faa"] = only_faa, only_gff
                 if only_faa:
                     r["problems"].append((FAIL, f"{len(only_faa):,} FAA protein(s) without a CDS in the GFF",
                                           only_faa[:MAX_EXAMPLES]))
@@ -588,6 +639,9 @@ def check_sequence_ids(results_dir, prefix, stats):
                 if r["n_prot"] is not None and r["n_prot"] != r["exp_prot"]:
                     r["problems"].append((FAIL, f"{r['n_prot']:,} proteins in the FAA, catalogue.json has "
                                                 f"{r['exp_prot']:,} ({' + '.join(prot_keys)})", []))
+
+        if mismatches_dir:
+            r["mismatch_file"] = write_mismatches(mismatches_dir, name, mismatches)
 
         statuses = [st for st, _, _ in r["problems"]]
         r["status"] = FAIL if FAIL in statuses else WARN if WARN in statuses else OK
@@ -756,6 +810,12 @@ def render_report(results_dir, params, params_path, file_rows, metadata_reports,
                     line += " (e.g. " + ", ".join(f"`{e}`" for e in examples) + ")"
                 out.append(line)
         out.append("")
+    mismatch_files = [r for r in id_checks if r.get("mismatch_file")]
+    if mismatch_files:
+        out += ["### Mismatched identifiers", "",
+                "Full lists of missing, extra and duplicated identifiers (columns `issue`, `id`):", ""]
+        out += [f"- **{r['name']}**: `{r['mismatch_file']}`" for r in mismatch_files]
+        out.append("")
 
     return "\n".join(out).rstrip() + "\n", overall
 
@@ -775,6 +835,9 @@ def parse_args(argv=None):
                         help="Prefix of renamed accessions (default: rename_accession from the params JSON, "
                              "else MGYV).")
     parser.add_argument("-o", "--output", default="sanity_report.md", help="Output Markdown report.")
+    parser.add_argument("--mismatches-dir",
+                        help="Optional: write the full lists of missing or extra contig and protein identifiers "
+                             "of each sequence set (section 4) to <dir>/<set>.mismatches.tsv.")
     return parser.parse_args(argv)
 
 
@@ -788,7 +851,7 @@ def main(argv=None):
     metadata_reports = check_metadata(args.results_dir, parse_documented_columns(args.output_docs))
     stats, count_checks, sum_checks = check_row_counts(args.results_dir, metadata_reports)
     prefix = accession_prefix(args.accession_prefix, params_path)
-    id_checks = check_sequence_ids(args.results_dir, prefix, stats)
+    id_checks = check_sequence_ids(args.results_dir, prefix, stats, args.mismatches_dir)
     report, overall = render_report(args.results_dir, params, params_path, file_rows,
                                     metadata_reports, stats, count_checks, sum_checks, id_checks, prefix)
 

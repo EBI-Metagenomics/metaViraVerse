@@ -233,3 +233,51 @@ def test_report_has_identifier_section(tmp_path):
     _code, text = run(tmp_path, make_results(tmp_path))
     assert "## 4. Sequence identifiers and protein counts" in text
     assert "| ✅ | Viral sequences | 2 | 2 | 2 | 2 | 2 | - |" in text
+
+
+def read_mismatches(path):
+    with open(path) as f:
+        rows = [line.rstrip("\n").split("\t") for line in f]
+    assert rows[0] == ["issue", "id"]
+    return sorted(tuple(r) for r in rows[1:])
+
+
+def test_mismatches_written_only_when_asked_and_found(tmp_path):
+    res = make_results(tmp_path)
+    # FASTA: MGYV1 and an extra MGYV9 (twice); GFF: MGYV1, MGYV3; FAA: CDS proteins plus a stray one
+    write(res / "viruses" / "viral_sequences.fna.gz", ">MGYV1\nA\n>MGYV9\nA\n>MGYV9\nA\n", gz=True)
+    write(res / "viruses" / "viral_sequences.faa.gz",
+          ">orig_MGYV1_1\nM\n>stray_1\nM\n>stray_1\nM\n", gz=True)
+    stats = json.loads((res / "catalogue.json").read_text())
+
+    out_dir = tmp_path / "mismatches"
+    assert all(r.get("mismatch_file") is None for r in ccr.check_sequence_ids(str(res), "MGYV", stats))
+    assert not out_dir.exists()
+
+    checks = {r.get("name"): r for r in ccr.check_sequence_ids(str(res), "MGYV", stats, str(out_dir))}
+    path = checks["Viral sequences"]["mismatch_file"]
+    assert path == str(out_dir / "viral_sequences.mismatches.tsv")
+    assert read_mismatches(path) == sorted([
+        ("in_gff_not_in_fasta", "MGYV3"),
+        ("in_fasta_not_in_gff", "MGYV9"),
+        ("duplicated_in_fasta", "MGYV9"),
+        ("in_faa_not_in_gff", "stray_1"),
+        ("in_gff_not_in_faa", "orig_MGYV3_1"),
+        ("duplicated_in_faa", "stray_1"),
+    ])
+    # consistent sets get no file
+    assert checks["Prophages"]["mismatch_file"] is None
+    assert sorted(os.listdir(out_dir)) == ["viral_sequences.mismatches.tsv"]
+
+    messages = " ".join(m for _, m, _ in checks["Viral sequences"]["problems"])
+    assert "1 FASTA sequence(s) not in the GFF" in messages
+
+
+def test_report_lists_mismatch_files(tmp_path):
+    res = make_results(tmp_path)
+    write_sequence_set(res, "viruses/viral_sequences", ["MGYV1", "MGYV3"], extra_proteins=["stray_1"])
+    out = tmp_path / "report.md"
+    ccr.main(["-r", str(res), "-o", str(out), "--mismatches-dir", str(tmp_path / "mm")])
+    text = out.read_text()
+    assert "### Mismatched identifiers" in text
+    assert "viral_sequences.mismatches.tsv" in text

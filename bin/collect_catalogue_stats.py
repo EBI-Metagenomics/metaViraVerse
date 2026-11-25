@@ -76,13 +76,29 @@ def count_unique_biomes(path, col="biomes"):
     return len(biomes)
 
 
+# first-column names that mark a header line in a clusters / reps TSV
+CLUSTER_HEADER_NAMES = {"object", "cluster", "cluster_rep", "rep_id", "representative", "id", "sequence_id"}
+
+
 def count_clusters(path):
-    """Count unique cluster IDs from column 1 of a TSV; a header line is skipped if there is one."""
+    """Count unique cluster IDs from column 1 of a TSV.
+
+    The first line is a header when its first column is one of CLUSTER_HEADER_NAMES; the header
+    and its repeats (concatenated files) are not counted.
+    """
+    header = None
+    ids = set()
     with open_file(path) as f:
-        ids = [line.split("\t")[0].strip() for line in f if line.strip()]
-    if ids and ids[0].lower() in {"object", "cluster", "cluster_rep", "id"}:  # header
-        ids = ids[1:]
-    return len(set(ids))
+        for line in f:
+            if not line.strip():
+                continue
+            first = line.split("\t")[0].strip()
+            if header is None:
+                header = first if first.lower() in CLUSTER_HEADER_NAMES else ""
+            if header and first == header:
+                continue
+            ids.add(first)
+    return len(ids)
 
 
 def count_tsv_lines(path):
