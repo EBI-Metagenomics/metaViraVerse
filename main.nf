@@ -36,6 +36,8 @@ params {
     input: Channel<SamplesheetRow>?                 // MGnify samplesheet (CSV, JSON or YAML)
     third_party_input: Channel<ThirdPartyRow>?      // third-party samplesheet
     catalogues_metadata: Path
+    analyses_metadata: Path?                        // metadata of MGnify analyses (ERZ...): accession, study_id, sample_id, biome_id
+    contigs_taxonomy: Path?                         // concatenated CAT_pack contig taxonomy TSVs: '# contig', 'lineage'
     outdir: String
 
     // Pre-processing
@@ -110,6 +112,12 @@ params {
     incsearch_db: Path?
     mobsearch_db: Path?
     mobsuite_db: Path?
+
+    // README.md of the catalogue (title section)
+    catalogue_name: String?
+    catalogue_version: String?
+    catalogue_website_url: String?
+    source_catalogues: String?      // comma-separated URLs of the source MAG catalogues
 
     // MultiQC
     multiqc_config: Path?
@@ -365,6 +373,7 @@ output {
             r.taxonomy.genomad_counts >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
             r.taxonomy.genomad_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
             r.taxonomy.genomad_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
+            r.taxonomy.genomad_plots?.sankey_table >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/"
             r.taxonomy.genomad_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
             r.taxonomy.genomad_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
             r.taxonomy.genomad_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/genomad/itol_genomad/"
@@ -378,6 +387,7 @@ output {
             r.taxonomy.viphogs_counts >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
             r.taxonomy.viphogs_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
             r.taxonomy.viphogs_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
+            r.taxonomy.viphogs_plots?.sankey_table >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/"
             r.taxonomy.viphogs_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
             r.taxonomy.viphogs_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
             r.taxonomy.viphogs_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/viphogs/itol_viphogs/"
@@ -388,6 +398,7 @@ output {
             r.taxonomy.vitap_counts >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
             r.taxonomy.vitap_plots?.krona >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
             r.taxonomy.vitap_plots?.sankey >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
+            r.taxonomy.vitap_plots?.sankey_table >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/"
             r.taxonomy.vitap_plots?.itol_tree >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
             r.taxonomy.vitap_plots?.itol_labels >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
             r.taxonomy.vitap_plots?.itol_counts >> "${r.meta.id}/cluster_representatives/taxonomy/vitap/itol_vitap/"
@@ -401,12 +412,18 @@ output {
             r.hosts.iphop_genome_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
             r.hosts.iphop_genus_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
             r.hosts.iphop_genus_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genome_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genome_reduced_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genus_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
+            r.hosts.iphop_genus_reduced_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/iphop/"
             // host prediction: SpacePHARER (--predict_host_from_custom_spacers)
             r.hosts.spacepharer_predictions >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
             r.hosts.spacepharer >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
             r.hosts.spacepharer_lineage_json >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
             r.hosts.spacepharer_sankey >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
             r.hosts.spacepharer_reduced_sankey >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
+            r.hosts.spacepharer_reduced_sankey_table >> "${r.meta.id}/cluster_representatives/host_detection/spacepharer/"
 
             // proteins: AMR (one report per tool), HMMER, phams
             r.proteins.amrfinderplus_tsv >> "${r.meta.id}/cluster_representatives/functional_annotation/amr/${r.meta.id}_amrfinderplus.tsv"
@@ -489,8 +506,11 @@ output {
             r.viruses_metadata >> "viruses/"
             r.viruses_cluster_stats >> "viruses/"
             r.plasmids_metadata >> "plasmids/"
-            r.viruses_source_sankey >> "${r.viral_meta.id}/"
-            r.plasmids_source_sankey >> "${r.plasmid_meta.id}/"
+            r.viruses_source_sankey >> "${r.viral_meta.id}/cluster_representatives/"
+            r.plasmids_source_sankey >> "${r.plasmid_meta.id}/cluster_representatives/"
+            r.viruses_source_sankey_table >> "${r.viral_meta.id}/cluster_representatives/"
+            r.plasmids_source_sankey_table >> "${r.plasmid_meta.id}/cluster_representatives/"
+            r.readme >> "README.md"
         }
     }
 

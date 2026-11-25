@@ -84,6 +84,13 @@ def open_text(path):
     return open(path, 'r')
 
 
+def is_taxid_lineage(taxonomy_str):
+    """True for a lineage written as NCBI taxids ('1;131567;2;1224*'), e.g. a CAT_pack lineage that
+    could not be translated into names. Such lineages are ignored (CAT_pack marks taxa with '*')."""
+    parts = [p.strip().rstrip("*") for p in unquote(taxonomy_str or "").split(";") if p.strip()]
+    return bool(parts) and all(p.isdigit() for p in parts)
+
+
 OTHER_LABEL = "Other"
 OTHER_KEY = "__other__"
 
@@ -210,6 +217,65 @@ def build_sankey_data(taxonomy_list_with_counts):
     return node_labels, links
 
 
+def sankey_links_table(taxonomy_list_with_counts, levels):
+    """
+    Rows of the table behind the Sankey plot: one row per link (flow between two nodes),
+    with the same nodes and counts as build_sankey_data.
+
+    Args:
+        taxonomy_list_with_counts: List of (count, taxonomy_path) tuples, as passed to build_sankey_data
+        levels: Ordered list of taxonomic level names
+
+    Returns:
+        List of dicts with source_level, source, target_level, target, target_lineage and
+        sequences (number of sequences flowing through the link), ordered by level, then by
+        decreasing count
+    """
+    edge_counts = defaultdict(int)
+    edge_info = {}
+    for count, taxonomy_path in taxonomy_list_with_counts:
+        prev_key, prev_label, prev_level = "root", "All sequences", "root"
+        for depth, taxon in enumerate(taxonomy_path):
+            level = levels[depth] if depth < len(levels) else f"level_{depth + 1}"
+            if taxon == OTHER_KEY:
+                key, label, lineage = OTHER_KEY, OTHER_LABEL, OTHER_LABEL
+            else:
+                key = "|".join(taxonomy_path[:depth + 1])
+                label, lineage = taxon, ";".join(taxonomy_path[:depth + 1])
+            edge_counts[(prev_key, key)] += count
+            edge_info[(prev_key, key)] = (depth, prev_level, prev_label, level, label, lineage)
+            prev_key, prev_label, prev_level = key, label, level
+
+    rows = []
+    for edge, count in edge_counts.items():
+        depth, source_level, source, target_level, target, lineage = edge_info[edge]
+        rows.append({
+            "source_level": source_level,
+            "source": source,
+            "target_level": target_level,
+            "target": target,
+            "target_lineage": lineage,
+            "sequences": count,
+            "_depth": depth,
+        })
+    rows.sort(key=lambda r: (r["_depth"], -r["sequences"], r["target_lineage"]))
+    for row in rows:
+        del row["_depth"]
+    return rows
+
+
+TABLE_COLUMNS = ["source_level", "source", "target_level", "target", "target_lineage", "sequences"]
+
+
+def write_links_table(rows, output_file):
+    """Write the rows of sankey_links_table as a TSV with a header."""
+    with open(output_file, "w") as f:
+        f.write("\t".join(TABLE_COLUMNS) + "\n")
+        for row in rows:
+            f.write("\t".join(str(row[c]) for c in TABLE_COLUMNS) + "\n")
+    print(f"Sankey table saved to: {output_file}")
+
+
 def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey Diagram"):
     """
     Create Sankey diagram using plotly.
@@ -250,7 +316,8 @@ def create_sankey_plotly(nodes, links, output_file, title="Viral Taxonomy Sankey
     print(f"Sankey plot saved to: {output_file}")
 
 
-def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
+def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t',
+                      reps_only=False, id_column='ID', rep_column='Cluster_rep'):
     """
     Read taxonomy data from TSV (or CSV) file.
 
@@ -262,6 +329,10 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
         tsv_file: Path to TSV/CSV file
         taxonomy_column: Name of the taxonomy column (for standard TSV/CSV)
         delimiter: Field separator: '\t' for TSV, ',' for CSV
+        reps_only: Keep only cluster representatives: rows where id_column equals rep_column
+            (standard TSV/CSV only; ignored for Krona format)
+        id_column: Name of the sequence ID column (for reps_only)
+        rep_column: Name of the cluster representative column (for reps_only)
 
     Returns:
         List of (count, taxonomy_string) tuples
@@ -316,16 +387,25 @@ def read_tsv_taxonomy(tsv_file, taxonomy_column='taxonomy', delimiter='\t'):
             # Standard TSV format with header
             print(f"Detected standard {'CSV' if delimiter == ',' else 'TSV'} format with header")
             reader = csv.DictReader(f, delimiter=delimiter)
+            skipped_taxids = 0
 
-            if taxonomy_column not in reader.fieldnames:
-                print(f"Error: Column '{taxonomy_column}' not found in input file.", file=sys.stderr)
-                print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
-                sys.exit(1)
+            required = [taxonomy_column] + ([id_column, rep_column] if reps_only else [])
+            for column in required:
+                if column not in reader.fieldnames:
+                    print(f"Error: Column '{column}' not found in input file.", file=sys.stderr)
+                    print(f"Available columns: {', '.join(reader.fieldnames)}", file=sys.stderr)
+                    sys.exit(1)
 
             for row in reader:
+                if reps_only and row.get(id_column) != row.get(rep_column):
+                    continue
                 tax = row.get(taxonomy_column, '')
-                if tax and tax != 'NA':
+                if is_taxid_lineage(tax):
+                    skipped_taxids += 1
+                elif tax and tax != 'NA':
                     taxonomy_data.append((1, tax))
+            if skipped_taxids:
+                print(f"Ignored {skipped_taxids} lineages written as taxids")
 
     return taxonomy_data
 
@@ -359,7 +439,7 @@ def read_gff_taxonomy(gff_file):
                     attrs[key.strip().lower()] = val.strip()
 
             tax = attrs.get('taxonomy', '')
-            if tax and tax != 'NA':
+            if tax and tax != 'NA' and not is_taxid_lineage(tax):
                 taxonomy_data.append((1, tax))
 
     return taxonomy_data
@@ -413,6 +493,14 @@ TSV/CSV Format Support (--input-format tsv or csv):
     )
 
     parser.add_argument(
+        '--output-table',
+        type=Path,
+        default=None,
+        help='Also write the table the plot is drawn from (one row per link: source and target node, '
+             'their levels, the target lineage and the number of sequences), as TSV'
+    )
+
+    parser.add_argument(
         '--input-format',
         choices=['tsv', 'csv', 'gff'],
         default='tsv',
@@ -446,6 +534,25 @@ TSV/CSV Format Support (--input-format tsv or csv):
     )
 
     parser.add_argument(
+        '--reps-only',
+        action='store_true',
+        help='Plot cluster representatives only: keep the rows where the --id-column value equals '
+             'the --rep-column value (TSV/CSV with header only)'
+    )
+
+    parser.add_argument(
+        '--id-column',
+        default='ID',
+        help='Name of the sequence ID column, used with --reps-only (default: ID)'
+    )
+
+    parser.add_argument(
+        '--rep-column',
+        default='Cluster_rep',
+        help='Name of the cluster representative column, used with --reps-only (default: Cluster_rep)'
+    )
+
+    parser.add_argument(
         '--title',
         default='Viral Taxonomy Sankey Diagram',
         help='Plot title'
@@ -476,9 +583,12 @@ TSV/CSV Format Support (--input-format tsv or csv):
     # Read taxonomy data
     print(f"Reading taxonomy data from {args.input}...")
     if args.input_format == 'tsv':
-        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column)
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, reps_only=args.reps_only,
+                                          id_column=args.id_column, rep_column=args.rep_column)
     elif args.input_format == 'csv':
-        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',')
+        taxonomy_data = read_tsv_taxonomy(args.input, args.taxonomy_column, delimiter=',',
+                                          reps_only=args.reps_only, id_column=args.id_column,
+                                          rep_column=args.rep_column)
     else:
         taxonomy_data = read_gff_taxonomy(args.input)
 
@@ -524,6 +634,9 @@ TSV/CSV Format Support (--input-format tsv or csv):
     # Create plot
     print("Creating Sankey plot...")
     create_sankey_plotly(nodes, links, args.output, args.title)
+
+    if args.output_table is not None:
+        write_links_table(sankey_links_table(taxonomy_paths_with_counts, args.levels), args.output_table)
 
     print("Done!")
 

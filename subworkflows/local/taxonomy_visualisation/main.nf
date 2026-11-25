@@ -20,6 +20,7 @@ record TaxonomyPlots {
     meta: Map                 // the input meta, with `tool`
     krona: Path
     sankey: Path?
+    sankey_table: Path?       // links the Sankey plot is drawn from
     itol_tree: Path
     itol_labels: Path?
     itol_counts: Path
@@ -63,6 +64,7 @@ workflow TAXONOMY_VISUALISATION {
                 meta: r.meta,
                 krona: r.krona,
                 sankey: r.sankey_html,
+                sankey_table: r.sankey_tsv,
                 itol_tree: r.tree_nwk,
                 itol_labels: r.tree_labels,
                 itol_counts: r.tree_counts,

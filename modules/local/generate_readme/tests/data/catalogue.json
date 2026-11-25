@@ -1,0 +1,19 @@
+{
+  "total_sequences": 130,
+  "duplicate_sequences": 10,
+  "deduplicated_sequences": 120,
+  "rrna_excluded_sequences": 15,
+  "not_determined_excluded_sequences": 5,
+  "qc_excluded_sequences": 20,
+  "unique_sequences": 100,
+  "viral_sequences": 60,
+  "plasmids": 30,
+  "prophages": 10,
+  "number_of_biomes": 2,
+  "viral_clusters": 50,
+  "plasmid_clusters": 25,
+  "total_proteins_viruses": 3000,
+  "total_proteins_plasmids": 1500,
+  "total_proteins_viruses_reps": 2500,
+  "total_proteins_plasmids_reps": 1200
+}

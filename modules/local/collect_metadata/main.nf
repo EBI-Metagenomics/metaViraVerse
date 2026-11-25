@@ -26,6 +26,9 @@ process COLLECT_METADATA {
         spacepharer: Path?        // null when SpacePHARER was not run
     )
     additional_metadata: Path
+    analyses_metadata: Path?      // null without --analyses_metadata
+    contigs_taxonomy: Path?       // null without --contigs_taxonomy
+    ncbi_db: Path?                // translates taxid lineages of contigs_taxonomy; null without --ncbi_db
 
     output:
     record(
@@ -46,12 +49,18 @@ process COLLECT_METADATA {
     def vitap_arg        = vitap_best  ? "--viruses_vitap ${vitap_best}"   : ""
     def viphogs_arg      = viphogs_taxonomy  ? "--viphogs_taxonomy ${viphogs_taxonomy}"   : ""
     def genomad_arg      = genomad  ? "--genomad ${genomad}"   : ""
+    def analyses_arg     = analyses_metadata ? "--analyses_metadata ${analyses_metadata}" : ""
+    def contigs_tax_arg  = contigs_taxonomy ? "--contigs_taxonomy ${contigs_taxonomy}" : ""
+    def ncbi_db_arg      = contigs_taxonomy && ncbi_db ? "--ncbi_db ${ncbi_db}" : ""
     """
     collect_metadata.py \\
        --combined_meta ${combined_meta} \\
        --viruses_cluster ${viral_clusters} \\
        --plasmids_cluster ${plasmid_clusters} \\
        --additional_metadata ${additional_metadata} \\
+       ${analyses_arg} \\
+       ${contigs_tax_arg} \\
+       ${ncbi_db_arg} \\
        ${vitap_arg} \\
        ${viphogs_arg} \\
        ${genomad_arg} \\

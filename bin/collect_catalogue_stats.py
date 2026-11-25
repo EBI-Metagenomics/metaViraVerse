@@ -8,11 +8,15 @@ Inputs
                              number_of_viral_sequences, number_of_viral_sequence_proteins,
                              number_of_prophages, number_of_prophage_proteins,
                              number_of_plasmids, number_of_plasmid_proteins
---clusters-viruses  TSV    → number of viral clusters (unique values in column 1)
---clusters-plasmids TSV    → number of plasmid clusters (unique values in column 1)
---initial-metadata TSV     → metadata table for initial set of sequences, pre-filtered
+--clusters-viruses  TSV    → number of viral clusters (unique values in column 1; the reps
+                             list of extract_reps_stats.py, no header)
+--clusters-plasmids TSV    → number of plasmid clusters (same format)
+--map-file          TSV    → rename map of rename_contigs.py: one row per input sequence
+                             (number of rows -> total_sequences)
+--initial-metadata TSV     → metadata of every unique sequence (after deduplication, before QC)
 --metadata          TSV    → metadata table including "biomes" column, filtered
---excluded-metadata TSV    → metadata of excluded poor quality records
+--excluded-metadata TSV    → excluded records with their filter_reason (duplicate, rrna,
+                             not_determined)
 --viruses-reps-proteins  FASTA → proteins of viral cluster representatives
                                  (number of records -> total_proteins_viruses_reps)
 --plasmids-reps-proteins FASTA → proteins of plasmid cluster representatives
@@ -22,7 +26,11 @@ All TSV and FASTA input files may be plain text or gzip-compressed.
 
 Output
 ------
-JSON file with keys matching the stat names above. viral_sequences/plasmids/
+JSON file. Sequence counts:
+  total_sequences = duplicate_sequences + deduplicated_sequences
+  deduplicated_sequences = qc_excluded_sequences + unique_sequences
+  qc_excluded_sequences = rrna_excluded_sequences + not_determined_excluded_sequences
+Other keys match the stat names above. viral_sequences/plasmids/
 prophages and total_proteins_viruses/total_proteins_plasmids are taken
 straight from --initial-json (the viral_sequences and prophage protein
 counts are summed into total_proteins_viruses, matching the combined
@@ -68,16 +76,29 @@ def count_unique_biomes(path, col="biomes"):
     return len(biomes)
 
 
+# first-column names that mark a header line in a clusters / reps TSV
+CLUSTER_HEADER_NAMES = {"object", "cluster", "cluster_rep", "rep_id", "representative", "id", "sequence_id"}
+
+
 def count_clusters(path):
-    """Count unique cluster IDs from column 1 of a TSV (skips header if present)."""
-    clusters = set()
+    """Count unique cluster IDs from column 1 of a TSV.
+
+    The first line is a header when its first column is one of CLUSTER_HEADER_NAMES; the header
+    and its repeats (concatenated files) are not counted.
+    """
+    header = None
+    ids = set()
     with open_file(path) as f:
         for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
+            if not line.strip():
                 continue
-            clusters.add(line.split("\t")[0])
-    return len(clusters)
+            first = line.split("\t")[0].strip()
+            if header is None:
+                header = first if first.lower() in CLUSTER_HEADER_NAMES else ""
+            if header and first == header:
+                continue
+            ids.add(first)
+    return len(ids)
 
 
 def count_tsv_lines(path):
@@ -88,6 +109,28 @@ def count_tsv_lines(path):
                 continue
             count += 1
     return count
+
+
+def count_map_rows(path):
+    """Number of sequences in the rename map (header lines skipped)."""
+    count = 0
+    with open_file(path) as f:
+        for line in f:
+            if line.strip() and not line.startswith("original\t"):
+                count += 1
+    return count
+
+
+def count_excluded_by_reason(path):
+    """{filter_reason: number of rows} of the excluded table (first column)."""
+    counts = {}
+    with open_file(path) as f:
+        for line in f:
+            reason = line.split("\t")[0].strip()
+            if not reason or reason == "filter_reason":
+                continue
+            counts[reason] = counts.get(reason, 0) + 1
+    return counts
 
 
 def count_fasta_records(path):
@@ -110,8 +153,10 @@ def parse_args():
                         help="choose_sequences.py's per-category stats.json.")
     parser.add_argument("--metadata", required=True,
                         help="TSV file with a 'biomes' column (plain or .gz).")
+    parser.add_argument("--map-file", required=True,
+                        help="Rename map (one row per input sequence; plain or .gz).")
     parser.add_argument("--initial-metadata", required=True,
-                        help="TSV file for all input sequences")
+                        help="TSV of every unique sequence (after deduplication, before QC).")
     parser.add_argument("--excluded-metadata", required=True,
                         help="TSV file for filtered out sequences")
     parser.add_argument("--clusters-viruses", required=True,
@@ -133,16 +178,28 @@ def main():
     with open(args.initial_json) as f:
         initial_stats = json.load(f)
 
+    excluded = count_excluded_by_reason(args.excluded_metadata)
+    unknown = set(excluded) - {"duplicate", "rrna", "not_determined"}
+    if unknown:
+        print(f"Warning: unknown filter_reason value(s) in {args.excluded_metadata}: {sorted(unknown)}",
+              file=sys.stderr)
+    rrna = excluded.get("rrna", 0)
+    not_determined = excluded.get("not_determined", 0)
+
     stats = {
-        "total_sequences": count_tsv_lines(args.initial_metadata),
+        "total_sequences": count_map_rows(args.map_file),
+        "duplicate_sequences": excluded.get("duplicate", 0),
+        "deduplicated_sequences": count_tsv_lines(args.initial_metadata),
+        "rrna_excluded_sequences": rrna,
+        "not_determined_excluded_sequences": not_determined,
+        "qc_excluded_sequences": rrna + not_determined,
         "unique_sequences": count_tsv_lines(args.metadata),
-        "qc_excluded_sequences": count_tsv_lines(args.excluded_metadata),
         "viral_sequences": initial_stats["number_of_viral_sequences"],
         "plasmids":        initial_stats["number_of_plasmids"],
         "prophages":       initial_stats["number_of_prophages"],
         "number_of_biomes":   count_unique_biomes(args.metadata),
-        "viral_clusters": count_clusters(args.clusters_viruses) - 1,
-        "plasmid_clusters": count_clusters(args.clusters_plasmids) - 1,
+        "viral_clusters": count_clusters(args.clusters_viruses),
+        "plasmid_clusters": count_clusters(args.clusters_plasmids),
         "total_proteins_viruses": (
             initial_stats["number_of_viral_sequence_proteins"] + initial_stats["number_of_prophage_proteins"]
         ),
@@ -150,6 +207,16 @@ def main():
         "total_proteins_viruses_reps": count_fasta_records(args.viruses_reps_proteins),
         "total_proteins_plasmids_reps": count_fasta_records(args.plasmids_reps_proteins),
     }
+
+    # the counts must add up; a mismatch is reported but does not stop the run
+    for label, left, right in [
+        ("total_sequences = duplicate_sequences + deduplicated_sequences",
+         stats["total_sequences"], stats["duplicate_sequences"] + stats["deduplicated_sequences"]),
+        ("deduplicated_sequences = qc_excluded_sequences + unique_sequences",
+         stats["deduplicated_sequences"], stats["qc_excluded_sequences"] + stats["unique_sequences"]),
+    ]:
+        if left != right:
+            print(f"Warning: {label} does not hold ({left} != {right})", file=sys.stderr)
 
     with open(args.output, "w") as f:
         json.dump(stats, f, indent=2)

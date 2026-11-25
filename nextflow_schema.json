@@ -41,6 +41,22 @@
                     "help_text": "Concatenated genomes-all_metadata.tsv files for all presented catalogues with header",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "analyses_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "TSV with metadata of MGnify analyses (accession, study_id, sample_id, biome_id)",
+                    "help_text": "analyses_metadata.tsv written by scripts/collect_mobilome_from_analyses.py (plain or gzip). Sequences whose original name starts with an analysis accession (e.g. ERZ2772503|viral_sequence-1:500) get Source_accession, Source_sample and Source_project from it in the final metadata tables, and Biome when the samplesheet gave none.",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "contigs_taxonomy": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Concatenated CAT_pack contig taxonomy TSVs (columns '# contig' and 'lineage')",
+                    "help_text": "The <id>_taxonomy.tsv files written by scripts/collect_data_from_analyses.py, concatenated (plain or gzip; repeated header lines are skipped). Sequences whose original name starts with a contig of this table (e.g. ERZ12300306_1|viral_sequence-1:26299) get its lineage as Source_lineage in the final metadata tables, when the genome metadata gives none. Lineages of NCBI taxids are translated into names with --ncbi_db.",
+                    "fa_icon": "fas fa-file-alt"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -61,6 +77,35 @@
                     "required": ["third_party_input"]
                 }
             ]
+        },
+        "catalogue_readme_options": {
+            "title": "Catalogue README options",
+            "type": "object",
+            "fa_icon": "fas fa-book",
+            "description": "Title section of the README.md written for the catalogue.",
+            "help_text": "All optional. Without them the README gets a generic title. The rest of the README (numbers, tools, methods, documentation links) is always generated from the run.",
+            "properties": {
+                "catalogue_name": {
+                    "type": "string",
+                    "description": "Catalogue name used as the README title, e.g. 'Marine sediment viral and plasmid catalogue'.",
+                    "fa_icon": "fas fa-heading"
+                },
+                "catalogue_version": {
+                    "type": "string",
+                    "description": "Catalogue release shown in the README title, e.g. 'v1.0'.",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "catalogue_website_url": {
+                    "type": "string",
+                    "description": "Web page of the catalogue, shown in the README.",
+                    "fa_icon": "fas fa-globe"
+                },
+                "source_catalogues": {
+                    "type": "string",
+                    "description": "Comma-separated URLs of the source MAG catalogues, listed in the README summary.",
+                    "fa_icon": "fas fa-link"
+                }
+            }
         },
         "protein_annotation_options": {
             "title": "Protein functional annotation",
@@ -328,7 +373,7 @@
                 "viphogs_factor_file": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to file with viral assemblies metadata, including taxon-specific factors"
+                    "description": "CSV with the ViPhOG threshold factor and CDS count (mean, SD) per taxon (viphogs_cds_per_taxon_cummulative.csv); required unless --skip_viphogs"
                 },
                 "viphogs_evalue": {
                     "default": 0.01,
@@ -597,6 +642,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/catalogue_readme_options"
         },
         {
             "$ref": "#/$defs/preprocessing_options"

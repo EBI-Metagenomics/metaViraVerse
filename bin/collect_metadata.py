@@ -3,6 +3,9 @@
 import argparse
 import csv
 import gzip
+import os
+import sqlite3
+import sys
 from collections import defaultdict
 
 
@@ -32,6 +35,17 @@ def parse_args():
                         help="Plasmids cluster TSV from vclust (columns: object, cluster)")
     parser.add_argument("--additional_metadata", required=True,
                         help="Concatenated catalogue metadata tables with header")
+    parser.add_argument("--analyses_metadata", required=False, default=None,
+                        help="Metadata of MGnify analyses (columns: accession, study_id, sample_id, biome_id), "
+                             "joined on the original name up to the first '|' (e.g. ERZ2772503), or up to the "
+                             "first '_' (ERZ2772590_19 -> ERZ2772590). Optional")
+    parser.add_argument("--contigs_taxonomy", required=False, default=None,
+                        help="Concatenated CAT_pack contig taxonomy TSVs (columns '# contig', 'lineage', ...; plain "
+                             "or gzip). Fills Source_lineage of sequences named <contig>|... that have no genome "
+                             "lineage. Optional")
+    parser.add_argument("--ncbi_db", required=False, default=None,
+                        help="ete3 NCBI taxonomy sqlite, used to translate --contigs_taxonomy lineages given as "
+                             "taxids (e.g. 1;131567;2;1224) into names. Optional")
     parser.add_argument("--viruses_vitap", required=False, default=None,
                         help="VITAP output *_vitap_best.tsv (columns: Genome_ID, lineage, ...). Optional")
     parser.add_argument("--viphogs_taxonomy", required=False, default=None,
@@ -90,6 +104,143 @@ def load_all_metadata(path):
                 "Study_accession":  row.get("Study_accession", MISSING) or MISSING,
             }
     return meta
+
+
+def _value(val):
+    """Empty and "NA"-like values are missing."""
+    val = (val or "").strip()
+    return MISSING if val in ("", "NA", "N/A", "None", "null", "not-provided", MISSING) else val
+
+
+def load_analyses_metadata(path):
+    """Return dict: analysis accession (ERZ...) -> {Genome_accession, Source_lineage, Sample_accession,
+    Study_accession, Biome}. Rows repeated across concatenated files are fine; a value already
+    set is not overwritten by a missing one."""
+    meta = {}
+    with open(path, "rb") as fh:
+        is_gzip = fh.read(2) == b"\x1f\x8b"
+    with (gzip.open(path, "rt", newline="") if is_gzip else open(path, newline="")) as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        if not reader.fieldnames or "accession" not in [f.strip() for f in reader.fieldnames]:
+            sys.exit(f"Error: {path} has no 'accession' column")
+        for row in reader:
+            row = {(k or "").strip(): v for k, v in row.items()}
+            acc = _value(row.get("accession"))
+            if acc == MISSING or acc == "accession":
+                continue
+            new = {
+                "Genome_accession": acc,
+                "Source_lineage":   MISSING,
+                "Sample_accession": _value(row.get("sample_id")),
+                "Study_accession":  _value(row.get("study_id")),
+                "Biome":            _value(row.get("biome_id")),
+            }
+            old = meta.get(acc)
+            meta[acc] = new if old is None else {k: old[k] if old[k] != MISSING else new[k] for k in new}
+    return meta
+
+
+# taxa that carry no information at the start of NCBI lineages
+UNINFORMATIVE_TAXIDS = {"1", "131567"}  # root, cellular organisms
+
+
+def _open_text(path):
+    with open(path, "rb") as fh:
+        is_gzip = fh.read(2) == b"\x1f\x8b"
+    return gzip.open(path, "rt", newline="") if is_gzip else open(path, newline="")
+
+
+def lineage_taxids(lineage):
+    """Taxids of a lineage made of taxids only ('1;131567;2;1224*' -> ['1', '131567', '2', '1224']),
+    None when the lineage has names. CAT_pack marks some taxa with a trailing '*'."""
+    taxids = [t.strip().rstrip("*") for t in lineage.split(";") if t.strip()]
+    return taxids if taxids and all(t.isdigit() for t in taxids) else None
+
+
+def load_taxid_names(db_path, taxids):
+    """Return dict: taxid -> scientific name from an ete3 NCBI taxonomy sqlite (tables species
+    and merged). Taxids absent from the db are left out."""
+    names = {}
+    taxids = sorted(set(taxids))
+    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
+        for i in range(0, len(taxids), 900):  # sqlite limit of parameters per query
+            chunk = taxids[i:i + 900]
+            marks = ",".join("?" * len(chunk))
+            for taxid, name in conn.execute(f"SELECT taxid, spname FROM species WHERE taxid IN ({marks})", chunk):
+                names[str(taxid)] = name
+        missing = [t for t in taxids if t not in names]
+        for i in range(0, len(missing), 900):
+            chunk = missing[i:i + 900]
+            marks = ",".join("?" * len(chunk))
+            query = (f"SELECT m.taxid_old, s.spname FROM merged m JOIN species s ON s.taxid = m.taxid_new "
+                     f"WHERE m.taxid_old IN ({marks})")
+            for taxid, name in conn.execute(query, chunk):
+                names[str(taxid)] = name
+    return names
+
+
+def load_contigs_taxonomy(path, ncbi_db=None):
+    """Return dict: contig -> lineage from concatenated CAT_pack contig taxonomy TSVs.
+
+    Columns '# contig' and 'lineage'; repeated header lines and empty lineages are skipped.
+    Lineages made of taxids are translated into names with the NCBI taxonomy db
+    ('1;131567;2;1224' -> 'Bacteria;Pseudomonadota'), dropping root and cellular organisms.
+    A lineage that cannot be translated is kept as it is in the file (taxids included): without
+    ncbi_db, when the db cannot be read, when one of its taxids is absent from the db, or when
+    nothing but root and cellular organisms is left. Only contigs without a lineage are missing.
+    """
+    contigs = {}
+    with _open_text(path) as fh:
+        reader = csv.reader(fh, delimiter="\t")
+        header = None
+        for row in reader:
+            if not row:
+                continue
+            cells = [c.strip() for c in row]
+            if header is None or cells[0] == header[0]:
+                header = cells
+                names = [c.lstrip("#").strip().lower() for c in header]
+                if "contig" not in names or "lineage" not in names:
+                    sys.exit(f"Error: {path} has no '# contig' and 'lineage' columns: {header}")
+                contig_col, lineage_col = names.index("contig"), names.index("lineage")
+                continue
+            if len(cells) <= max(contig_col, lineage_col):
+                continue
+            lineage = _value(cells[lineage_col])
+            if cells[contig_col] and lineage != MISSING:
+                contigs[cells[contig_col]] = lineage
+
+    numeric = {contig: lineage_taxids(lineage) for contig, lineage in contigs.items()}
+    numeric = {contig: taxids for contig, taxids in numeric.items() if taxids}
+    if not numeric:
+        return contigs
+    if not ncbi_db:
+        print(f"WARNING: {len(numeric)} lineages in {path} are taxids and no NCBI db was given; kept as taxids",
+              file=sys.stderr)
+        return contigs
+    try:
+        if not os.path.isfile(ncbi_db):
+            raise FileNotFoundError(f"{ncbi_db} does not exist")
+        names = load_taxid_names(ncbi_db, (t for taxids in numeric.values() for t in taxids))
+    except (OSError, sqlite3.Error) as err:
+        print(f"WARNING: cannot read the NCBI db ({err}); {len(numeric)} lineages kept as taxids",
+              file=sys.stderr)
+        return contigs
+
+    unknown, kept = set(), 0
+    for contig, taxids in numeric.items():
+        missing_taxids = [t for t in taxids if t not in names and t not in UNINFORMATIVE_TAXIDS]
+        translated = [names[t] for t in taxids if t not in UNINFORMATIVE_TAXIDS and t in names]
+        if missing_taxids or not translated:
+            unknown.update(missing_taxids)
+            kept += 1    # the original lineage stays
+            continue
+        contigs[contig] = ";".join(translated)
+    if kept:
+        print(f"WARNING: {kept} lineages could not be translated with {ncbi_db} and were kept as taxids"
+              + (f"; taxids not in the db: {', '.join(sorted(unknown)[:10])}{' ...' if len(unknown) > 10 else ''}"
+                 if unknown else ""), file=sys.stderr)
+    return contigs
 
 
 def load_vitap(path):
@@ -212,13 +363,23 @@ def load_map(path):
     return desc_to_mgyv, mgyv_to_desc
 
 
-def load_combined_meta(path):
-    """Return dict: description -> full row dict."""
+def load_combined_meta(path, mgyv_to_desc=None):
+    """Return dict: description -> full row dict.
+
+    Rows are keyed by the rename map's description of their catalogue ID
+    (`sequence_id`), so that they match the keys of load_map exactly. The
+    `description` column of choose_sequences.py is only a fallback: it replaces
+    every '|' by '-', which is right for MGnify catalogue names
+    ('MGYG..._N viral_sequence|1:100' -> 'MGYG..._N|viral_sequence-1:100') but
+    not for names without a space, such as MGnify analyses
+    ('ERZ2772590_19|viral_sequence-1:100' -> 'ERZ2772590_19-viral_sequence-1:100').
+    """
+    mgyv_to_desc = mgyv_to_desc or {}
     rows = {}
     with open(path) as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for row in reader:
-            desc = row.get("description", "").strip()
+            desc = mgyv_to_desc.get(row.get("sequence_id", "").strip()) or row.get("description", "").strip()
             if desc:
                 rows[desc] = row
     return rows
@@ -229,6 +390,33 @@ def load_combined_meta(path):
 def genome_key(description):
     """'MGYG000517752_108|plasmid-1:...' -> 'MGYG000517752'."""
     return description.split("|")[0].split("_")[0]
+
+
+def source_meta(description, all_meta, analyses_meta, contigs_tax=None):
+    """Source metadata of a sequence: the genome catalogue's (joined on the genome ID), with the
+    missing fields filled from the analyses metadata (joined on the name up to the first '|',
+    e.g. 'ERZ2772503|viral_sequence-1:...' -> 'ERZ2772503'), or up to the first '_' when the
+    name has a contig number ('ERZ2772590_19|viral_sequence-1:...' -> 'ERZ2772590').
+    A missing Source_lineage is taken from the contig taxonomy, joined on the name up to the
+    first '|' ('ERZ2772590_19|viral_sequence-1:...' -> 'ERZ2772590_19')."""
+    meta = dict(all_meta.get(genome_key(description), {}))
+    name = description.split("|")[0].strip()
+    analysis = analyses_meta.get(name) or analyses_meta.get(name.split("_")[0])
+    if analysis:
+        for key, val in analysis.items():
+            if meta.get(key, MISSING) in (MISSING, "", "NA"):
+                meta[key] = val
+    if contigs_tax and meta.get("Source_lineage", MISSING) in (MISSING, "", "NA") and name in contigs_tax:
+        meta["Source_lineage"] = contigs_tax[name]
+    return meta
+
+
+def biome(row, meta):
+    """Biome of the rename map; the analyses metadata's when the map has none."""
+    val = _value(row.get("biomes"))
+    if val in (MISSING, "[]"):
+        val = meta.get("Biome", MISSING)
+    return val
 
 
 def open_output(path, compress):
@@ -249,7 +437,8 @@ def _safe_float(val):
 
 def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                   viphogs_tax, genomad, desc_to_mgyv,
-                  out_path, compress, hosts):
+                  out_path, compress, hosts, analyses_meta=None, contigs_tax=None):
+    analyses_meta = analyses_meta or {}
     fieldnames = [
         "ID", "Original_ID", "Source_of_prediction", "rRNA", "Cluster_rep",
         "vitap_lineage", "viphogs_lineage", "genomad_lineage",
@@ -263,8 +452,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         for desc, row in combined_meta_rows.items():
-            gid = genome_key(desc)
-            meta = all_meta.get(gid, {})
+            meta = source_meta(desc, all_meta, analyses_meta, contigs_tax)
             mgyv = desc_to_mgyv.get(desc, "")
             checkv = {f: row.get(f, MISSING) or MISSING for f in CHECKV_FIELDS}
             writer.writerow({
@@ -280,7 +468,7 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
                 "Host_iphop_genus_lineage":  hosts["iphop_genus"].get(mgyv, MISSING) if mgyv else MISSING,
                 "Host_spacepharer_lineage":  hosts["spacepharer"].get(mgyv, MISSING) if mgyv else MISSING,
                 "Source":               row.get("type", MISSING),
-                "Biome":                row.get("biomes", MISSING),
+                "Biome":                biome(row, meta),
                 "Source_accession":     meta.get("Genome_accession", MISSING),
                 "Source_lineage":       meta.get("Source_lineage", MISSING),
                 "Source_sample":        meta.get("Sample_accession", MISSING),
@@ -293,7 +481,8 @@ def write_viruses(combined_meta_rows, member_to_rep, all_meta, vitap,
 
 
 def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
-                   out_path, compress, desc_to_mgyv):
+                   out_path, compress, desc_to_mgyv, analyses_meta=None, contigs_tax=None):
+    analyses_meta = analyses_meta or {}
     fieldnames = [
         "ID", "Original_ID", "Cluster_rep",
         "Source", "Biome", "Source_accession", "Source_lineage", "Source_sample", "Source_project",
@@ -305,15 +494,14 @@ def write_plasmids(combined_meta_rows, member_to_rep, all_meta,
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         for desc, row in combined_meta_rows.items():
-            gid = genome_key(desc)
-            meta = all_meta.get(gid, {})
+            meta = source_meta(desc, all_meta, analyses_meta, contigs_tax)
             mgyv = desc_to_mgyv.get(desc, "")
             writer.writerow({
                 "ID":               mgyv,
                 "Original_ID":      desc,
                 "Cluster_rep":      member_to_rep.get(mgyv, MISSING),
                 "Source":           row.get("type", MISSING),
-                "Biome":            row.get("biomes", MISSING),
+                "Biome":            biome(row, meta),
                 "Source_accession": meta.get("Genome_accession", MISSING),
                 "Source_lineage":   meta.get("Source_lineage", MISSING),
                 "Source_sample":    meta.get("Sample_accession", MISSING),
@@ -453,6 +641,16 @@ def main():
 
     print("Loading genome metadata...")
     all_meta = load_all_metadata(args.additional_metadata)
+    analyses_meta = {}
+    if args.analyses_metadata:
+        print("Loading analyses metadata...")
+        analyses_meta = load_analyses_metadata(args.analyses_metadata)
+        print(f"  {len(analyses_meta)} analyses")
+    contigs_tax = {}
+    if args.contigs_taxonomy:
+        print("Loading contigs taxonomy...")
+        contigs_tax = load_contigs_taxonomy(args.contigs_taxonomy, args.ncbi_db)
+        print(f"  {len(contigs_tax)} contigs with a lineage")
 
     # Taxonomy inputs are optional (the tools can be skipped); a missing input
     # leaves the corresponding lineage columns as "missing".
@@ -484,7 +682,7 @@ def main():
     desc_to_mgyv, mgyv_to_desc = load_map(args.map)
 
     print("Loading combined metadata (with checkV fields)...")
-    all_rows = load_combined_meta(args.combined_meta)
+    all_rows = load_combined_meta(args.combined_meta, mgyv_to_desc)
 
     print("Splitting combined metadata into viruses and plasmids...")
     virus_rows = {}
@@ -502,14 +700,14 @@ def main():
     written = write_viruses(
         virus_rows, virus_member_to_rep, all_meta, vitap,
         viphogs_tax, genomad, desc_to_mgyv,
-        args.output_viruses, args.compress, hosts,
+        args.output_viruses, args.compress, hosts, analyses_meta, contigs_tax,
     )
     print(f"  -> {written}")
 
     print(f"Writing {args.output_plasmids}...")
     written = write_plasmids(
         plasmid_rows, plasmid_member_to_rep, all_meta,
-        args.output_plasmids, args.compress, desc_to_mgyv
+        args.output_plasmids, args.compress, desc_to_mgyv, analyses_meta, contigs_tax,
     )
     print(f"  -> {written}")
 

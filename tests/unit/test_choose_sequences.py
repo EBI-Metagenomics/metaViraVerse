@@ -393,6 +393,19 @@ class TestMainIntegration(unittest.TestCase):
         # -> 11 unique sequences + 1 header
         self.assertEqual(len(rows), 12)
 
+    def test_stats_json_has_exclusion_counts(self):
+        self._run()
+        import json
+        with open(self.prefix + "_stats.json") as f:
+            stats = json.load(f)
+        # 13 input records: 2 duplicates -> 11 unique; barley1 excluded by rRNA -> 10 kept
+        self.assertEqual(stats["number_of_unique_sequences"], 11)
+        self.assertEqual(stats["number_of_duplicate_excluded"], 2)
+        self.assertEqual(stats["number_of_rrna_excluded"], 1)
+        self.assertEqual(stats["number_of_not_determined_excluded"], 0)
+        kept = sum(stats[k] for k in ("number_of_viral_sequences", "number_of_prophages", "number_of_plasmids"))
+        self.assertEqual(kept, 10)
+
     def test_combined_filtered_fna_excludes_rrna_and_duplicates(self):
         self._run()
         with open(self.prefix + "_filtered.fna") as f:
@@ -534,3 +547,59 @@ class TestMainIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSharedProteins(unittest.TestCase):
+    """A region predicted as both prophage and plasmid: two kept sequences sharing CDS IDs."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        d = Path(self.tmp.name)
+        self.prefix = str(d / "out")
+        # prophage P1 is a part of plasmid Q1's contig: different sequences, the same CDS
+        (d / "prophages.fna").write_text(">P1\nACGTACGTAAAA\n")
+        (d / "plasmids.fna").write_text(">Q1\nTTTTACGTACGTAAAAGGGG\n")
+        (d / "prophages.gff").write_text(
+            "P1\tVIRify\tprophage\t1\t12\t.\t+\t.\tID=P1\n"
+            "P1\tProdigal\tCDS\t1\t9\t.\t+\t0\tID=shared_1\n")
+        (d / "plasmids.gff").write_text(
+            "Q1\tgeNomad\tplasmid\t1\t20\t.\t+\t.\tID=Q1\n"
+            "Q1\tProdigal\tCDS\t5\t13\t.\t+\t0\tID=shared_1\n"
+            "Q1\tProdigal\tCDS\t14\t20\t.\t+\t0\tID=own_2\n")
+        (d / "prophages.faa").write_text(">shared_1\nMKV\n")
+        (d / "plasmids.faa").write_text(">shared_1\nMKV\n>own_2\nMR\n")
+        (d / "map.tsv").write_text(
+            "original\ttemporary\tshort\tbiome\ttype\tdefinition\n"
+            "p1\tP1\tp1\tmarine\tmetagenome\tprophage\n"
+            "q1\tQ1\tq1\tmarine\tmetagenome\tplasmid\n")
+        sys.argv = [
+            "choose_sequences.py",
+            "--prophages", str(d / "prophages.fna"), "--prophages-gff", str(d / "prophages.gff"),
+            "--prophages-faa", str(d / "prophages.faa"),
+            "--plasmids", str(d / "plasmids.fna"), "--plasmids-gff", str(d / "plasmids.gff"),
+            "--plasmids-faa", str(d / "plasmids.faa"),
+            "--map", str(d / "map.tsv"),
+            "--output-prefix", self.prefix,
+        ]
+        cs.main()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _ids(self, path):
+        with open(path) as f:
+            return [line[1:].split()[0] for line in f if line.startswith(">")]
+
+    def test_combined_faa_has_each_protein_once(self):
+        self.assertEqual(sorted(self._ids(self.prefix + "_filtered.faa")), ["own_2", "shared_1"])
+
+    def test_each_category_faa_keeps_the_shared_protein(self):
+        self.assertEqual(self._ids(self.prefix + "_prophage_filtered.faa"), ["shared_1"])
+        self.assertEqual(sorted(self._ids(self.prefix + "_plasmid_filtered.faa")), ["own_2", "shared_1"])
+
+    def test_protein_counts_per_category(self):
+        import json
+        with open(self.prefix + "_stats.json") as f:
+            stats = json.load(f)
+        self.assertEqual(stats["number_of_prophage_proteins"], 1)
+        self.assertEqual(stats["number_of_plasmid_proteins"], 2)

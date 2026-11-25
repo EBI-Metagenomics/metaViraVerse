@@ -49,6 +49,8 @@ record IphopGenome {
     iphop_genome: Path
     iphop_genome_sankey: Path?
     iphop_genome_reduced_sankey: Path?
+    iphop_genome_sankey_table: Path?
+    iphop_genome_reduced_sankey_table: Path?
 }
 
 record IphopGenus {
@@ -56,6 +58,8 @@ record IphopGenus {
     iphop_genus: Path
     iphop_genus_sankey: Path?
     iphop_genus_reduced_sankey: Path?
+    iphop_genus_sankey_table: Path?
+    iphop_genus_reduced_sankey_table: Path?
 }
 
 record SpacepharerHost {
@@ -65,6 +69,8 @@ record SpacepharerHost {
     spacepharer_lineage_json: Path
     spacepharer_sankey: Path?
     spacepharer_reduced_sankey: Path?
+    spacepharer_sankey_table: Path?
+    spacepharer_reduced_sankey_table: Path?
 }
 
 // iPHoP fields are null when iPHoP is skipped, SpacePHARER fields without --predict_host_from_custom_spacers
@@ -73,14 +79,20 @@ record HostResult {
     iphop_genome: Path?
     iphop_genome_sankey: Path?
     iphop_genome_reduced_sankey: Path?
+    iphop_genome_sankey_table: Path?
+    iphop_genome_reduced_sankey_table: Path?
     iphop_genus: Path?
     iphop_genus_sankey: Path?
     iphop_genus_reduced_sankey: Path?
+    iphop_genus_sankey_table: Path?
+    iphop_genus_reduced_sankey_table: Path?
     spacepharer: Path?                  // host chosen per virus
     spacepharer_predictions: Path?
     spacepharer_lineage_json: Path?
     spacepharer_sankey: Path?
     spacepharer_reduced_sankey: Path?
+    spacepharer_sankey_table: Path?
+    spacepharer_reduced_sankey_table: Path?
 }
 
 workflow HOST_DETECTION {
@@ -141,11 +153,11 @@ workflow HOST_DETECTION {
 
         // the tables carry a renamed meta (<id>_genome / <id>_genus): join on it, then attach the input's meta
         def genome_files = iphop_genome.file_out.map { meta, table -> record(meta: meta, iphop_genome: table) }
-            .join(genome_sankey.map { r -> record(meta: r.meta, iphop_genome_sankey: r.sankey_html) }, by: 'meta')
-            .join(genome_reduced.map { r -> record(meta: r.meta, iphop_genome_reduced_sankey: r.sankey_html) }, by: 'meta')
+            .join(genome_sankey.map { r -> record(meta: r.meta, iphop_genome_sankey: r.sankey_html, iphop_genome_sankey_table: r.sankey_tsv) }, by: 'meta')
+            .join(genome_reduced.map { r -> record(meta: r.meta, iphop_genome_reduced_sankey: r.sankey_html, iphop_genome_reduced_sankey_table: r.sankey_tsv) }, by: 'meta')
         def genus_files = iphop_genus.file_out.map { meta, table -> record(meta: meta, iphop_genus: table) }
-            .join(genus_sankey.map { r -> record(meta: r.meta, iphop_genus_sankey: r.sankey_html) }, by: 'meta')
-            .join(genus_reduced.map { r -> record(meta: r.meta, iphop_genus_reduced_sankey: r.sankey_html) }, by: 'meta')
+            .join(genus_sankey.map { r -> record(meta: r.meta, iphop_genus_sankey: r.sankey_html, iphop_genus_sankey_table: r.sankey_tsv) }, by: 'meta')
+            .join(genus_reduced.map { r -> record(meta: r.meta, iphop_genus_reduced_sankey: r.sankey_html, iphop_genus_reduced_sankey_table: r.sankey_tsv) }, by: 'meta')
 
         iphop_host_genome = fna
             .combine(genome_files)
@@ -154,7 +166,9 @@ workflow HOST_DETECTION {
                     meta: r.meta,
                     iphop_genome: host.iphop_genome,
                     iphop_genome_sankey: host.iphop_genome_sankey,
-                    iphop_genome_reduced_sankey: host.iphop_genome_reduced_sankey
+                    iphop_genome_reduced_sankey: host.iphop_genome_reduced_sankey,
+                    iphop_genome_sankey_table: host.iphop_genome_sankey_table,
+                    iphop_genome_reduced_sankey_table: host.iphop_genome_reduced_sankey_table
                 )
             }
         iphop_host_genus = fna
@@ -164,7 +178,9 @@ workflow HOST_DETECTION {
                     meta: r.meta,
                     iphop_genus: host.iphop_genus,
                     iphop_genus_sankey: host.iphop_genus_sankey,
-                    iphop_genus_reduced_sankey: host.iphop_genus_reduced_sankey
+                    iphop_genus_reduced_sankey: host.iphop_genus_reduced_sankey,
+                    iphop_genus_sankey_table: host.iphop_genus_sankey_table,
+                    iphop_genus_reduced_sankey_table: host.iphop_genus_reduced_sankey_table
                 )
             }
     }
@@ -217,8 +233,8 @@ workflow HOST_DETECTION {
         // predictions carry the spacers' meta: join on it, then attach the input's meta
         def spacepharer_files = host_info
             .join(predictions, by: 'meta')
-            .join(spacepharer_sankey.map { r -> record(meta: r.meta, spacepharer_sankey: r.sankey_html) }, by: 'meta')
-            .join(spacepharer_reduced.map { r -> record(meta: r.meta, spacepharer_reduced_sankey: r.sankey_html) }, by: 'meta')
+            .join(spacepharer_sankey.map { r -> record(meta: r.meta, spacepharer_sankey: r.sankey_html, spacepharer_sankey_table: r.sankey_tsv) }, by: 'meta')
+            .join(spacepharer_reduced.map { r -> record(meta: r.meta, spacepharer_reduced_sankey: r.sankey_html, spacepharer_reduced_sankey_table: r.sankey_tsv) }, by: 'meta')
 
         spacepharer_host = fna
             .combine(spacepharer_files)
@@ -229,7 +245,9 @@ workflow HOST_DETECTION {
                     spacepharer_predictions: host.predictions,
                     spacepharer_lineage_json: host.lineage_comparison_json,
                     spacepharer_sankey: host.spacepharer_sankey,
-                    spacepharer_reduced_sankey: host.spacepharer_reduced_sankey
+                    spacepharer_reduced_sankey: host.spacepharer_reduced_sankey,
+                    spacepharer_sankey_table: host.spacepharer_sankey_table,
+                    spacepharer_reduced_sankey_table: host.spacepharer_reduced_sankey_table
                 )
             }
     }
@@ -247,7 +265,10 @@ workflow HOST_DETECTION {
                 iphop_genus: r.iphop_genus, iphop_genus_sankey: r.iphop_genus_sankey, iphop_genus_reduced_sankey: r.iphop_genus_reduced_sankey,
                 spacepharer: r.spacepharer, spacepharer_predictions: r.spacepharer_predictions,
                 spacepharer_lineage_json: r.spacepharer_lineage_json,
-                spacepharer_sankey: r.spacepharer_sankey, spacepharer_reduced_sankey: r.spacepharer_reduced_sankey
+                spacepharer_sankey: r.spacepharer_sankey, spacepharer_reduced_sankey: r.spacepharer_reduced_sankey,
+                iphop_genome_sankey_table: r.iphop_genome_sankey_table, iphop_genome_reduced_sankey_table: r.iphop_genome_reduced_sankey_table,
+                iphop_genus_sankey_table: r.iphop_genus_sankey_table, iphop_genus_reduced_sankey_table: r.iphop_genus_reduced_sankey_table,
+                spacepharer_sankey_table: r.spacepharer_sankey_table, spacepharer_reduced_sankey_table: r.spacepharer_reduced_sankey_table
             )
         }
 

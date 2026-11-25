@@ -28,7 +28,7 @@ The pipeline takes previously predicted **viral sequences**, **prophages**, and 
 All analyses after clustering are run on cluster representatives.
 
 <p align="center">
-    <img src="assets/schema.png" alt="Pipeline overview" width="1000%">
+    <img src="visuals/metaviraverse_metromap.svg" alt="Pipeline overview" width="100%">
 </p>
 
 > [!NOTE]

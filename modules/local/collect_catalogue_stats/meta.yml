@@ -27,6 +27,12 @@ input:
         pattern: "*.json"
         ontologies:
           - edam: http://edamontology.org/format_3464 # JSON
+  - map_file:
+      type: file
+      description: Rename map from RENAME_CONTIGS, one row per input sequence (number of rows gives total_sequences)
+      pattern: "*.tsv"
+      ontologies:
+        - edam: http://edamontology.org/format_3475 # TSV
   - - meta4:
         type: map
         description: Groovy Map containing sample information
@@ -59,7 +65,7 @@ input:
         description: Groovy Map containing sample information
     - excluded_metadata:
         type: file
-        description: Metadata TSV for sequences excluded during deduplication/filtering
+        description: Excluded records with their filter_reason (duplicate, rrna, not_determined); gives duplicate_sequences, rrna_excluded_sequences and not_determined_excluded_sequences
         pattern: "*.tsv"
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
@@ -68,7 +74,7 @@ input:
         description: Groovy Map containing sample information
     - initial_metadata:
         type: file
-        description: Metadata TSV for the initial (pre-filtering) set of sequences
+        description: Metadata TSV of every unique sequence, after deduplication and before QC (gives deduplicated_sequences)
         pattern: "*.tsv"
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV

@@ -46,6 +46,21 @@ input:
         description: Additional per-catalogue metadata (from `--catalogues_metadata`)
         pattern: "*"
         ontologies: []
+  - - analyses_metadata:
+        type: file
+        description: Optional metadata of MGnify analyses (`--analyses_metadata`; columns accession, study_id, sample_id, biome_id), joined on the original sequence name up to the first `|`
+        pattern: "*.{tsv,tsv.gz}"
+        ontologies: []
+  - - contigs_taxonomy:
+        type: file
+        description: Optional concatenated CAT_pack contig taxonomy (`--contigs_taxonomy`; columns `# contig`, `lineage`), joined on the original sequence name up to the first `|` to fill a missing Source_lineage
+        pattern: "*.{tsv,tsv.gz}"
+        ontologies: []
+  - - ncbi_db:
+        type: file
+        description: Optional ete3 NCBI taxonomy sqlite (`--ncbi_db`), used to translate taxid lineages of contigs_taxonomy into names
+        pattern: "*.sqlite"
+        ontologies: []
   - - meta5:
         type: map
         description: Groovy Map containing sample information
