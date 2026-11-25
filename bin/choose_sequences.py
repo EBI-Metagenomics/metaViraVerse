@@ -443,6 +443,14 @@ def write_final_files(
     kept sequences are written to the FAA outputs, so dropped duplicates
     don't leave orphaned CDS records behind.
 
+    A protein is written once per FAA, even when it belongs to more than one
+    kept sequence. That happens when the same region is predicted as two
+    categories (e.g. a prophage and a plasmid on the same contig): the two
+    records are different sequences, so both are kept, but they share CDS
+    IDs. The protein is then in each category's FAA once, and once in the
+    combined FAA, which is what the cluster representatives' proteins are
+    extracted from.
+
     Also writes ``{output_prefix}_stats.json``, with one sequence-count and
     one protein-count key per category (e.g. ``number_of_viral_sequences``/
     ``number_of_viral_sequence_proteins``, and the equivalent
@@ -474,6 +482,10 @@ def write_final_files(
     gff_records_written = 0
     faa_records_written = 0
     gff_found = 0
+    # protein IDs already written to the combined FAA and to each category's FAA
+    written_proteins: set[str] = set()
+    written_category_proteins = {c: set() for c in CATEGORIES}
+    shared_proteins: set[str] = set()
     category_seq_counts = {c: 0 for c in CATEGORIES}
     category_protein_counts = {c: 0 for c in CATEGORIES}
     excluded_counts = {reason: 0 for reason in EXCLUSION_REASONS}
@@ -562,10 +574,16 @@ def write_final_files(
                             protein_id = attrs.get('ID')
                             protein_record = faa_records.get(protein_id) if protein_id else None
                             if protein_record is not None:
-                                SeqIO.write([protein_record], filt_faa, "fasta")
-                                SeqIO.write([protein_record], category_faa_handles[category], "fasta")
-                                faa_records_written += 1
-                                category_protein_counts[category] += 1
+                                if protein_id in written_proteins:
+                                    shared_proteins.add(protein_id)
+                                else:
+                                    written_proteins.add(protein_id)
+                                    SeqIO.write([protein_record], filt_faa, "fasta")
+                                    faa_records_written += 1
+                                if protein_id not in written_category_proteins[category]:
+                                    written_category_proteins[category].add(protein_id)
+                                    SeqIO.write([protein_record], category_faa_handles[category], "fasta")
+                                    category_protein_counts[category] += 1
                 else:
                     print(f"{entry['seq_id']} has no GFF records")
             else:
@@ -602,6 +620,9 @@ def write_final_files(
     print(f"Excluded sequences written to {excluded_tsv}: {records_excluded}")
     print(f"Total written lines to filtered GFF {gff_records_written}")
     print(f"Proteins written to filtered FAA: {faa_records_written}")
+    if shared_proteins:
+        print(f"{len(shared_proteins)} proteins belong to more than one kept sequence "
+              f"(e.g. a region predicted as both prophage and plasmid); each written once per FAA")
     if records_filtered != gff_found:
         print(f"GFF entries found for {gff_found} sequences but {records_filtered} written to FASTA. Exit")
         exit(1)
